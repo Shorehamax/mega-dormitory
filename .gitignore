@@ -1,0 +1,29 @@
+# Generated builds and caches
+/build*/
+/_build/
+/cmake-build-*/
+/.cache/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+*.o
+*.a
+*.so
+*.spv
+
+# Local worlds, backups, captures and logs
+/userdata/
+/captures/
+*.mdsave
+*.mdsave.bak
+*.tmp
+*.log
+*.ppm
+
+# Local credentials and editor/OS metadata
+.env
+.env.*
+!.env.example
+.idea/
+.DS_Store
+Thumbs.db

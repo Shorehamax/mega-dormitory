@@ -1,0 +1,29 @@
+[
+  {
+    "id": "concrete_floor_02",
+    "name": "Concrete Floor 02",
+    "source": "https://polyhaven.com/a/concrete_floor_02",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license",
+    "files": [
+      {
+        "file": "assets/surfaces/concrete_floor_02/albedo.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_diff_1k.jpg",
+        "sha256": "6db84a6d87dc50508b9d134d6fbd2b7e876b8081a5f43a118a249ca18de73af5",
+        "bytes": 776097
+      },
+      {
+        "file": "assets/surfaces/concrete_floor_02/normal.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_nor_gl_1k.jpg",
+        "sha256": "fcda391b57a816d646ae15544688be53790478da5cd48dbe514b3c6901415e61",
+        "bytes": 192757
+      },
+      {
+        "file": "assets/surfaces/concrete_floor_02/orm.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_02/concrete_floor_02_arm_1k.jpg",
+        "sha256": "01d80e4cb4eb4605902d1c1362da1c309fdba5907039acddd9226d893bbd8946",
+        "bytes": 146483
+      }
+    ]
+  }
+]

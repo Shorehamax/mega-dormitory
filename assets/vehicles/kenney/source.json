@@ -1,0 +1,32 @@
+{
+  "source": "https://kenney.nl/assets/car-kit",
+  "download": "https://kenney.nl/media/pages/assets/car-kit/1a312ec241-1775131960/kenney_car-kit.zip",
+  "license": "CC0-1.0",
+  "archiveSha256": "fac7dacac5c7874348cf19729af3ef205f3d366493edaf0a827d93f4fdf3d0c4",
+  "files": [
+    {
+      "path": "sedan.glb",
+      "sha256": "b532ea7d2c59f7f6b22b138cf1955218a2c1898f1cea932af4d3fd563c3959b7"
+    },
+    {
+      "path": "van.glb",
+      "sha256": "ed4ed56e8e5ed98db050af09ed2062b3b6bb7b93eab1e563cb6774b387b233a1"
+    },
+    {
+      "path": "wheel-default.glb",
+      "sha256": "7d61941bc27bcc3b235e2e26c598cbcb4166bd66eb8f9920e26842a11015c62b"
+    },
+    {
+      "path": "wheel-racing.glb",
+      "sha256": "5d8dbff9da004a2aabc471a12be0a4b70725c49463ec36ec3465b15c0cf64571"
+    },
+    {
+      "path": "ambulance.glb",
+      "sha256": "9e429e2b6202c0d78d0c38b2adbaae6b77716bb2a0f6fbb2811556e1fb31edba"
+    },
+    {
+      "path": "Textures/colormap.png",
+      "sha256": "f3622a03a20c6696065cae9cbe391351be873508af190c2ebd1d420c055787a5"
+    }
+  ]
+}

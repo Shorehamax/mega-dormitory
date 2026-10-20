@@ -1,0 +1,362 @@
+brand|MEGA DORMITORY|MÉGA DORTOIR|巨型公寓
+subtitle|100,000 lives. One address.|100 000 vies. Une adresse.|十万人生，同一座公寓。
+new.title|A place to live. A world to change.|Un lieu de vie. Un monde à changer.|在这里生存，或改变这里。
+new.intro|Every room has an owner. Every queue has a cost. Find your place in a society that never stops.|Chaque chambre a un propriétaire. Chaque file a un coût. Trouvez votre place dans une société qui ne s'arrête jamais.|每个床位都有主人，每次等待都有代价。在永不停息的社会里，寻找自己的位置。
+new.world|WORLD GENERATION|CRÉATION DU MONDE|创建世界
+new.floors|Floors|Étages|楼层数
+new.population|Residents|Habitants|居民人数
+new.seed|World seed|Graine du monde|世界种子
+new.scarcity|Service capacity|Capacité des services|设施容量
+new.day|Minutes per day|Minutes par jour|每天现实分钟数
+new.wealth|Starting cash (cents)|Capital initial (centimes)|初始资金（分）
+new.harsh|SCARCITY IS THE DEFAULT|LA PÉNURIE EST LA NORME|匮乏，是这里的常态
+new.capacity|Lower capacity means longer queues. Construction and businesses can change this world.|Moins de capacité signifie plus d'attente. Les constructions et les entreprises peuvent changer ce monde.|容量越小，排队越长。建设与经营可以逐渐改变这一切。
+new.begin|Enter the dormitory|Entrer dans le dortoir|进入公寓
+new.generating|Building your world…|Création de votre monde…|正在生成你的世界…
+new.load|Load saved world|Charger une sauvegarde|读取存档
+mode.survival|Survival|Survie|生存模式
+mode.manager|Manager|Gestionnaire|管理模式
+mode.cheat|Cheat|Triche|作弊模式
+mode.survival.desc|A new resident. Earn your living.|Un nouvel habitant. Gagnez votre vie.|以新居民身份入住，努力谋生。
+mode.manager.desc|Own the building. Carry the responsibility.|Possédez l'immeuble. Assumez les responsabilités.|拥有整栋公寓，承担经营责任。
+mode.cheat.desc|Roleplay, observe and adjust the world.|Incarnez, observez et modifiez le monde.|扮演、观察并调整这个世界。
+status.early|NATIVE DEVELOPMENT BUILD|VERSION NATIVE EN DÉVELOPPEMENT|原生开发版本
+status.live|LIVE WORLD|MONDE VIVANT|世界运行中
+status.paused|PAUSED|EN PAUSE|已暂停
+status.population|RESIDENTS|HABITANTS|居民
+status.happiness|HAPPINESS|BONHEUR|幸福度
+status.waiting|IN QUEUES|EN ATTENTE|正在排队
+status.cash|YOUR BALANCE|VOTRE SOLDE|个人余额
+status.day|DAY|JOUR|第几天
+status.floor|FLOOR|ÉTAGE|楼层
+nav.life|My life|Ma vie|我的生活
+nav.facilities|Facilities|Services|公共设施
+nav.work|Work|Travail|工作
+nav.housing|Housing|Logement|住房
+nav.manage|Management|Gestion|经营管理
+nav.network|DORMNET|DORMNET|公寓网络
+nav.journal|WORLD JOURNAL|JOURNAL DU MONDE|世界纪事
+nav.settings|Settings|Réglages|设置
+nav.save|Save|Sauvegarder|保存
+nav.load|Load|Charger|读取
+nav.menu|Main menu|Menu principal|主菜单
+action.walk|Walk there|S'y rendre|步行前往
+action.use|Use|Utiliser|使用
+action.join|Join the queue|Faire la queue|加入队伍
+action.cut|Jump the queue|Doubler la file|插队
+action.cancel|Cancel activity|Annuler l'activité|取消活动
+action.observe|Free camera|Caméra libre|自由观察
+action.possess|First person|Première personne|第一人称
+action.pause|Pause|Pause|暂停
+action.play|Resume|Reprendre|继续
+action.close|Close|Fermer|关闭
+action.send|Send|Envoyer|发送
+action.buy|Buy|Acheter|购买
+action.rent|Rent|Louer|租住
+action.accept|Accept job|Accepter le poste|接受工作
+action.pickup|Accept delivery|Prendre la livraison|接配送单
+action.respond|Respond to incident|Intervenir|处理警情
+action.surrender|Surrender|Se rendre|投降
+action.attack|Strike|Frapper|攻击
+action.arrest|Apprehend|Appréhender|拘捕
+action.exit|Move out at lobby|Partir par le hall|从大厅搬离
+action.confirm_exit|Confirm departure: end this run|Confirmer le départ : fin de partie|确认搬离：结束本局
+action.dividend|Owner dividend: ¥1,000|Dividende : 1 000 ¥|提取分红：¥1,000
+action.cheat_cash|Add ¥10,000|Ajouter 10 000 ¥|增加 ¥10,000
+action.newlife|Continue as another resident|Continuer avec un autre habitant|以另一居民身份继续
+life.about|A life in progress|Une vie en cours|正在发生的人生
+life.health|Health|Santé|健康
+life.hunger|Hunger|Faim|饥饿
+life.thirst|Thirst|Soif|口渴
+life.energy|Energy|Énergie|精力
+life.hygiene|Hygiene|Hygiène|卫生
+life.safety|Your decisions have consequences.|Vos décisions ont des conséquences.|每个决定，都会留下后果。
+life.controls|WASD move · Mouse look · Space jump · E interact · Esc release mouse|WASD déplacer · Souris regarder · Espace sauter · E interagir · Échap libérer|WASD 移动 · 鼠标环顾 · 空格跳跃 · E 互动 · Esc 释放鼠标
+life.camera_help|Right-drag to orbit · Scroll to zoom · +/− change floor|Clic droit et glisser pour tourner · Molette pour zoomer · +/− changer d’étage|按住右键拖动环顾 · 滚轮缩放 · +/− 切换楼层
+life.deceased|This resident has died.|Cet habitant est décédé.|这位居民已经死亡。
+facility.food|Canteen|Cantine|食堂
+facility.water|Drinking water|Eau potable|饮水站
+facility.toilet|Public toilets|Toilettes|公共厕所
+facility.shop|General store|Épicerie|杂货商店
+facility.office|Workspace|Bureaux|办公空间
+facility.infirmary|Infirmary|Infirmerie|医务室
+facility.jail|Warden station / cells|Poste des gardiens / cellules|警卫站与拘留室
+facility.terminal|Public computers|Ordinateurs publics|公共电脑
+facility.workshop|Construction workshop|Atelier de construction|建筑工坊
+facility.garbage|Waste collection|Collecte des déchets|垃圾收集站
+facility.lift|Lift operator|Ascenseur privé|收费电梯
+facility.crematorium|Cremation services|Crématorium|火化设施
+facility.school|Classrooms|Salles de classe|教室
+facility.laundry|Laundry room|Buanderie|洗衣房
+facility.shower|Shared showers|Douches communes|公共淋浴
+facility.leisure|Community room|Salle commune|社区活动室
+facility.pool|Swimming pool|Piscine|游泳池
+facility.arcade|Arcade|Salle d'arcade|游戏厅
+facility.playground|Playground|Aire de jeux|儿童游乐场
+facility.cinema|Cinema|Cinéma|电影院
+facility.garden|Communal garden|Jardin partagé|公共花园
+facility.gym|Gym|Salle de sport|健身房
+facility.library|Library|Bibliothèque|图书馆
+facility.cafe|Café|Café|咖啡馆
+facility.queue|waiting|en attente|人等待
+facility.stock|in stock|en stock|库存
+facility.stations|stations|postes|服务位
+facility.nearby|Nearby services|Services proches|附近设施
+facility.closed|Closed|Fermé|已关闭
+work.title|Find your place|Trouvez votre place|找到自己的位置
+work.desc|Real work, real destinations, real payments.|Du travail réel, des destinations réelles, des paiements réels.|真实的工作、真实的路程、真实的报酬。
+work.deliveries|Delivery contracts|Contrats de livraison|配送任务
+work.no_orders|No unassigned deliveries.|Aucune livraison disponible.|目前没有待接配送单。
+work.duty|On duty|En service|执勤中
+work.video|Open editing desk|Ouvrir le montage|打开剪辑工作台
+work.commission|Request a client brief|Demander une commande|领取客户任务
+work.brief|Create a clear story about daily life: establish the place, introduce a problem, show the work and end with a resolution.|Racontez la vie quotidienne : présentez le lieu, le problème, le travail, puis une résolution.|制作日常生活短片：交代地点、引出问题、展示过程，最后给出结局。
+work.timeline|YOUR TIMELINE|VOTRE MONTAGE|你的时间线
+work.preview|Quality preview|Aperçu de qualité|质量预览
+work.submit|Submit to client|Livrer au client|提交客户
+work.submitted|Project submitted. Accounts settled.|Projet livré. Paiements effectués.|项目已提交，款项已结算。
+work.up|Move earlier|Avancer|前移
+work.down|Move later|Reculer|后移
+clip.0|01 · Establishing shot|01 · Plan d'ensemble|01 · 环境全景
+clip.1|02 · A resident's story|02 · Histoire d'un habitant|02 · 居民故事
+clip.2|03 · The long queue|03 · La longue file|03 · 漫长队伍
+clip.3|04 · People at work|04 · Les travailleurs|04 · 劳动中的人
+clip.4|05 · A small change|05 · Un petit changement|05 · 微小变化
+clip.5|06 · A new morning|06 · Un nouveau matin|06 · 新的一天
+role.unemployed|Looking for work|En recherche d'emploi|待业
+role.courier|Courier|Livreur|配送员
+role.warden|Warden|Gardien|警卫
+role.builder|Construction worker|Ouvrier du bâtiment|建筑工人
+role.video|Video editor|Monteur vidéo|视频剪辑师
+role.programmer|Programmer|Programmeur|程序员
+role.medic|Medic|Soignant|医护人员
+role.pilot|Ambulance pilot|Pilote d'ambulance|救护艇驾驶员
+role.admin|Administrator|Administrateur|行政人员
+role.repair|Repair technician|Réparateur|维修技师
+role.cleaner|Sanitation worker|Agent de propreté|环卫工人
+role.vendor|Shop worker|Vendeur|店员
+role.teacher|Teacher|Enseignant|教师
+activity.idle|Taking a moment|Au repos|短暂休息
+activity.walking|On the way|En déplacement|正在赶路
+activity.queue|Waiting in line|Dans la file|排队中
+activity.using|Using a service|En cours de service|使用设施中
+activity.sleep|Sleeping|Endormi|睡眠中
+activity.work|Working|Au travail|工作中
+activity.fight|In combat|Au combat|战斗中
+activity.surrender|Surrendered|S'est rendu|已投降
+activity.restrained|Restrained|Immobilisé|被控制
+activity.escort|Under escort|Sous escorte|押送中
+activity.jailed|In custody|En détention|拘留中
+activity.dead|Deceased|Décédé|已死亡
+activity.departed|Moved out|A déménagé|已搬离
+network.tag|THE DORMITORY NETWORK|LE RÉSEAU DU DORTOIR|公寓生活网络
+network.market|Market|Marché|商城
+network.messages|Messages|Messages|消息
+network.orders|My orders|Mes commandes|我的订单
+network.jobs|Work desk|Bureau|工作台
+network.desc|Buy from real businesses. A resident carries each order to your door.|Achetez aux commerces. Un habitant apporte chaque commande à votre porte.|向真实商家购买，由真实居民把每件商品送到你手中。
+network.offline|You need a phone, laptop or access to a public computer.|Il faut un téléphone, un ordinateur portable ou un accès public.|你需要手机、笔记本，或公共电脑使用权限。
+network.pay_computer|Use computer · 30 minutes|Ordinateur · 30 minutes|使用电脑 · 30 分钟
+network.recipient|Recipient ID|Identifiant du destinataire|收件人编号
+network.message|Write a message|Écrire un message|输入消息
+network.no_messages|No messages yet.|Aucun message.|暂无消息。
+network.no_orders|No orders yet.|Aucune commande.|暂无订单。
+network.escrow|Payment is held until handover.|Paiement retenu jusqu'à la remise.|交付前，款项由托管账户保管。
+item.food|Pantry parcel|Colis alimentaire|食材包
+item.phone|Personal phone|Téléphone|手机
+item.laptop|Used laptop|Ordinateur portable d'occasion|二手笔记本
+item.medicine|Medicine parcel|Colis de médicaments|药品包
+item.tools|Repair tools|Outils de réparation|维修工具
+item.desc.food|Staples from a local shop.|Produits d'une épicerie locale.|来自附近商店的生活食材。
+item.desc.phone|Messages, shopping and contacts.|Messages, achats et contacts.|消息、购物与联系人。
+item.desc.laptop|Work and access to DORMNET.|Travail et accès à DORMNET.|工作与公寓网络入口。
+item.desc.medicine|Collected and delivered in person.|Retrait et livraison en personne.|由配送员亲自取货并送达。
+item.desc.tools|Personal equipment for repairs.|Équipement personnel de réparation.|维修工作需要的个人装备。
+order.waiting|Waiting for courier|En attente d'un livreur|等待配送员
+order.pickup|Courier collecting|Retrait en cours|配送员取货中
+order.delivering|On the way|En livraison|配送途中
+order.delivered|Handed to recipient|Remis au destinataire|已当面交付
+order.cancelled|Cancelled|Annulée|已取消
+order.lost|Delivery interrupted|Livraison interrompue|配送中断
+housing.title|A place of your own|Un logement à soi|属于自己的空间
+housing.desc|Proximity to useful services raises value. Existing leases keep their agreed rent.|Les services proches augmentent la valeur. Les baux existants conservent le loyer convenu.|靠近实用设施的床位更贵。现有租约保持约定租金。
+housing.bed|Bed|Lit|床位
+housing.rent|Monthly rent|Loyer mensuel|月租
+housing.price|Purchase price|Prix d'achat|购买价格
+housing.occupied|Occupied|Occupé|已入住
+housing.yours|Your home|Votre logement|你的住处
+manage.title|Ownership is responsibility|Être propriétaire engage|所有权，也是责任
+manage.treasury|Dormitory treasury|Trésorerie du dortoir|公寓资金
+manage.construction|Construction projects|Projets de construction|建设项目
+manage.propose|Propose renovation|Proposer une rénovation|提出改造方案
+manage.consent|Occupants must agree before work begins. Compensation and wages come from the project's budget.|L'accord des occupants est requis. Indemnités et salaires sont financés par le projet.|开工前须取得住户同意，补偿与工资由项目预算支付。
+manage.pending|Awaiting consent|En attente d'accord|等待同意
+manage.funded|Funded|Financé|资金到位
+manage.working|Work in progress|Travaux en cours|施工中
+manage.completed|Completed|Terminé|已完工
+save.slot|Save slot|Emplacement|存档槽
+save.saved|World saved.|Monde sauvegardé.|世界已保存。
+save.loaded|World restored.|Monde restauré.|世界已恢复。
+save.empty|This slot is empty.|Cet emplacement est vide.|此存档槽为空。
+world.created|The dormitory opens a new chapter.|Le dortoir ouvre un nouveau chapitre.|公寓翻开新的一页。
+message.sent|Message sent|Message envoyé|消息已发送
+order.placed|An order was placed|Commande passée|订单已下单
+delivery.picked_up|A courier collected a parcel|Un livreur a retiré un colis|配送员已取货
+delivery.completed|A parcel reached its recipient|Un colis est arrivé à destination|包裹已交付收件人
+delivery.recipient_missing|A delivery recipient is unavailable|Destinataire indisponible|收件人暂时无法接收
+job.accepted|A resident accepted a job|Un habitant a accepté un poste|居民接受了新工作
+facility.purchased|A facility changed ownership|Un service a changé de propriétaire|设施所有权发生变更
+lift.access_paid|Lift access paid|Accès à l'ascenseur payé|电梯费用已支付
+housing.rented|A new lease was signed|Un bail a été signé|新租约已签订
+housing.bought|A home changed ownership|Un logement a changé de propriétaire|住房所有权发生变更
+video.submitted|A video project was delivered|Un montage vidéo a été livré|视频项目已交付
+construction.proposed|A renovation was proposed|Rénovation proposée|改造方案已提出
+construction.funded|A project received funding|Projet financé|项目资金已到位
+construction.completed|Construction completed|Construction terminée|建设已完成
+crime.murder|A killing was reported|Un homicide a été signalé|有人报告命案
+crime.queue_cut|Queue jumping reported|Resquille signalée|有人插队
+crime.violence|Violence was reported|Violence signalée|有人报告暴力事件
+combat.surrender|A resident surrendered|Un habitant s'est rendu|一名居民投降
+warden.warning|A warden issued a warning|Un gardien a donné un avertissement|警卫发出警告
+custody.escorting|A suspect is being escorted|Un suspect est sous escorte|嫌疑人正在被押送
+custody.jailed|A suspect entered custody|Un suspect a été placé en détention|嫌疑人已被拘留
+custody.released|A detainee was released|Un détenu a été libéré|被拘留者已获释
+resident.died|A resident has died|Un habitant est décédé|一名居民死亡
+resident.departed|A resident moved out|Un habitant a déménagé|一名居民搬离
+end.title|This chapter has ended.|Ce chapitre est terminé.|这一段人生，结束了。
+end.empty|No living residents remain.|Il ne reste aucun habitant vivant.|公寓已经没有存活居民。
+end.departed|You chose to leave the dormitory.|Vous avez choisi de quitter le dortoir.|你选择离开这座公寓。
+task.blocked|An activity could not continue|Une activité a été interrompue|一项活动无法继续
+network.vehicles|Vehicles & parking|Véhicules et parking|车辆与停车
+facility.dealership|Vehicle dealership|Concession automobile|车辆经销商
+facility.parking|Paid parking|Parking payant|收费停车场
+vehicle.intro|Vehicles are expensive. A purchase includes no parking. Visit the dealer to buy; reserve a scarce bay separately. Drive on the ground-floor corridor with W/S and A/D. E enters or exits a stopped vehicle.|Les véhicules coûtent cher. Le parking est vendu séparément. Rendez-vous chez le concessionnaire et réservez une place. Conduisez au rez-de-chaussée avec W/S et A/D. E permet de monter ou descendre à l’arrêt.|车辆昂贵，购买车辆不包含车位。请到经销商处购买，另行预订稀缺车位。使用 W/S 和 A/D 在底层走廊驾驶。停车后按 E 上下车。
+vehicle.bicycle|City bicycle|Vélo de ville|城市自行车
+vehicle.scooter|Electric scooter|Scooter électrique|电动踏板车
+vehicle.car|Compact car|Voiture compacte|紧凑型汽车
+vehicle.van|Delivery van|Fourgonnette|送货面包车
+vehicle.owned|Owned by you|Votre véhicule|你拥有的车辆
+vehicle.no_parking|No reserved parking space|Aucune place réservée|尚无预订车位
+vehicle.walk|Walk to vehicle|Rejoindre le véhicule|走到车辆旁
+vehicle.dealer|Visit dealership|Voir le concessionnaire|前往经销商
+vehicle.drive|Enter & drive|Monter et conduire|上车驾驶
+vehicle.exit|Exit vehicle|Descendre|下车
+vehicle.sell|Sell to dealer|Revendre|卖给经销商
+vehicle.purchased|Vehicle ownership transferred|Véhicule acheté|车辆所有权已转移
+vehicle.sold|Vehicle sold to dealership|Véhicule revendu|车辆已卖给经销商
+parking.title|A place is a privilege|Une place est un privilège|车位也是一种特权
+parking.bay|Bay|Place|车位
+parking.day|day|jour|天
+parking.available|Available · prepaid daily lease|Disponible · paiement journalier|空闲 · 按日预付
+parking.yours|Reserved for your vehicle|Réservée pour votre véhicule|已为你的车辆预订
+parking.occupied|Occupied by another resident|Occupée par un autre résident|已被其他居民占用
+parking.reserve|Reserve for my vehicle|Réserver pour mon véhicule|为我的车辆预订
+parking.park|Park here & exit|Stationner et descendre|在此停车并下车
+parking.release|Release empty bay|Libérer la place vide|退还已空出的车位
+parking.reserved|Parking lease paid to its owner|Loyer de parking payé au propriétaire|停车租金已支付给车位业主
+parking.parked|Vehicle parked in its reserved bay|Véhicule garé à sa place|车辆已停入预订车位
+action.blocked|Destination unavailable; task interrupted|Destination indisponible ; tâche interrompue|目的地不可用，任务已中断
+new.floor_width|Standard floor width (m)|Largeur des étages (m)|标准楼层宽度（米）
+new.floor_depth|Standard floor depth (m)|Profondeur des étages (m)|标准楼层深度（米）
+new.lobby_width|Entrance floor width (m)|Largeur du rez-de-chaussée (m)|入口层宽度（米）
+new.lobby_depth|Entrance floor depth (m)|Profondeur du rez-de-chaussée (m)|入口层深度（米）
+facility.reception|Reception & resident services|Accueil et services aux résidents|接待大厅与居民服务
+help.open|Controls & guide · H|Commandes et aide · H|操作指南 · H
+help.title|Welcome to the dormitory|Bienvenue au dortoir|欢迎来到巨型宿舍
+help.intro|The entrance lobby has reception, food, water, toilets, shops and medical care. Services have real queues, prices and staff shifts.|Le hall propose accueil, repas, eau, toilettes, commerces et soins. Les services ont des files, des tarifs et des horaires.|入口大厅设有接待处、餐饮、饮水、厕所、商店和医务室。服务有真实队列、价格和员工班次。
+help.walk|MOVE · Choose First person, press Play, then click the world. WASD moves, Shift runs, Space jumps. Esc releases the mouse.|MARCHER · Choisissez Vue subjective, lancez la simulation et cliquez dans le monde. WASD déplace, Maj court, Espace saute. Échap libère la souris.|移动 · 切换第一人称，开始模拟并点击场景。WASD 移动，Shift 跑步，空格跳跃，Esc 释放鼠标。
+help.ladder|CLIMB · Walk to a gold ladder landing. E grabs it, W climbs up, S climbs down. Stop at a floor and press E to step off.|GRIMPER · Rejoignez une échelle dorée. E saisit, W monte, S descend. Arrêtez-vous à un étage puis appuyez sur E pour descendre au palier.|攀爬 · 走到金色梯子平台。E 抓住梯子，W 向上，S 向下。在楼层处停下，按 E 走下梯子。
+help.camera|FREE VIEW · Switch to Observe. Right-drag rotates, the wheel zooms, WASD pans. Use + / − for floors; Entire floor shows its full footprint.|VUE LIBRE · Passez en observation. Glisser avec le bouton droit pivote, la molette zoome, WASD déplace. + / − change d’étage.|自由视角 · 切换观察模式。右键拖动旋转，滚轮缩放，WASD 平移。+ / − 切换楼层，“整层视图”显示全部面积。
+help.services|INTERACT · Approach a counter and press E, or choose Walk in Facilities. You must reach the business and wait your turn.|INTERAGIR · Approchez d’un comptoir et appuyez sur E, ou utilisez Marcher dans Services. Rejoignez le commerce et attendez votre tour.|互动 · 靠近柜台按 E，或在设施列表点击前往。必须实际到达商家并排队等待。
+help.expansion|BUILD · Owners can fund floor expansions in Manage. A builder must travel to the site and work their shift before the extra area opens.|CONSTRUIRE · Les propriétaires financent les extensions dans Gestion. Un ouvrier doit rejoindre le chantier et travailler avant son ouverture.|建设 · 所有者可在管理页出资扩建楼层。工人必须到达工地并在工作时段施工，完工后开放新面积。
+help.to_ladder|Walk me to a ladder|Me guider vers une échelle|自动步行到梯子
+help.to_reception|Walk to reception|Rejoindre l’accueil|前往接待处
+help.close|Continue · H opens this guide again|Continuer · H rouvre ce guide|继续 · 按 H 可再次打开指南
+help.paused|Paused · Press Play to walk or climb|En pause · Lancez la simulation pour bouger|已暂停 · 开始模拟后可移动或攀爬
+ladder.controls|W / S climb · E steps off at a floor landing|W / S grimper · E sortir au palier|W / S 攀爬 · 在楼层处按 E 离开梯子
+ladder.grab|E · Grab ladder — then W up / S down|E · Saisir l’échelle — W monte / S descend|E · 抓住梯子 — W 上 / S 下
+ladder.label|Ladder · E|Échelle · E|梯子 · E
+view.entire|Entire floor|Étage entier|整层视图
+view.resident|Find resident|Retrouver le résident|定位居民
+build.expand_width|Width +16 m|Largeur +16 m|宽度 +16 米
+build.expand_depth|Depth +16 m|Profondeur +16 m|深度 +16 米
+build.commissioned|Expansion funded. Waiting for a construction worker.|Extension financée. En attente d’un ouvrier.|已支付扩建资金，等待施工人员。
+build.complete|Expansion complete|Extension terminée|扩建完成
+build.progress|Construction progress|Avancement du chantier|施工进度
+build.work|Accept construction contract|Accepter le chantier|接受施工合同
+build.start|Start work on site|Commencer le chantier|开始现场施工
+construction.expanded|New floor space opened|Nouvelle surface ouverte|新楼层面积已开放
+build.new_facility|Construct a business|Construire un commerce|建造新设施
+build.stations|Service stations (1–16)|Postes de service (1–16)|服务工位（1–16）
+build.price|¥3,400 + ¥1,000 / station|3 400 ¥ + 1 000 ¥ / poste|¥3,400 + 每工位 ¥1,000
+build.commission|Fund construction on this floor|Financer le chantier à cet étage|出资建造本层设施
+build.facility_commissioned|New facility commissioned. Materials and a builder are required.|Chantier commandé. Matériaux et ouvrier requis.|已签订设施施工合同，需要材料和建筑工人。
+build.materials_ready|Materials delivered to site|Matériaux livrés sur place|材料已运抵工地
+build.materials_wait|Awaiting physical material delivery|En attente des matériaux|等待实际运送施工材料
+build.consent|Occupant consent|Accord des occupants|住户同意
+build.consent_yes|Accept the compensation offer|Accepter l’indemnisation|接受补偿方案
+build.fund|Fund the approved project|Financer le projet approuvé|支付已获同意的工程
+combat.attack|Strike|Frapper|攻击
+combat.yield|Surrender|Se rendre|投降
+combat.lethal|Use lethal violence|Violence mortelle|使用致命暴力
+combat.confirm_lethal|Confirm lethal attack · severe crime|Confirmer · crime grave|确认致命攻击 · 严重犯罪
+office.admin_brief|Route these live local requests. The dormitory funds your administration fee; service owners still pay for supplies and repairs. Routing cannot create money or available workers.|Orientez ces demandes locales réelles. Le dortoir finance vos honoraires ; les propriétaires paient encore fournitures et réparations. Aucun routage ne crée de fonds ou de personnel.|分派这些真实的本地请求。公寓支付行政服务费，设施所有者仍须承担补货和维修费用。分派不会凭空创造资金或员工。
+office.ticket0|A facility needs supplies.|Un établissement manque de fournitures.|设施需要补货。
+office.ticket1|An unresolved security incident needs a warden.|Un incident de sécurité attend un gardien.|未处理的治安事件需要警卫。
+office.ticket2|An injured subscriber needs an ambulance.|Un abonné blessé a besoin d’une ambulance.|受伤的订阅用户需要救护车。
+office.ticket3|A damaged facility needs maintenance.|Un équipement endommagé nécessite une réparation.|损坏的设施需要维修。
+office.no_request|No open request.|Aucune demande en attente.|暂无待处理请求。
+office.result0|Awaiting routing.|En attente d’orientation.|等待分派。
+office.result1|Dispatched. The service team still has to perform the work.|Mission transmise. L’équipe doit encore effectuer le travail.|已分派，服务团队仍需实际完成工作。
+office.result2|Already handled by another team, or no longer required.|Déjà pris en charge par une autre équipe, ou devenu inutile.|已由其他团队处理，或已不再需要。
+office.result3|Blocked: check owner funding, authorization and available staff.|Bloqué : vérifiez les fonds, l’autorisation et le personnel disponible.|受阻：请检查所有者资金、授权和可用员工。
+office.result4|Misrouted. No service team was dispatched.|Mauvaise orientation. Aucune équipe n’a été envoyée.|分派错误，未派出服务团队。
+company.title|Companies & teams|Entreprises et équipes|公司与团队
+company.back|Back to jobs|Retour aux métiers|返回工作
+company.desc|Build a business with your own capital. Lease or buy an office, employ residents and earn money from completed work.|Créez une entreprise avec vos fonds. Louez ou achetez un bureau, employez des résidents et vendez leur travail.|用自己的资金创办公司，租赁或购买办公室，雇佣居民，通过完成工作获得收入。
+company.found|Create company · capital|Créer · capital|创办公司 · 注资
+company.default_name|New Horizon Studio|Studio Nouvel Horizon|新视界工作室
+company.owner|Owner|Propriétaire|所有者
+company.cash|Company funds|Trésorerie|公司资金
+company.reserve|Payroll & rent reserve|Réserve salaires et loyers|工资与租金预留
+company.revenue|Completed-work revenue|Recettes du travail livré|已交付工作收入
+company.leader|Team leader|Responsable d’équipe|团队主管
+company.vacant|Unassigned|Non attribué|未指派
+company.invest|Invest|Investir|注资
+company.dividend|Dividend|Dividende|分红
+company.workspaces|Workspaces|Espaces de travail|工作场所
+company.leased|Workspace leased|Bureau loué|工作场所已租赁
+company.owned|Owned|Possédé|自有
+company.staff|employees|employés|名员工
+company.rent|Daily rent|Loyer quotidien|日租金
+company.arrears|Unpaid rent|Loyers impayés|欠租
+company.return|Return office & release staff|Rendre le bureau et libérer le personnel|退租并解雇该处员工
+company.offer|Offer workspace for lease|Proposer à la location|挂牌出租工作场所
+company.unlist|Withdraw rental offer|Retirer l’offre de location|撤回出租挂牌
+company.manage|Prices, wages & hiring|Tarifs, salaires et recrutement|价格、工资与招聘
+company.team|Team & assignments|Équipe et missions|团队与任务
+company.completed|Quality deliveries|Livraisons de qualité|优质交付
+company.change_role|Change discipline|Changer de métier|切换工种
+company.brief|Next brief|Prochaine mission|下次任务
+company.promote|Appoint team leader|Nommer responsable|任命团队主管
+company.market|Nearby workspace market|Bureaux à proximité|附近工作场所市场
+company.terms|Leases cost one day upfront plus a two-day refundable deposit. Three unpaid days end the lease. Returning an office releases its employees and refunds unfinished client work; unpaid wages remain owed.|Le bail exige un jour de loyer et deux jours de dépôt remboursable. Trois jours impayés résilient le bail. Rendre le bureau libère les employés et rembourse les clients ; les salaires restent dus.|签约需预付一天租金及两天可退押金。欠租三天将终止租约。退租会解雇该处员工并退还未完成项目的客户款项；欠薪仍须偿还。
+company.lease|Rent workspace|Louer le bureau|租赁工作场所
+company.per_day| / day| / jour| / 天
+company.acquire|Buy / contribute office|Acheter / apporter le bureau|购买或注入办公室
+company.founded|A company was founded|Une entreprise a été créée|一家公司成立了
+company.acquired|A company acquired a workspace|Une entreprise a acquis un bureau|公司购入了工作场所
+company.lease_ended|A workspace lease ended|Un bail de bureau a pris fin|工作场所租约已终止
+company.promoted|A team leader was appointed|Un responsable a été nommé|团队主管已任命
+company.assigned|An employee received a new assignment|Un employé a reçu une mission|员工收到新任务
+office.video_brief0|Documentary: establish the place, introduce a resident, show the queue, then work, a small change and a new morning. Reorder all six clips.|Documentaire : lieu, résident, file, travail, petit changement, nouveau matin. Réorganisez les six plans.|纪录片：场景全貌、居民故事、长队、工作、微小改变、新的早晨。请排列六个片段。
+office.video_brief1|News report: open on the queue, interview the resident, establish the place, then show work, a small change and a new morning.|Reportage : file, témoignage, lieu, travail, petit changement, nouveau matin.|新闻报道：长队开场、居民采访、场景全貌、工作、微小改变、新的早晨。
+office.video_brief2|Campaign film: work first, then the queue and resident; follow with a small change, a view of the place and a new morning.|Campagne : travail, file, résident, petit changement, vue du lieu, nouveau matin.|宣传短片：先展示工作，再展示长队和居民，接着是微小改变、场景全貌和新的早晨。
+company.build|Commission a new office|Commander un nouveau bureau|委托建设新办公室
+company.fund_build|Pay with company funds|Payer avec la trésorerie|使用公司资金支付
+company.recruit|Recruit a local applicant|Recruter un candidat local|招聘附近求职者
+company.no_applicant|No willing local applicants are available.|Aucun candidat local disponible.|附近暂无合适的求职者。
+company.dismiss|End employment|Mettre fin au contrat|解除雇佣关系
+company.dismissed|An employment contract ended|Un contrat de travail a pris fin|一份雇佣合同已终止
+company.name|Company name|Nom de l’entreprise|公司名称
+office.work_required|Work at the desk for 10 game minutes before submitting|Travaillez 10 minutes de jeu au bureau avant de livrer|在工位实际工作十分钟游戏时间后方可提交

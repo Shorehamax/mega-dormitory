@@ -1,0 +1,20 @@
+[
+  {
+    "file": "third_party/cgltf.h",
+    "url": "https://raw.githubusercontent.com/jkuhlmann/cgltf/v1.15/cgltf.h",
+    "bytes": 202865,
+    "sha256": "e378a21c084bf1f288bb799de827bb26906efb024255f1ecf1705ea13f11c6ec"
+  },
+  {
+    "file": "third_party/cgltf.LICENSE",
+    "url": "https://raw.githubusercontent.com/jkuhlmann/cgltf/v1.15/LICENSE",
+    "bytes": 1066,
+    "sha256": "f619925f80ef862497aaf8e8155ef218fa6a2190055129523ca3df9119a9ba95"
+  },
+  {
+    "file": "third_party/stb_image.h",
+    "url": "https://raw.githubusercontent.com/nothings/stb/f0569113c93ad095470c54bf34a17b36646bbbb5/stb_image.h",
+    "bytes": 283010,
+    "sha256": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3"
+  }
+]

@@ -1,0 +1,6 @@
+#version 450
+layout(local_size_x=256) in;
+layout(binding=0) readonly buffer Needs { vec4 needs[]; };
+layout(binding=1) writeonly buffer Pressure { float pressure[]; };
+layout(push_constant) uniform Params { uint count; } params;
+void main(){uint i=gl_GlobalInvocationID.x;if(i>=params.count)return;vec4 n=needs[i];pressure[i]=clamp(n.x*.3+n.y*.35+(1-n.z)*.15+(1-n.w)*.2,0,1);}

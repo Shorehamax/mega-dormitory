@@ -1,0 +1,278 @@
+[
+  {
+    "id": "old_bed_frame",
+    "name": "Old Bed Frame",
+    "authors": {
+      "Luca B": "All"
+    },
+    "source": "https://polyhaven.com/a/old_bed_frame",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license",
+    "resolution": "1k",
+    "files": [
+      {
+        "file": "assets/models/old_bed_frame/old_bed_frame_1k.gltf",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/old_bed_frame/old_bed_frame_1k.gltf",
+        "bytes": 3326,
+        "sha256": "661055e76d292ae5ec812f05077a6870414527c2d63947574ea8fc739e16de08"
+      },
+      {
+        "file": "assets/models/old_bed_frame/textures/old_bed_frame_nor_gl_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/old_bed_frame/old_bed_frame_nor_gl_1k.jpg",
+        "bytes": 642790,
+        "sha256": "4c3d5132ae537a70d30216bb6055273fd00735e13b6c9d5064e0e545227ecba1"
+      },
+      {
+        "file": "assets/models/old_bed_frame/textures/old_bed_frame_diff_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/old_bed_frame/old_bed_frame_diff_1k.jpg",
+        "bytes": 699001,
+        "sha256": "eb9929f07eb43f530562a6ba05d0653f937474ab76e0e5dccea40ec64744a6e0"
+      },
+      {
+        "file": "assets/models/old_bed_frame/textures/old_bed_frame_arm_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/old_bed_frame/old_bed_frame_arm_1k.jpg",
+        "bytes": 831931,
+        "sha256": "c1f265ff346ede024bd869f7aaab9421212ebc9bedd4e0478cf0c2bec9dd315e"
+      },
+      {
+        "file": "assets/models/old_bed_frame/old_bed_frame.bin",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/old_bed_frame/old_bed_frame.bin",
+        "bytes": 1864580,
+        "sha256": "1dcb3b5d335bd55d9f5a494adb284260042fc663e5c21b9b581a8b301dfffdd3"
+      }
+    ]
+  },
+  {
+    "id": "plastic_monobloc_chair_01",
+    "name": "Plastic Monobloc Chair 01",
+    "authors": {
+      "Kuutti Siitonen": "All"
+    },
+    "source": "https://polyhaven.com/a/plastic_monobloc_chair_01",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license",
+    "resolution": "1k",
+    "files": [
+      {
+        "file": "assets/models/plastic_monobloc_chair_01/plastic_monobloc_chair_01_1k.gltf",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/plastic_monobloc_chair_01/plastic_monobloc_chair_01_1k.gltf",
+        "bytes": 2892,
+        "sha256": "899bf148139ab8d1718c25ec06112a652631f9476b5aaeeacb9eb1da9b7f1d3a"
+      },
+      {
+        "file": "assets/models/plastic_monobloc_chair_01/plastic_monobloc_chair_01.bin",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/plastic_monobloc_chair_01/plastic_monobloc_chair_01.bin",
+        "bytes": 124808,
+        "sha256": "db5c778488d01d7e7d3409e2cda53ee8f6dd523a327c080000d549dd0f83b375"
+      },
+      {
+        "file": "assets/models/plastic_monobloc_chair_01/textures/plastic_monobloc_chair_01_arm_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_monobloc_chair_01/plastic_monobloc_chair_01_arm_1k.jpg",
+        "bytes": 634320,
+        "sha256": "78a67659a19a9df9efc0ef71789de0c949a727db62ade4c4c8887cd2c803c1a2"
+      },
+      {
+        "file": "assets/models/plastic_monobloc_chair_01/textures/plastic_monobloc_chair_01_diff_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_monobloc_chair_01/plastic_monobloc_chair_01_diff_1k.jpg",
+        "bytes": 560823,
+        "sha256": "fdd1255a02bf684cfcff2eae75c0e3eea0db1fb5ecbfbd8c4f9beab8fd83ff6c"
+      },
+      {
+        "file": "assets/models/plastic_monobloc_chair_01/textures/plastic_monobloc_chair_01_nor_gl_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/plastic_monobloc_chair_01/plastic_monobloc_chair_01_nor_gl_1k.jpg",
+        "bytes": 630024,
+        "sha256": "9ffa876b37d72ae1c0aed84d4dc1f62c956c844b3efec1f786f9080c10f63c9e"
+      }
+    ]
+  },
+  {
+    "id": "painted_wooden_table",
+    "name": "Painted Wooden Table",
+    "authors": {
+      "Kirill Sannikov": "All"
+    },
+    "source": "https://polyhaven.com/a/painted_wooden_table",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license",
+    "resolution": "1k",
+    "files": [
+      {
+        "file": "assets/models/painted_wooden_table/painted_wooden_table_1k.gltf",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/painted_wooden_table/painted_wooden_table_1k.gltf",
+        "bytes": 2830,
+        "sha256": "7e1ba86ae2c570e3464c42556e4e6cc09186a99127b86eaf54e7dbecb2fbafc3"
+      },
+      {
+        "file": "assets/models/painted_wooden_table/textures/painted_wooden_table_nor_gl_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/painted_wooden_table/painted_wooden_table_nor_gl_1k.jpg",
+        "bytes": 603760,
+        "sha256": "0fe881c3f0c2ef0e4e67fa05280355f9b852adc6447af71a61cc3b15fff66338"
+      },
+      {
+        "file": "assets/models/painted_wooden_table/textures/painted_wooden_table_diff_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/painted_wooden_table/painted_wooden_table_diff_1k.jpg",
+        "bytes": 497417,
+        "sha256": "826738d2efab2c5786e498c39dd58edd6479e08c0503619727a2b9b6b2e796dc"
+      },
+      {
+        "file": "assets/models/painted_wooden_table/painted_wooden_table.bin",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/painted_wooden_table/painted_wooden_table.bin",
+        "bytes": 25552,
+        "sha256": "aac5e2e7411a319b8fdf6915cdb452a3b490179c354c75785a22f560e8413059"
+      },
+      {
+        "file": "assets/models/painted_wooden_table/textures/painted_wooden_table_arm_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/painted_wooden_table/painted_wooden_table_arm_1k.jpg",
+        "bytes": 649934,
+        "sha256": "670863aece034184ac1643ebe3de1254c3565a10b01ce3f9e8ba3a67980b4bb3"
+      }
+    ]
+  },
+  {
+    "id": "metal_trash_can",
+    "name": "Metal Trash Can",
+    "authors": {
+      "GurJas Studios": "All"
+    },
+    "source": "https://polyhaven.com/a/metal_trash_can",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license",
+    "resolution": "1k",
+    "files": [
+      {
+        "file": "assets/models/metal_trash_can/metal_trash_can_1k.gltf",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/metal_trash_can/metal_trash_can_1k.gltf",
+        "bytes": 15481,
+        "sha256": "ccdc55ecfe43db2174c9257891e92551882a874564bb9a7908cafc5268b46c0c"
+      },
+      {
+        "file": "assets/models/metal_trash_can/textures/metal_trash_can_diff_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_diff_1k.jpg",
+        "bytes": 551939,
+        "sha256": "920c895a31b1cd2c000123c0592c70c33d46562752987da98070e7e0eebb662f"
+      },
+      {
+        "file": "assets/models/metal_trash_can/textures/metal_trash_can_rust_diff_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_rust_diff_1k.jpg",
+        "bytes": 768161,
+        "sha256": "51c44248305b111d978f7e0cbfe4a71ab7f49549968ce37c54b635d74c2cfba1"
+      },
+      {
+        "file": "assets/models/metal_trash_can/textures/metal_trash_can_arm_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_arm_1k.jpg",
+        "bytes": 731776,
+        "sha256": "b23dcdb2ed40c1c6cfbd2d2779c6f075025b7269bfbbed2a70c6bdb7167e47fb"
+      },
+      {
+        "file": "assets/models/metal_trash_can/textures/metal_trash_can_rust_nor_gl_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_rust_nor_gl_1k.jpg",
+        "bytes": 1085844,
+        "sha256": "a5497588e00e5e56db72e701457fc8a46d3a1fa7d9dd7bf9d79e02cada09e84b"
+      },
+      {
+        "file": "assets/models/metal_trash_can/textures/metal_trash_can_nor_gl_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_nor_gl_1k.jpg",
+        "bytes": 842945,
+        "sha256": "b977f17aa9d4718ffc91a62868b7171b4479578b8cffd1d32001d92552af81a4"
+      },
+      {
+        "file": "assets/models/metal_trash_can/metal_trash_can.bin",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/metal_trash_can/metal_trash_can.bin",
+        "bytes": 378288,
+        "sha256": "a9b9f526b655bef865933335f2cfc8c8f0bd1a35fda05b290a93e3061f2b6c8a"
+      },
+      {
+        "file": "assets/models/metal_trash_can/textures/metal_trash_can_rust_arm_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_trash_can/metal_trash_can_rust_arm_1k.jpg",
+        "bytes": 620549,
+        "sha256": "31a6269e98a3a8b2a2d6db8f58724e0151d5312b5137e6d59b5a2ba873989159"
+      }
+    ]
+  },
+  {
+    "id": "painted_wooden_cabinet_02",
+    "name": "Painted Wooden Cabinet 02",
+    "authors": {
+      "Kirill Sannikov": "All"
+    },
+    "source": "https://polyhaven.com/a/painted_wooden_cabinet_02",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license",
+    "resolution": "1k",
+    "files": [
+      {
+        "file": "assets/models/painted_wooden_cabinet_02/painted_wooden_cabinet_02_1k.gltf",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/painted_wooden_cabinet_02/painted_wooden_cabinet_02_1k.gltf",
+        "bytes": 6085,
+        "sha256": "a4b697adf7a24a081b8452f5a7d482765e2139cf2a6687a4cbb2a7b8bea24325"
+      },
+      {
+        "file": "assets/models/painted_wooden_cabinet_02/textures/painted_wooden_cabinet_02_arm_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/painted_wooden_cabinet_02/painted_wooden_cabinet_02_arm_1k.jpg",
+        "bytes": 463616,
+        "sha256": "0cf309449d4b0c1ecb0a3adbc17837b6f77f36cb45c1f0ceb6013b07fac44214"
+      },
+      {
+        "file": "assets/models/painted_wooden_cabinet_02/painted_wooden_cabinet_02.bin",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/painted_wooden_cabinet_02/painted_wooden_cabinet_02.bin",
+        "bytes": 39332,
+        "sha256": "7acab853993b90cafc9c7550a7035397dfeb4bbda7f0dba8759d40a971c755ca"
+      },
+      {
+        "file": "assets/models/painted_wooden_cabinet_02/textures/painted_wooden_cabinet_02_nor_gl_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/painted_wooden_cabinet_02/painted_wooden_cabinet_02_nor_gl_1k.jpg",
+        "bytes": 526407,
+        "sha256": "46e8df6be06eca30a05d0e90f12e8799e6e11c73ab7c910cc3541b0833ee0103"
+      },
+      {
+        "file": "assets/models/painted_wooden_cabinet_02/textures/painted_wooden_cabinet_02_diff_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/painted_wooden_cabinet_02/painted_wooden_cabinet_02_diff_1k.jpg",
+        "bytes": 560790,
+        "sha256": "ddb2cace49bb05b8e03e6c205223a69f95e5eef84ec66e97e5d0e49d2a1af09e"
+      }
+    ]
+  },
+  {
+    "id": "wheelchair_01",
+    "name": "Wheelchair 01",
+    "authors": {
+      "Garreth Dean": "All"
+    },
+    "source": "https://polyhaven.com/a/wheelchair_01",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license",
+    "resolution": "1k",
+    "files": [
+      {
+        "file": "assets/models/wheelchair_01/wheelchair_01_1k.gltf",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/wheelchair_01/wheelchair_01_1k.gltf",
+        "bytes": 2702,
+        "sha256": "6a59d638ceb35e46fe543f4b8b5e94b00fe2c6f15045c1d3cd7d9f46de34f645"
+      },
+      {
+        "file": "assets/models/wheelchair_01/textures/wheelchair_01_diff_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/wheelchair_01/wheelchair_01_diff_1k.jpg",
+        "bytes": 126137,
+        "sha256": "15be1e2a5bd86a4c20f99157e8337016f873d4e4f2d3effc656729430214ac00"
+      },
+      {
+        "file": "assets/models/wheelchair_01/textures/wheelchair_01_nor_gl_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/wheelchair_01/wheelchair_01_nor_gl_1k.jpg",
+        "bytes": 210295,
+        "sha256": "534469bf7bb00549fb383f533b7fcc0a7b4256fe59f42ec7495d1f121700f392"
+      },
+      {
+        "file": "assets/models/wheelchair_01/wheelchair_01.bin",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/wheelchair_01/wheelchair_01.bin",
+        "bytes": 1183752,
+        "sha256": "66c7c1779171228f1a4691ec572a0346a258f65a88ca71ecc72b81b3bc765996"
+      },
+      {
+        "file": "assets/models/wheelchair_01/textures/wheelchair_01_arm_1k.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/wheelchair_01/wheelchair_01_arm_1k.jpg",
+        "bytes": 225508,
+        "sha256": "29f5b9aab6d63ca1a218f8e34d03a78e9c92e8d643a8728978882223139c9192"
+      }
+    ]
+  }
+]

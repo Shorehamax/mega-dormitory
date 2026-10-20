@@ -1,0 +1,15 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.bin binary
+*.glb binary
+*.ttc binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+
+# Preserve downloaded source bytes for recorded checksum verification.
+assets/** -text
+third_party/** -text
