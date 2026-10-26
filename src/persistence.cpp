@@ -9,7 +9,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Vec3, x, y, z)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Config, floors, population, seed, mode, dayMinutes,
                                                 scarcity, startingCash, aggression, bedsPerFloor,
                                                 supplies, wardensPerThousand, layoutVersion,
-                                                floorWidth, floorDepth, lobbyWidth, lobbyDepth)
+                                                floorWidth, floorDepth, lobbyWidth, lobbyDepth,
+                                                accidentRate)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FloorPlan, width, depth)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Expansion, id, owner, contractor, worker, escrow, floor, width,
                                    depth, budget, paid, remaining, totalWork, complete, site,
@@ -65,6 +66,10 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LiftJourney, lift, destination, goal, task, t
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Repair, id, facility, worker, escrow, workshop,
                                                 partItem, budget, remaining, workedAt, parts,
                                                 complete)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Fire, id, facility, worker, station, payer, escrow,
+                                                heat, smoke, fuel, started, updated, budget, paid,
+                                                contained, out)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FireSpray, fire, item, workedAt)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Company, id, owner, account, leader, name,
                                                 assignments, completed, revenue)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WorkspaceLease, id, company, facility, landlord,
@@ -135,6 +140,9 @@ void World::save(const std::filesystem::path &path) const {
             {"workspaceLeases", workspaceLeases},
             {"workspaceOffers", workspaceOffers},
             {"repairs", repairs},
+            {"fires", fires},
+            {"fireSprays", fireSprays},
+            {"nextAccidentAt", nextAccidentAt},
             {"liftJourneys", liftJourneys},
             {"lastEconomyDay", lastEconomyDay},
             {"messages", messages},
@@ -233,6 +241,8 @@ static World readSave(const std::filesystem::path &path) {
   World w;
 #define READ(field) j.at(#field).get_to(w.field)
   READ(config);
+  if (!j.at("config").contains("accidentRate"))
+    w.config.accidentRate = 0;
   if (!j.at("config").contains("layoutVersion"))
     w.config.layoutVersion = 1;
   if (j.contains("floorPlans"))
@@ -283,6 +293,14 @@ static World readSave(const std::filesystem::path &path) {
   for (const auto &l : w.workspaceLeases)
     if (l.active && !w.leasedWorkspaces.emplace(l.facility, l.id).second)
       throw std::runtime_error("Duplicate workspace lease");
+  if (j.contains("fires"))
+    j.at("fires").get_to(w.fires);
+  if (j.contains("fireSprays"))
+    j.at("fireSprays").get_to(w.fireSprays);
+  w.nextAccidentAt = j.value("nextAccidentAt", w.time + 3600);
+  for (const auto &f : w.fires)
+    if (!f.out && !w.activeFires.emplace(f.facility, f.id).second)
+      throw std::runtime_error("Duplicate active fire");
   READ(items);
   READ(vehicles);
   if (j.contains("ambulances"))

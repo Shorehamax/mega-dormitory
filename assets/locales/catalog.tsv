@@ -360,3 +360,52 @@ company.dismiss|End employment|Mettre fin au contrat|解除雇佣关系
 company.dismissed|An employment contract ended|Un contrat de travail a pris fin|一份雇佣合同已终止
 company.name|Company name|Nom de l’entreprise|公司名称
 office.work_required|Work at the desk for 10 game minutes before submitting|Travaillez 10 minutes de jeu au bureau avant de livrer|在工位实际工作十分钟游戏时间后方可提交
+fire.title|Fire & rescue|Incendie et secours|消防与救援
+fire.back|Back to resident|Retour au résident|返回居民
+fire.description|Smoke and heat injure people. Leave the danger zone or collect a charged extinguisher. Crews need a funded call, an actual shift and equipment from their station. Work at the scene earns their pay.|La chaleur et la fumée blessent. Évacuez ou prenez un extincteur chargé. Les pompiers doivent être de service, équipés et financés. Seul le travail sur place est rémunéré.|高温和烟雾会伤人。请撤离危险区域，或携带有压力的灭火器参与救援。消防员必须在岗、有装备，且救援需有预算；到场实际工作后才获得报酬。
+fire.evacuate|Evacuate to a safe area|Évacuer vers un lieu sûr|撤离到安全区域
+fire.no_escape|No reachable safe route was found.|Aucun chemin sûr accessible.|未找到可通行的安全路线。
+fire.stop|Stop spraying|Arrêter la projection|停止喷射
+fire.to_station|Walk to the fire station|Aller à la caserne|步行前往消防站
+fire.join|Apply as a firefighter|Devenir pompier|应聘消防员
+fire.equipment|Collect equipment · public ¥40 / on-duty crew free|Prendre le matériel · public ¥40 / équipe de service gratuit|领取装备 · 公众 ¥40 / 当班队员免费
+fire.no_station|No fire station exists. Commission one through Management.|Aucune caserne. Commandez sa construction dans Gestion.|尚无消防站，请通过经营管理委托建设。
+fire.contained|Contained · smoke clearing|Maîtrisé · dissipation des fumées|火势已控制 · 烟雾消散中
+fire.burning|Active fire|Incendie actif|正在燃烧
+fire.heat|Heat|Chaleur|热量
+fire.smoke|Smoke|Fumée|烟雾
+fire.no_crew|No crew assigned|Aucune équipe affectée|尚未派遣队员
+fire.crew|Responder|Intervenant|救援人员
+fire.fund|Fund a response call|Financer une intervention|支付救援预算
+fire.accept|Take call from your station|Prendre la mission à la caserne|在所属消防站接单
+fire.to_safe_edge|Walk to a safe approach|Aller à une approche sûre|步行前往安全外围
+fire.to_scene|Approach and extinguish|Approcher et éteindre|接近火源并灭火
+fire.spray|Start spraying|Commencer à éteindre|开始喷射灭火
+fire.clear|No active fires. Keep supplies and crews ready.|Aucun incendie actif. Maintenez le matériel et les équipes prêts.|目前没有火灾，请保持物资和人员就绪。
+fire.accidents|Accident frequency|Fréquence des accidents|事故频率
+fire.test|Start test fire|Déclencher un feu de test|引发测试火灾
+fire.danger|Heat / smoke danger · open rescue|Danger chaleur / fumée · secours|高温或烟雾危险 · 打开救援
+fire.alarm|Building fire alarm · rescue|Alarme incendie · secours|大楼火警 · 消防救援
+fire.started|A fire broke out|Un incendie s’est déclaré|发生火灾
+fire.funded|An emergency response was funded|Une intervention a été financée|救援预算已到位
+fire.equipped|Fire equipment was collected|Du matériel incendie a été récupéré|消防装备已领取
+fire.dispatched|A firefighter is travelling to the scene|Un pompier se rend sur place|消防员正在赶往现场
+fire.spraying|A resident started extinguishing|Un résident commence à éteindre|居民开始灭火
+fire.evacuating|A resident is evacuating|Un résident évacue|居民正在撤离
+fire.out|The fire and smoke have cleared|Le feu et les fumées sont dissipés|明火与烟雾已消除
+facility.fire_station|Fire station & equipment|Caserne et matériel incendie|消防站与装备库
+facility.fire|Fire / smoke · closed|Feu / fumée · fermé|火灾或烟雾 · 停用
+role.firefighter|Firefighter|Pompier|消防员
+item.extinguisher|Fire extinguisher|Extincteur|灭火器
+item.desc.extinguisher|Charged, portable equipment. Use within seven metres of a fire with a clear view. Pressure is consumed while spraying.|Extincteur portatif chargé. À utiliser à moins de sept mètres avec une vue dégagée. La pression se consomme.|便携式带压灭火器。需在火源七米内、有清晰视线时使用；喷射会消耗压力。
+end.no_save|No save in this slot|Aucune sauvegarde dans cet emplacement|此槽位没有存档
+fire.error.site|An open facility without an existing fire is required.|Choisissez un établissement ouvert sans incendie actif.|需要选择尚未起火的营业设施。
+fire.error.cheat|Only Cheat mode can start a test fire.|Seul le mode Triche permet de déclencher un feu de test.|只有作弊模式可以引发测试火灾。
+fire.error.contract|This fire cannot accept another response contract.|Cet incendie ne peut pas recevoir un autre contrat.|此火灾不能再接受另一份救援合同。
+fire.error.budget|Fire response requires a funded ¥180 contract.|L’intervention nécessite un budget de ¥180.|消防救援需要支付 ¥180 的合同预算。
+fire.error.equipment|Collect equipment in person at an accessible, stocked fire station.|Récupérez le matériel dans une caserne accessible et approvisionnée.|请亲自到可进入且有库存的消防站领取装备。
+fire.error.carried|Use the charged extinguisher you already carry.|Utilisez l’extincteur chargé que vous portez déjà.|请使用已经随身携带的带压灭火器。
+fire.error.dispatch|An available firefighter must be on shift at their station to take a funded call.|Pour prendre une mission financée, un pompier disponible doit être de service à sa caserne.|消防员必须在岗、空闲并位于所属消防站，才能接取已支付预算的任务。
+fire.error.busy|Finish or hand over the current emergency first.|Terminez ou transmettez d’abord l’intervention en cours.|请先完成或移交当前的救援任务。
+fire.error.empty_rack|The fire station has no charged equipment.|La caserne n’a plus d’extincteur chargé.|消防站没有可用的带压灭火装备。
+fire.error.spray|Carry a charged extinguisher and approach within seven metres with a clear view.|Prenez un extincteur chargé et approchez à moins de sept mètres avec une vue dégagée.|请携带带压灭火器，在有清晰视线的七米范围内灭火。

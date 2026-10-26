@@ -46,6 +46,8 @@ std::string World::availability(Id fid) const {
   const auto &f = facilities.at(fid);
   if (f.demolished || !f.open || !inHours(time, f.opensAt, f.openHours))
     return "facility.closed";
+  if (activeFires.contains(fid) || (f.kind != FacilityKind::FireStation && dangerAt(f.pos) > .02f))
+    return "facility.fire";
   if (f.condition < .1f)
     return "facility.broken";
   if (staffOnDuty(fid) < f.staffNeeded)
@@ -174,6 +176,11 @@ void World::setupRoutines() {
       f.opensAt = 12;
       f.openHours = 12;
       break;
+    case FacilityKind::FireStation:
+      f.staffRole = Role::Firefighter;
+      f.openHours = 24;
+      f.wageOffer = 1800;
+      break;
     case FacilityKind::School:
       f.staffRole = Role::Teacher;
       f.opensAt = 8;
@@ -184,7 +191,7 @@ void World::setupRoutines() {
     }
     if (f.staffRole == Role::Unemployed)
       continue;
-    f.staffNeeded = f.kind == FacilityKind::Garbage ? 0 : 1;
+    f.staffNeeded = f.kind == FacilityKind::Garbage || f.kind == FacilityKind::FireStation ? 0 : 1;
     int shifts = f.openHours == 24 ? 3 : f.openHours > 8 ? 2 : 1;
     for (int assignment = 0;
          assignment <
@@ -209,6 +216,8 @@ void World::setupRoutines() {
         continue; // Real vacancy: no phantom staff.
       auto &r = residents[chosen];
       r.role = f.staffRole;
+      if (f.kind == FacilityKind::FireStation)
+        r.hourlyWage = f.wageOffer;
       r.employer = f.owner;
       r.jobSite = f.id;
       r.routine.shiftStart =

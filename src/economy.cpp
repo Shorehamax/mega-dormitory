@@ -51,7 +51,7 @@ Id World::order(Id buyer, Id shop, ItemKind product) {
     throw std::runtime_error("Shop out of stock");
   if (product != ItemKind::Food && product != ItemKind::Phone && product != ItemKind::Laptop &&
       product != ItemKind::Medicine && product != ItemKind::Tools && product != ItemKind::Handgun &&
-      product != ItemKind::Ammunition)
+      product != ItemKind::Ammunition && product != ItemKind::Extinguisher)
     throw std::runtime_error("Product unavailable");
   Money price = product == ItemKind::Handgun      ? 120000
                 : product == ItemKind::Ammunition ? 1500
@@ -157,12 +157,13 @@ void World::chooseJob(Id id, Role role, Id fid) {
   auto &r = residents.at(id);
   auto &f = facilities.at(fid);
   if (!r.alive || !r.present || !f.open || r.carrying != none || r.activity == Activity::Jailed ||
-      role == Role::Unemployed)
+      role == Role::Unemployed || activeFires.contains(fid))
     throw std::runtime_error("Cannot start this job");
   if (!f.hiring && r.jobSite != fid)
     throw std::runtime_error("This employer is not hiring");
   bool ok =
       (role == Role::Courier && f.kind == FacilityKind::Shop) ||
+      (role == Role::Firefighter && f.kind == FacilityKind::FireStation) ||
       (role == Role::Warden && f.kind == FacilityKind::Jail) ||
       (role == Role::Cleaner &&
        (f.kind == FacilityKind::Garbage || f.kind == FacilityKind::Morgue ||
@@ -189,7 +190,9 @@ void World::chooseJob(Id id, Role role, Id fid) {
   r.routine.sleepStart = 22;
   r.routine.daysOff = f.kind == FacilityKind::Office ? 96 : 0;
   r.employer = operatingAccount(fid);
-  r.hourlyWage = role == Role::Warden ? 1400 : role == Role::Programmer ? 1800 : 900;
+  r.hourlyWage = role == Role::Warden                                    ? 1400
+                 : role == Role::Programmer || role == Role::Firefighter ? 1800
+                                                                         : 900;
   log("job.accepted", id, fid);
 }
 void World::buyFacility(Id id, Id fid) {
@@ -197,6 +200,8 @@ void World::buyFacility(Id id, Id fid) {
   auto &f = facilities.at(fid);
   if (!r.alive || !r.present || f.askingPrice <= 0 || f.owner == r.account)
     throw std::runtime_error("Facility is not for sale");
+  if (activeFires.contains(fid))
+    throw std::runtime_error("Resolve the active fire before changing this property");
   if (leasedWorkspaces.contains(fid))
     throw std::runtime_error("Return the leased workspace before selling its property");
   for (const auto &p : projects)
@@ -360,6 +365,8 @@ Id World::proposeProject(Id owner, Id fid, bool demolition, Money budget) {
   bool owns = f.owner == r.account || directsCompany(owner, companyForAccount(f.owner), true);
   if (!r.alive || !r.present || f.demolished || (!owns && owner != dormOwner) || budget < 10000)
     throw std::runtime_error("Permission and a real budget are required");
+  if (activeFires.contains(fid))
+    throw std::runtime_error("Resolve the active fire before changing this property");
   if (leasedWorkspaces.contains(fid))
     throw std::runtime_error("An active workspace lease must end before renovation or demolition");
   for (auto &existing : projects)
@@ -400,6 +407,8 @@ void World::fundProject(Id id, Id owner) {
   auto &p = projects.at(id);
   if (p.owner != owner || p.state != ProjectState::AwaitingConsent || p.consented != p.affected)
     throw std::runtime_error("All affected occupants must consent");
+  if (activeFires.contains(p.facility))
+    throw std::runtime_error("Construction must wait until the fire and smoke are cleared");
   if (leasedWorkspaces.contains(p.facility))
     throw std::runtime_error("An active workspace lease protects this property");
   Id company = companyForAccount(facilities[p.facility].owner);

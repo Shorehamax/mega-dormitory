@@ -365,7 +365,8 @@ void World::economyTick() {
         !r.leaving)
       jobseekers[r.home].push_back(r.id);
   for (auto &f : facilities)
-    if (f.open && f.hiring && f.staffNeeded > 0 && f.manager != none) {
+    if (f.open && f.hiring && (f.staffNeeded > 0 || f.kind == FacilityKind::FireStation) &&
+        f.manager != none) {
       int shifts = f.openHours == 24 ? 3 : f.openHours > 8 ? 2 : 1;
       for (int shift = 0; shift < shifts; ++shift) {
         double starts =
@@ -375,8 +376,8 @@ void World::economyTick() {
           if (residents[id].alive && residents[id].present && residents[id].role == f.staffRole &&
               std::abs(residents[id].routine.shiftStart - starts) < .1)
             ++staff;
-        int target =
-            f.staffNeeded + (f.kind == FacilityKind::Food || f.kind == FacilityKind::Cafe ? 1 : 0);
+        int target = std::max(1, f.staffNeeded) +
+                     (f.kind == FacilityKind::Food || f.kind == FacilityKind::Cafe ? 1 : 0);
         if (staff >= target)
           continue;
         Id candidate = none;

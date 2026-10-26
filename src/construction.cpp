@@ -108,7 +108,7 @@ Id World::commissionFacility(Id owner, FacilityKind kind, int floor, Vec3 pos, i
                              Id company) {
   auto &r = residents.at(owner);
   if (!r.alive || !r.present || floor < 0 || floor >= config.floors || stations < 1 ||
-      stations > 16 || kind < FacilityKind::Food || kind > FacilityKind::Morgue)
+      stations > 16 || kind < FacilityKind::Food || kind > FacilityKind::FireStation)
     throw std::runtime_error("Invalid facility construction plan");
   if (!std::isfinite(pos.x) || !std::isfinite(pos.z))
     throw std::runtime_error("Invalid construction location");
@@ -153,7 +153,8 @@ Id World::commissionFacility(Id owner, FacilityKind kind, int floor, Vec3 pos, i
                : kind == FacilityKind::Toilet ? 270
                : kind == FacilityKind::Shop   ? 90
                                               : 180;
-  f.staffRole = kind == FacilityKind::Food || kind == FacilityKind::Cafe            ? Role::Chef
+  f.staffRole = kind == FacilityKind::FireStation                          ? Role::Firefighter
+                : kind == FacilityKind::Food || kind == FacilityKind::Cafe ? Role::Chef
                 : kind == FacilityKind::Morgue || kind == FacilityKind::Crematorium ? Role::Cleaner
                 : kind == FacilityKind::Infirmary                                   ? Role::Medic
                 : kind == FacilityKind::Shop || kind == FacilityKind::Dealership    ? Role::Vendor
@@ -162,7 +163,7 @@ Id World::commissionFacility(Id owner, FacilityKind kind, int floor, Vec3 pos, i
                 : kind == FacilityKind::School    ? Role::Teacher
                 : kind == FacilityKind::Reception ? Role::Administrator
                                                   : Role::Unemployed;
-  f.staffNeeded = f.staffRole == Role::Unemployed ? 0 : 1;
+  f.staffNeeded = f.staffRole == Role::Unemployed || kind == FacilityKind::FireStation ? 0 : 1;
   if (kind == FacilityKind::Elevator)
     for (int n = floor; n < config.floors && n < floor + 100; n += 10)
       f.stops.push_back(n);

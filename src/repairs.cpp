@@ -4,7 +4,7 @@ namespace mega {
 Id World::requestRepair(Id actor, Id fid) {
   auto &f = facilities.at(fid);
   const auto &r = residents.at(actor);
-  if (!r.alive || !r.present || !f.open || f.condition >= .99f ||
+  if (!r.alive || !r.present || activeFires.contains(fid) || !f.open || f.condition >= .99f ||
       !(f.manager == actor || operatingAccount(fid) == r.account ||
         directsCompany(actor, companyForAccount(operatingAccount(fid))) ||
         (actor == dormOwner && f.owner == dormAccount)))

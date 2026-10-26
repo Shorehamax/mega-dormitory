@@ -4,7 +4,7 @@ layout(binding=1) uniform sampler2D albedoAtlas;
 layout(binding=2) uniform sampler2D normalAtlas;
 layout(binding=3) uniform sampler2D ormAtlas;
 layout(binding=4) uniform sampler2DShadow shadowMap;
-layout(binding=5) uniform Lighting { mat4 lightMvp; } lighting;
+layout(binding=5) uniform Lighting { mat4 lightMvp; vec4 fire[16]; vec4 smoke[16]; vec4 counts; } lighting;
 layout(push_constant) uniform Push { mat4 mvp; float ui; vec3 eye; } pc;
 layout(location=0) in vec4 color;
 layout(location=1) in vec2 uv;
@@ -67,9 +67,24 @@ void main(){
    vec3 delta=bulb-worldPosition;float distance2=max(dot(delta,delta),.1);
    c+=lit(base,n,view,normalize(delta),vec3(6.8,7.3,7.5)/(1+distance2*.22),rough,metal)*ao;
  }
+ for(int i=0;i<int(lighting.counts.x);++i){
+   vec3 delta=lighting.fire[i].xyz-worldPosition;float d2=max(dot(delta,delta),.1);
+   float floorMask=1-smoothstep(1.8,2.8,abs(delta.y));
+   c+=lit(base,n,view,normalize(delta),vec3(16,4.2,.6)*lighting.fire[i].w*floorMask/(1+d2*.3),rough,metal);
+ }
  if(material.x < -1.5)c=base*2.5;
  // Exposure/filmic roll-off, followed by the swapchain's sRGB conversion.
  c*=1.4;c=clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),0,1);
  float fog=1-exp(-max(depth-18,0)*.012);c=mix(c,vec3(.06,.09,.11),min(fog,.82));
+ float smokeDensity=0;
+ for(int i=0;i<int(lighting.counts.x);++i){
+   for(int probe=0;probe<4;++probe){
+     vec3 q=mix(pc.eye,worldPosition,(probe+.5)/4.0)-lighting.smoke[i].xyz;
+     float vertical=step(-.1,q.y)*(1-smoothstep(7,10,q.y));
+     float radial=max(0,1-length(q.xz)/18);
+     smokeDensity+=lighting.smoke[i].w*radial*vertical*min(length(worldPosition-pc.eye),40)*.025;
+   }
+ }
+ c=mix(c,vec3(.10,.115,.13),1-exp(-smokeDensity));
  outColor=vec4(c,1);
 }

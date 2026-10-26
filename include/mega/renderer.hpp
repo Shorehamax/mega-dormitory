@@ -48,11 +48,15 @@ public:
             const std::vector<Batch> &, const Mat4 &camera, Vec3 eye,
             const std::filesystem::path &capture = {});
   void setInstances(std::vector<Instance> instances);
+  void setEmergencyLights(std::vector<std::array<float, 8>> lights) {
+    emergencyLights = std::move(lights);
+  }
   std::size_t instanceCount() const { return pendingInstances.size(); }
   std::vector<float> pressure(const std::vector<std::array<float, 4>> &needs);
   void uploadMaterials(const std::array<std::vector<unsigned char>, 3> &textures, int size);
 
 private:
+  std::vector<std::array<float, 8>> emergencyLights;
   VkInstance instance{};
   VkSurfaceKHR surface{};
   VkPhysicalDevice physical{};

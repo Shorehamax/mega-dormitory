@@ -16,7 +16,8 @@ void Config::validate() const {
       bedsPerFloor > (layoutVersion == 1 ? 512 : 256) || startingCash < 0 ||
       startingCash > 100000000 || !std::isfinite(aggression) || aggression < 0 || aggression > 1 ||
       !std::isfinite(supplies) || supplies < .1f || supplies > 5 || wardensPerThousand < 0 ||
-      wardensPerThousand > 100)
+      wardensPerThousand > 100 || !std::isfinite(accidentRate) || accidentRate < 0 ||
+      accidentRate > 10)
     throw std::runtime_error("Invalid generation settings");
   if (mode < Mode::Survival || mode > Mode::Cheat)
     throw std::runtime_error("Invalid game mode");
@@ -89,7 +90,9 @@ World World::generate(const Config &cfg) {
     v.floor = f;
     v.pos =
         w.layout(f).facility(f, cfg.layoutVersion == 1 ? lane : int(w.floorFacilities[f].size()));
-    v.owner = w.account("Business " + std::to_string(v.id + 1), 250000);
+    v.owner = kind == FacilityKind::FireStation
+                  ? w.dormAccount
+                  : w.account("Business " + std::to_string(v.id + 1), 250000);
     v.manager = none;
     v.stations = std::max(1, int(std::ceil((kind == FacilityKind::Food     ? 10
                                             : kind == FacilityKind::Toilet ? 16
@@ -164,6 +167,10 @@ World World::generate(const Config &cfg) {
         f.price = 0;
         f.duration = 60;
       }
+  }
+  for (int floor = 0; floor < cfg.floors; floor += 80) {
+    addFacility(FacilityKind::FireStation, floor, 12);
+    w.facilities.back().stock = std::max(1, int(100 * cfg.supplies));
   }
   std::vector<int> residentialFloors;
   for (int f = 0; f < cfg.floors; ++f)
@@ -463,6 +470,12 @@ void World::decide(Id id) {
     return;
   if (liftJourneys.contains(id))
     return;
+  if (fireSprays.contains(id) || r.task == TaskKind::FireResponse)
+    return;
+  if (r.task == TaskKind::Evacuate && !r.route.empty())
+    return;
+  if (dangerAt(position(id)) > .02f && evacuate(id))
+    return;
   if (r.activity == Activity::Walking && r.task == TaskKind::Service && r.target != none &&
       !operational(r.target)) {
     r.pos = position(id);
@@ -559,12 +572,16 @@ void World::decide(Id id) {
   }
   if (sleepTime(id) && !urgent && !onShift(id)) {
     auto h = residentHomes[id];
+    if (h >= 0 && dangerAt(homePosition(h)) > .02f)
+      return;
     travel(id, h >= 0 ? homePosition(h) : layout(r.home).landing(0, r.home * 3.f), TaskKind::Home,
            id);
     return;
   }
-  bool workWindow = onShift(id);
+  bool workWindow = onShift(id) && r.jobSite != none && !activeFires.contains(r.jobSite) &&
+                    (r.role == Role::Firefighter || dangerAt(facilities[r.jobSite].pos) <= .02f);
   if (r.role == Role::Chef && r.jobSite != none && facilities[r.jobSite].open &&
+      !activeFires.contains(r.jobSite) && dangerAt(facilities[r.jobSite].pos) <= .02f &&
       facilities[r.jobSite].stock > 0 && accounts[r.account].balance >= 480 &&
       (r.hunger > .55f || r.thirst > .6f)) {
     if (near(id, facilities[r.jobSite].pos, 3))
@@ -643,6 +660,8 @@ void World::decide(Id id) {
   }
   if (r.energy < .25f) {
     auto h = residentHomes[id];
+    if (h >= 0 && dangerAt(homePosition(h)) > .02f)
+      return;
     travel(id, h >= 0 ? homePosition(h) : layout(r.home).landing(0, r.home * 3.f), TaskKind::Home,
            id);
     return;
@@ -881,6 +900,7 @@ void World::dispatch(const Event &e) {
     for (auto &p : projects)
       if (p.newConstruction && p.state == ProjectState::Working)
         workProject(p.id, 60);
+    emergencyTick();
     refreshServices();
     medicalTick();
     liftTick();
@@ -1053,7 +1073,9 @@ void World::arrive(Id id) {
       // The next decision chooses a service again after the queue has advanced.
     } else if (f.open)
       joinQueue(id, target);
-  } else if (task == TaskKind::MedicalReach)
+  } else if (task == TaskKind::FireResponse)
+    beginExtinguish(id, target);
+  else if (task == TaskKind::MedicalReach)
     medicalReached(id, target);
   else if (task == TaskKind::MedicalBoard)
     medicalBoard(id, target);
@@ -1319,10 +1341,10 @@ std::string World::displayName(Id id, const std::string &lang) const {
 }
 std::string roleKey(Role r) {
   static const char *k[] = {
-      "role.unemployed", "role.courier",    "role.warden",    "role.builder",
-      "role.video",      "role.programmer", "role.medic",     "role.pilot",
-      "role.admin",      "role.repair",     "role.cleaner",   "role.vendor",
-      "role.teacher",    "role.chef",       "role.lifeguard", "role.attendant"};
+      "role.unemployed", "role.courier",    "role.warden",  "role.builder", "role.video",
+      "role.programmer", "role.medic",      "role.pilot",   "role.admin",   "role.repair",
+      "role.cleaner",    "role.vendor",     "role.teacher", "role.chef",    "role.lifeguard",
+      "role.attendant",  "role.firefighter"};
   return k[int(r)];
 }
 std::string activityKey(Activity a) {
@@ -1335,13 +1357,14 @@ std::string activityKey(Activity a) {
 }
 std::string facilityKey(FacilityKind f) {
   static const char *k[] = {
-      "facility.food",       "facility.water",     "facility.toilet",     "facility.shop",
-      "facility.office",     "facility.infirmary", "facility.jail",       "facility.terminal",
-      "facility.workshop",   "facility.garbage",   "facility.lift",       "facility.crematorium",
-      "facility.school",     "facility.laundry",   "facility.shower",     "facility.leisure",
-      "facility.pool",       "facility.arcade",    "facility.playground", "facility.cinema",
-      "facility.garden",     "facility.gym",       "facility.library",    "facility.cafe",
-      "facility.dealership", "facility.parking",   "facility.reception",  "facility.morgue"};
+      "facility.food",        "facility.water",     "facility.toilet",     "facility.shop",
+      "facility.office",      "facility.infirmary", "facility.jail",       "facility.terminal",
+      "facility.workshop",    "facility.garbage",   "facility.lift",       "facility.crematorium",
+      "facility.school",      "facility.laundry",   "facility.shower",     "facility.leisure",
+      "facility.pool",        "facility.arcade",    "facility.playground", "facility.cinema",
+      "facility.garden",      "facility.gym",       "facility.library",    "facility.cafe",
+      "facility.dealership",  "facility.parking",   "facility.reception",  "facility.morgue",
+      "facility.fire_station"};
   return k[int(f)];
 }
 } // namespace mega

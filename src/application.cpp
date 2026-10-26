@@ -47,6 +47,8 @@ static const char *itemLabel(ItemKind kind) {
     return "item.handgun";
   case ItemKind::Ammunition:
     return "item.ammunition";
+  case ItemKind::Extinguisher:
+    return "item.extinguisher";
   default:
     return "trade.item";
   }
@@ -74,6 +76,7 @@ public:
   float networkScroll = 0;
   int customCategory = 0, buildKind = 1, cheatStat = 0;
   std::string cheatValue = "100";
+  bool emergencyScreen = false;
   bool cheatOpen = false, companyScreen = false, companyConstruction = false;
   Id selectedCompany = none;
   int companyPage = 0;
@@ -150,7 +153,7 @@ public:
     try {
       fn();
     } catch (const std::exception &e) {
-      notify(e.what());
+      notify(t(e.what()));
     }
   }
   std::filesystem::path savePath() {
@@ -159,6 +162,21 @@ public:
   void setWorld(World &&w) {
     world = std::make_unique<World>(std::move(w));
     selected = world->player;
+    emergencyScreen = companyScreen = companyConstruction = cheatOpen = false;
+    selectedCompany = video = office = customVehicle = lethalConfirm = none;
+    companyPage = 0;
+    nextCompanyStats = 0;
+    scrollOffset = networkScroll = 0;
+    tab = networkTab = 0;
+    program.clear();
+    assignments.assign(4, -1);
+    characterHeading.clear();
+    walkBlend.clear();
+    characterPoses.clear();
+    closetAnimation.clear();
+    liftDoorAnimation.clear();
+    mouseLocked = false;
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     currentFloor = int(world->position(selected).y / 3);
     body.position = world->position(selected);
     helpOpen = true;
@@ -205,6 +223,9 @@ public:
     ui.text(left, 130, t("new.world"), 12, hex(0xa5cbb9));
     ui.wrap(left, 170, 470, t("new.title"), 42, hex(0xf0ece3));
     ui.wrap(left, 300, 430, t("new.intro"), 19, hex(0x98abae));
+    if (ui.button("newAccidents", {left, 370, 350, 34},
+                  t("fire.accidents") + " · " + std::to_string(int(config.accidentRate)) + "×"))
+      config.accidentRate = config.accidentRate == 0 ? 1 : config.accidentRate == 1 ? 3 : 0;
     for (int i = 0; i < 3; ++i) {
       std::string key = i == 0 ? "survival" : i == 1 ? "manager" : "cheat";
       float y = 440 + i * 72;
@@ -511,7 +532,156 @@ public:
     ui.fill({x, y + 25, width, 4}, hex(0x2b3d42), 2);
     ui.fill({x, y + 25, width * value, 4}, c, 2);
   }
+  float emergencyPanel(float x, float y, float width) {
+    auto &w = *world;
+    auto &r = w.residents[w.player];
+    ui.text(x, y, t("fire.title"), 23, hex(0xf0d8b0));
+    y += 37;
+    if (ui.button("fireBack", {x, y, width, 31}, t("fire.back"))) {
+      emergencyScreen = false;
+      scrollOffset = 0;
+    }
+    y += 42;
+    y = ui.wrap(x, y, width, t("fire.description"), 13, hex(0xb4bdc6)) + 14;
+    Id tool = w.extinguisher(w.player);
+    if (tool != none) {
+      ui.text(x, y,
+              t("item.extinguisher") + " · " + std::to_string(int(w.items[tool].durability * 100)) +
+                  "%",
+              16, hex(0xa5cbb9));
+      y += 30;
+    }
+    if (w.dangerAt(w.position(w.player)) > .01f) {
+      if (ui.button("evacuateNow", {x, y, width, 35}, t("fire.evacuate"), true))
+        act([&] {
+          if (!w.evacuate(w.player))
+            throw std::runtime_error(t("fire.no_escape"));
+          paused = false;
+        });
+      y += 45;
+    }
+    if (w.fireSprays.contains(w.player)) {
+      if (ui.button("stopSpray", {x, y, width, 32}, t("fire.stop")))
+        w.stopExtinguish(w.player);
+      y += 42;
+    }
+    Id station = w.nearest(w.player, FacilityKind::FireStation);
+    if (station != none) {
+      const auto &f = w.facilities[station];
+      y = ui.wrap(x, y, width,
+                  t("facility.fire_station") + " · " + t("status.floor") + " " +
+                      std::to_string(f.floor + 1) + " · " + t("business.stock") + " " +
+                      std::to_string(f.stock),
+                  15, hex(0xc2d4cf)) +
+          12;
+      if (ui.button("fireStationWalk", {x, y, width, 31}, t("fire.to_station")))
+        act([&] {
+          w.travel(w.player, f.pos + Vec3{0, 0, -1.6f}, TaskKind::None, none);
+          paused = false;
+        });
+      y += 40;
+      if (r.role != Role::Firefighter) {
+        if (ui.button("fireJob", {x, y, width, 31}, t("fire.join")))
+          act([&] { w.chooseJob(w.player, Role::Firefighter, station); });
+        y += 40;
+      }
+      if (w.near(w.player, f.pos, 3) && tool == none) {
+        if (ui.button("fireEquipment", {x, y, width, 32}, t("fire.equipment")))
+          act([&] { w.issueExtinguisher(w.player, station); });
+        y += 43;
+      }
+    } else {
+      y = ui.wrap(x, y, width, t("fire.no_station"), 13, hex(0xd4aa8b)) + 16;
+    }
+    for (const auto &[fid, id] : w.activeFires) {
+      auto &fire = w.fires[id];
+      auto &f = w.facilities[fid];
+      ui.line(x, y, x + width, y, hex(0x4a4140));
+      y += 18;
+      y = ui.wrap(x, y, width,
+                  t(facilityKey(f.kind)) + " · " + t("status.floor") + " " +
+                      std::to_string(f.floor + 1),
+                  17, hex(0xf0bf91)) +
+          9;
+      y = ui.wrap(x, y, width,
+                  t(fire.contained ? "fire.contained" : "fire.burning") + " · " + t("fire.heat") +
+                      " " + std::to_string(int(fire.heat * 100)) + "% · " + t("fire.smoke") + " " +
+                      std::to_string(int(fire.smoke * 100)) + "%",
+                  13, hex(0xcbbcaf)) +
+          12;
+      y = ui.wrap(x, y, width,
+                  fire.worker == none
+                      ? t("fire.no_crew")
+                      : t("fire.crew") + " " + w.displayName(fire.worker, locale.language),
+                  14, hex(0xa6bfb3)) +
+          12;
+      if (fire.escrow == none && !fire.contained) {
+        if (ui.button("fundFire" + std::to_string(id), {x, y, width, 32},
+                      t("fire.fund") + " · " + money(fire.budget)))
+          act([&] {
+            w.requestFireResponse(w.player, id);
+            paused = false;
+          });
+        y += 41;
+      }
+      if (fire.worker == none && fire.escrow != none && r.role == Role::Firefighter &&
+          !fire.contained) {
+        if (ui.button("takeFire" + std::to_string(id), {x, y, width, 32}, t("fire.accept")))
+          act([&] {
+            w.assignFirefighter(w.player, id);
+            paused = false;
+          });
+        y += 41;
+      }
+      if (!fire.contained) {
+        if (ui.button("goFire" + std::to_string(id), {x, y, width, 32},
+                      t(tool == none ? "fire.to_safe_edge" : "fire.to_scene")))
+          act([&] {
+            Vec3 goal = tool == none ? w.accessible(f.pos + Vec3{0, 0, -24}) : w.fireApproach(id);
+            w.travel(w.player, goal, tool == none ? TaskKind::None : TaskKind::FireResponse,
+                     tool == none ? none : id);
+            paused = false;
+          });
+        y += 41;
+        if (tool != none && w.near(w.player, f.pos, 7)) {
+          if (ui.button("sprayFire" + std::to_string(id), {x, y, width, 32}, t("fire.spray"), true))
+            act([&] {
+              w.beginExtinguish(w.player, id);
+              paused = false;
+            });
+          y += 41;
+        }
+      }
+      y += 10;
+    }
+    if (w.activeFires.empty()) {
+      y = ui.wrap(x, y, width, t("fire.clear"), 15, hex(0x9fc6af)) + 18;
+    }
+    if (w.config.mode == Mode::Cheat) {
+      if (ui.button("accidentRate", {x, y, width, 32},
+                    t("fire.accidents") + " · " + std::to_string(int(w.config.accidentRate)) + "×"))
+        w.config.accidentRate = w.config.accidentRate == 0 ? 1 : w.config.accidentRate == 1 ? 3 : 0;
+      y += 42;
+      for (const auto &f : w.facilities)
+        if (f.floor == currentFloor && f.open && !f.demolished && !w.activeFires.contains(f.id) &&
+            f.kind != FacilityKind::FireStation) {
+          if (ui.button("igniteTest", {x, y, width, 32},
+                        t("fire.test") + " · " + t(facilityKey(f.kind))))
+            act([&] { w.triggerFire(w.player, f.id); });
+          y += 42;
+          break;
+        }
+    }
+    return y;
+  }
   float lifePanel(float x, float y, float width) {
+    if (emergencyScreen)
+      return emergencyPanel(x, y, width);
+    if (ui.button("openEmergencies", {x, y, width, 33}, t("fire.title"))) {
+      emergencyScreen = true;
+      scrollOffset = 0;
+    }
+    y += 45;
     auto &w = *world;
     auto &r = w.residents[selected];
     ui.text(x, y, w.displayName(selected, locale.language), 26, hex(0xe6e8df));
@@ -770,7 +940,8 @@ public:
                        f.kind == FacilityKind::Shop || f.kind == FacilityKind::Jail ||
                        f.kind == FacilityKind::Workshop || f.kind == FacilityKind::Dealership ||
                        f.kind == FacilityKind::Parking || f.kind == FacilityKind::Reception ||
-                       f.kind == FacilityKind::Morgue || f.kind == FacilityKind::Crematorium)
+                       f.kind == FacilityKind::Morgue || f.kind == FacilityKind::Crematorium ||
+                       f.kind == FacilityKind::FireStation)
               w.travel(w.player, f.pos, TaskKind::Work, f.id);
             else
               w.travel(w.player, f.pos, TaskKind::Service, f.id);
@@ -1051,10 +1222,12 @@ public:
       scrollOffset = 0;
     }
     y += 48;
-    for (auto role : {Role::Courier, Role::Warden, Role::Builder, Role::VideoEditor,
-                      Role::Programmer, Role::Administrator, Role::Chef, Role::Medic, Role::Vendor,
-                      Role::Lifeguard, Role::Cleaner, Role::Pilot, Role::Repairer}) {
-      auto kind = role == Role::Cleaner                               ? FacilityKind::Morgue
+    for (auto role :
+         {Role::Courier, Role::Warden, Role::Builder, Role::VideoEditor, Role::Programmer,
+          Role::Administrator, Role::Chef, Role::Medic, Role::Vendor, Role::Lifeguard,
+          Role::Cleaner, Role::Pilot, Role::Repairer, Role::Firefighter}) {
+      auto kind = role == Role::Firefighter                           ? FacilityKind::FireStation
+                  : role == Role::Cleaner                             ? FacilityKind::Morgue
                   : role == Role::Pilot                               ? FacilityKind::Infirmary
                   : role == Role::Chef                                ? FacilityKind::Food
                   : role == Role::Medic                               ? FacilityKind::Infirmary
@@ -1294,10 +1467,11 @@ public:
       ui.text(x, y, t("build.new_facility"), 18, hex(0xa5cbb9));
       y += 32;
       if (ui.button("buildKindPrev", {x, y, 32, 34}, "←"))
-        buildKind = (buildKind + 27) % 28;
+        buildKind =
+            (buildKind + int(FacilityKind::FireStation)) % (int(FacilityKind::FireStation) + 1);
       ui.text(x + 42, y + 9, t(facilityKey(FacilityKind(buildKind))), 13, hex(0xd3dfda));
       if (ui.button("buildKindNext", {x + width - 32, y, 32, 34}, "→"))
-        buildKind = (buildKind + 1) % 28;
+        buildKind = (buildKind + 1) % (int(FacilityKind::FireStation) + 1);
       y += 48;
       ui.text(x, y, "X / Z (m)", 13, hex(0x9fb4b7));
       y += 22;
@@ -1833,6 +2007,20 @@ public:
       mouseLocked = false;
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
+    if (!w.activeFires.empty()) {
+      bool danger = w.dangerAt(w.position(selected)) > .04f;
+      if (ui.button("buildingAlarm", {20, 84, std::min(440.f, width - 40), 34},
+                    t(danger ? "fire.danger" : "fire.alarm") + " · " +
+                        std::to_string(w.activeFires.size()),
+                    danger)) {
+        emergencyScreen = true;
+        tab = 0;
+        scrollOffset = 0;
+        drawerOpen = true;
+        mouseLocked = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+      }
+    }
     if (!firstPerson) {
       if (ui.button("floorDown", {310, 20, 36, 38}, "−")) {
         currentFloor = std::max(0, currentFloor - 1);
@@ -2290,14 +2478,14 @@ public:
     if (networkTab == 0) {
       y -= networkScroll;
       y = ui.wrap(x, y, width - 56, t("network.desc"), 16, hex(0xa4b7b9)) + 28;
-      std::array<ItemKind, 7> products = {ItemKind::Food,      ItemKind::Phone, ItemKind::Laptop,
-                                          ItemKind::Medicine,  ItemKind::Tools, ItemKind::Handgun,
-                                          ItemKind::Ammunition};
-      const char *names[] = {"food",  "phone",   "laptop",    "medicine",
-                             "tools", "handgun", "ammunition"};
-      Money prices[] = {800, 15000, 65000, 2000, 4500, 120000, 1500};
+      std::array<ItemKind, 8> products = {
+          ItemKind::Food,  ItemKind::Phone,   ItemKind::Laptop,     ItemKind::Medicine,
+          ItemKind::Tools, ItemKind::Handgun, ItemKind::Ammunition, ItemKind::Extinguisher};
+      const char *names[] = {"food",  "phone",   "laptop",     "medicine",
+                             "tools", "handgun", "ammunition", "extinguisher"};
+      Money prices[] = {800, 15000, 65000, 2000, 4500, 120000, 1500, 4500};
       float card = (width - 80) / 3;
-      for (int i = 0; i < 7; ++i) {
+      for (int i = 0; i < int(products.size()); ++i) {
         float cx = x + (i % 3) * (card + 12), cy = y + (i / 3) * 182;
         ui.fill({cx, cy, card, 166}, hex(0x202730), 8);
         ui.fill({cx + 15, cy + 16, 36, 36}, hex(i % 2 ? 0x446168 : 0x645748), 8);
@@ -2901,6 +3089,12 @@ public:
             box(v, f.pos + Vec3{.4f, 1.5f, 0}, {.55f, .36f, .06f}, hex(0x203e4b));
             box(v, f.pos + Vec3{.4f, 1.48f, .04f}, {.46f, .25f, .01f}, hex(0x7ea6a5));
           }
+          if (f.kind == FacilityKind::FireStation) {
+            box(v, f.pos + Vec3{1.5f, .8f, 0}, {.7f, 1.6f, .7f}, hex(0xa7422b));
+            for (int n = 0; n < std::min(4, f.stock); ++n)
+              cylinder(v, f.pos + Vec3{-1.3f + n * .45f, .2f, .2f},
+                       f.pos + Vec3{-1.3f + n * .45f, .85f, .2f}, .13f, hex(0xbe4735), 8);
+          }
           if (f.kind == FacilityKind::Water)
             for (int i = 0; i < 3; ++i)
               cylinder(v, f.pos + Vec3{-.6f + i * .6f, 1.2f, 0},
@@ -2963,6 +3157,34 @@ public:
               hex(bay.vehicle == none ? 0xb2bda4 : 0xb69261));
         box(v, bay.pos + Vec3{0, .015f, 2.2f}, {2.4f, .025f, .05f}, hex(0xb69261));
       }
+    for (const auto &[fid, id] : w.activeFires) {
+      const auto &fire = w.fires[id];
+      Vec3 p = w.facilities[fid].pos;
+      if (p.y >= ceilingCut || std::abs(p.y - floorY) > 12 || fire.contained)
+        continue;
+      std::size_t begin = v.size();
+      float phase = float(glfwGetTime()) * 4;
+      for (int n = 0; n < 7; ++n) {
+        float height = (.5f + fire.heat * 1.6f) * (.8f + .2f * std::sin(phase * 2 + n));
+        Vec3 at = p + Vec3{float(n % 3 - 1) * .55f, .7f + height * .5f, float(n / 3 - 1) * .4f};
+        sphere(v, at, {.3f, height * .5f, .25f}, hex(n % 2 ? 0xf98322 : 0xffbf46), 4, 6);
+      }
+      for (std::size_t n = begin; n < v.size(); ++n)
+        v[n].material.x = -2;
+    }
+    for (const auto &[actor, spray] : w.fireSprays) {
+      Vec3 p = w.position(actor),
+           target = w.facilities[w.fires[spray.fire].facility].pos + Vec3{0, 1.5f, 0};
+      if (p.y >= ceilingCut || std::abs(p.y - floorY) > 12)
+        continue;
+      cylinder(v, p + Vec3{.2f, .6f, 0}, p + Vec3{.2f, 1.1f, 0}, .14f, hex(0xb24530), 8);
+      for (int n = 0; n < 15; ++n) {
+        float t = std::fmod(float(glfwGetTime()) * .8f + n / 15.f, 1.f);
+        Vec3 at = p + Vec3{.2f, 1.3f, 0};
+        at = at + (target - at) * t + Vec3{0, -.4f * t * t, 0};
+        sphere(v, at, {.04f + t * .10f, .04f, .04f + t * .10f}, hex(0xcde3df), 3, 4);
+      }
+    }
     for (const auto &car : w.vehicles)
       if (std::abs(car.pos.y - floorY) < 7 && car.pos.y < ceilingCut) {
         std::vector<Vertex> mesh;
@@ -3155,8 +3377,17 @@ public:
         shirt.g *= clean;
         shirt.b *= clean;
       }
+      bool rescueGear =
+          r.role == Role::Firefighter && (w.onShift(r.id) || r.task == TaskKind::FireResponse);
+      if (rescueGear) {
+        shirt = hex(0xb7793b);
+        pants = hex(0x343c43);
+      }
       Vec3 direction{0, 0, -1};
-      if (r.opponent != none && r.activity == Activity::Fighting)
+      if (r.task == TaskKind::FireResponse && r.target >= 0 &&
+          std::size_t(r.target) < w.fires.size() && r.activity == Activity::Working)
+        direction = w.facilities[w.fires[r.target].facility].pos - p;
+      else if (r.opponent != none && r.activity == Activity::Fighting)
         direction = w.position(r.opponent) - p;
       else if (!r.route.empty()) {
         std::size_t next = 1;
@@ -3240,6 +3471,11 @@ public:
         assets.appendCharacter(v, characterMesh, p, facing, transition->second.previous, pose,
                                transition->second.blend, animationPhase, blend->second, style);
         std::size_t accessories = v.size();
+        if (rescueGear && pose != CharacterPose::Sleep && pose != CharacterPose::Sit &&
+            pose != CharacterPose::Eat) {
+          box(v, p + Vec3{0, style.height - .01f, 0}, {.36f, .14f, .37f}, hex(0xcba65c));
+          cylinder(v, p + Vec3{0, .8f, .26f}, p + Vec3{0, 1.35f, .26f}, .14f, hex(0xc5b994), 8);
+        }
         if (r.carrying != none)
           box(v, p + Vec3{0, 1.f, -.4f}, {.55f, .4f, .4f},
               hex(w.items[r.carrying].kind == ItemKind::Waste ? 0x354b42 : 0xa08357));
@@ -3421,6 +3657,42 @@ public:
     cameraEye = eye;
     return mul(perspective(1.02f, aspect, .08f, 5000), lookAt(eye, target));
   }
+  void endingPanel() {
+    float width = std::min(600.f, float(ui.width) - 48), height = 310;
+    float x = (ui.width - width) / 2, y = (ui.height - height) / 2;
+    ui.enabled = true;
+    ui.fill({0, 0, float(ui.width), float(ui.height)}, hex(0x080d14, .83f));
+    ui.fill({x, y, width, height}, hex(0x18212a), 12);
+    ui.text(x + 28, y + 27, t("end.title"), 28, hex(0xe5c299));
+    ui.wrap(x + 28, y + 80, width - 56,
+            t(world->endReason == "population-empty" ? "end.empty"
+              : world->endReason == "player-died"    ? "end.died"
+                                                     : "end.departed"),
+            18, hex(0xc5d2cf));
+    if (ui.button("endingSlotPrevious", {x + 28, y + 155, 36, 32}, "−"))
+      slot = std::max(1, slot - 1);
+    ui.text(x + 78, y + 164, t("save.slot") + " " + std::to_string(slot), 15, hex(0xd2ddd5));
+    if (ui.button("endingSlotNext", {x + width - 64, y + 155, 36, 32}, "+"))
+      slot = std::min(8, slot + 1);
+    std::error_code error;
+    auto backup = savePath();
+    backup += ".bak";
+    bool exists =
+        std::filesystem::exists(savePath(), error) || std::filesystem::exists(backup, error);
+    ui.enabled = exists;
+    if (ui.button("endingLoad", {x + 28, y + 201, width - 56, 36},
+                  t(exists ? "nav.load" : "end.no_save"), exists))
+      act([&] { setWorld(World::load(savePath())); });
+    ui.enabled = true;
+    if (ui.button("endingMenu", {x + 28, y + 249, width - 56, 34}, t("nav.menu"))) {
+      menu = true;
+      helpOpen = false;
+      phone = false;
+      drawerOpen = false;
+      setFirstPerson(false);
+      ui.blur();
+    }
+  }
   void frame(float dt, const std::filesystem::path &capture) {
     sceneDelta = dt;
     int width, height;
@@ -3476,7 +3748,15 @@ public:
       scene.reserve(250000);
     buildScene(scene, float(glfwGetTime()));
     distantFloors();
-    ui.enabled = !phone && !helpOpen;
+    if (world && world->gameOver && !menu) {
+      phone = false;
+      helpOpen = false;
+      drawerOpen = false;
+      drawerSlide = 0;
+      mouseLocked = false;
+      glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+    ui.enabled = !phone && !helpOpen && (!world || !world->gameOver || menu);
     if (menu) {
       header();
       newWorld();
@@ -3492,23 +3772,20 @@ public:
           toolbar();
         ui.enabled = enabled;
       }
-      if (world->gameOver) {
-        ui.fill({width * .15f, height * .3f, width * .5f, 180}, hex(0x17272d, .98f), 12);
-        ui.text(width * .15f + 30, height * .3f + 30, t("end.title"), 31, hex(0xe4b66a));
-        ui.wrap(width * .15f + 30, height * .3f + 90, width * .5f - 60,
-                t(world->endReason == "population-empty" ? "end.empty"
-                  : world->endReason == "player-died"    ? "end.died"
-                                                         : "end.departed"),
-                18, hex(0xc4d2cf));
-      }
+      if (world->gameOver)
+        endingPanel();
     }
     if (phone)
       network();
     if (helpOpen && !menu)
       helpPanel();
     if (!toast.empty() && glfwGetTime() < toastUntil) {
-      ui.fill({24, float(height) - 225, float(width) - 388, 42}, hex(0x614f37, .97f), 6);
-      ui.text(38, float(height) - 214, toast, 16, hex(0xf0e4cc));
+      float toastWidth = std::min(float(width) - 48, 720.f);
+      float lines =
+          std::clamp(std::ceil(ui.textWidth(toast, 14) / (toastWidth - 28)) + 1, 1.f, 5.f);
+      float toastHeight = 24 + lines * 19, toastY = float(height) - 145 - toastHeight;
+      ui.fill({24, toastY, toastWidth, toastHeight}, hex(0x614f37, .97f), 6);
+      ui.wrap(38, toastY + 12, toastWidth - 28, toast, 14, hex(0xf0e4cc));
     }
     ui.end();
     for (auto &vertex : ui.vertices) {
@@ -3522,6 +3799,22 @@ public:
       batch.clip.h *= uiScale;
     }
     auto cameraMatrix = camera();
+    std::vector<std::pair<float, std::array<float, 8>>> sources;
+    if (world && !menu)
+      for (const auto &[fid, id] : world->activeFires) {
+        const auto &fire = world->fires[id];
+        auto p = world->facilities[fid].pos;
+        if (length(p - cameraEye) < 160)
+          sources.push_back({length(p - cameraEye),
+                             {p.x, p.y + 1.3f, p.z, fire.contained ? 0.f : fire.heat, p.x, p.y, p.z,
+                              fire.smoke}});
+      }
+    std::sort(sources.begin(), sources.end(),
+              [](const auto &a, const auto &b) { return a.first < b.first; });
+    std::vector<std::array<float, 8>> lights;
+    for (std::size_t n = 0; n < std::min(std::size_t(16), sources.size()); ++n)
+      lights.push_back(sources[n].second);
+    renderer->setEmergencyLights(std::move(lights));
     renderer->draw(scene, ui.vertices, ui.batches, cameraMatrix, cameraEye, capture);
   }
 };
@@ -3730,7 +4023,43 @@ int runApplication(int argc, char **argv) {
         app.networkTab = 6;
       } else if (panel == "network")
         app.phone = true;
-      else if (panel == "companies") {
+      else if (panel == "ending") {
+        app.world->config.mode = Mode::Survival;
+        app.world->kill(app.world->player);
+      } else if (panel == "fire" || panel == "emergency" || panel == "response" ||
+                 panel == "emergency-error") {
+        auto &w = *app.world;
+        Id f = w.nearest(w.player, FacilityKind::Food);
+        Id fire = w.ignite(f, .65f);
+        w.fires[fire].smoke = .65f;
+        if (panel == "response") {
+          Id station = w.nearest(2, FacilityKind::FireStation);
+          w.chooseJob(2, Role::Firefighter, station);
+          auto &crew = w.residents[2];
+          crew.routine.shiftStart = 0;
+          crew.routine.shiftHours = 24;
+          crew.routine.daysOff = 0;
+          crew.pos = w.accessible(w.facilities[station].pos + Vec3{0, 0, -1.6f});
+          crew.route.clear();
+          w.requestFireResponse(w.dormOwner, fire);
+          w.assignFirefighter(2, fire);
+          crew.pos = w.fireApproach(fire);
+          crew.route.clear();
+          w.beginExtinguish(2, fire);
+        }
+        w.residents[w.player].pos = w.accessible(
+            w.facilities[f].pos + (panel == "response" ? Vec3{8, 0, -8} : Vec3{0, 0, 12}));
+        w.residents[w.player].route.clear();
+        app.currentFloor = w.facilities[f].floor;
+        app.setFirstPerson(true);
+        app.playerYaw = panel == "response" ? -2.3561945f : 0;
+        if (panel == "emergency-error")
+          app.act([&] { w.beginExtinguish(w.player, fire); });
+        app.drawerOpen = panel == "emergency" || panel == "emergency-error";
+        app.drawerSlide = app.drawerOpen ? 1 : 0;
+        app.tab = 0;
+        app.emergencyScreen = true;
+      } else if (panel == "companies") {
         app.drawerOpen = true;
         app.drawerSlide = 1;
         app.tab = 2;

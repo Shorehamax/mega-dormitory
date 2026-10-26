@@ -245,6 +245,7 @@ void World::kill(Id id, Id killer, bool justified) {
       patient.carriedBy = none;
       patient.activity = Activity::Idle;
     }
+  stopExtinguish(id);
   r.alive = false;
   r.health = 0;
   r.activity = Activity::Dead;
@@ -344,6 +345,7 @@ void World::depart(Id id) {
 void World::validate() const {
   config.validate();
   validateCompanies();
+  validateEmergencies();
   if (!std::isfinite(time) || time < 0 || accounts.size() < 2 || residents.size() < 2 ||
       residents.size() > 500000 || names.size() != residents.size() ||
       residentHomes.size() != residents.size() || player < 0 ||
@@ -390,7 +392,7 @@ void World::validate() const {
         !std::isfinite(r.health) || !std::isfinite(r.pos.x) || !std::isfinite(r.pos.y) ||
         !std::isfinite(r.pos.z) || int(r.activity) < 0 ||
         int(r.activity) > int(Activity::Departed) || int(r.role) < 0 ||
-        int(r.role) > int(Role::Attendant))
+        int(r.role) > int(Role::Firefighter))
       throw std::runtime_error("Invalid resident");
     if (r.ladder < -1 || r.ladder >= layout().ladderCount() || r.ladderTarget < -1 ||
         r.ladderTarget >= config.floors || std::abs(r.ladderDirection) > 1)
@@ -422,7 +424,7 @@ void World::validate() const {
     auto &f = facilities[i];
     if (f.id != Id(i) || !accountValid(f.owner) || f.floor < 0 || f.floor >= config.floors ||
         f.stations < 1 || f.stock < 0 || f.price < 0 || !std::isfinite(f.duration) ||
-        f.duration <= 0 || int(f.kind) < 0 || int(f.kind) > int(FacilityKind::Morgue) ||
+        f.duration <= 0 || int(f.kind) < 0 || int(f.kind) > int(FacilityKind::FireStation) ||
         f.serving.size() > std::size_t(f.stations))
       throw std::runtime_error("Invalid facility");
     if (!std::isfinite(f.condition) || f.condition < 0 || f.condition > 1 || f.wageOffer < 0 ||
@@ -430,7 +432,7 @@ void World::validate() const {
       throw std::runtime_error("Invalid business operations");
     if (!std::isfinite(f.opensAt) || f.opensAt < 0 || f.opensAt >= 24 ||
         !std::isfinite(f.openHours) || f.openHours < 0 || f.openHours > 24 || f.staffNeeded < 0 ||
-        f.staffNeeded > 64 || int(f.staffRole) < 0 || int(f.staffRole) > int(Role::Attendant))
+        f.staffNeeded > 64 || int(f.staffRole) < 0 || int(f.staffRole) > int(Role::Firefighter))
       throw std::runtime_error("Invalid facility staffing/hours");
     std::set<Id> staff;
     for (Id id : f.employees)
@@ -483,7 +485,7 @@ void World::validate() const {
   if (!residentValid(dormOwner) || !accountValid(dormAccount))
     throw std::runtime_error("Invalid owner");
   for (const auto &r : residents) {
-    if (int(r.task) < 0 || int(r.task) > int(TaskKind::LiftWait) ||
+    if (int(r.task) < 0 || int(r.task) > int(TaskKind::Evacuate) ||
         ((r.task == TaskKind::Service || r.task == TaskKind::Work || r.task == TaskKind::Escort) &&
          !facilityValid(r.target)) ||
         ((r.task == TaskKind::DeliveryPickup || r.task == TaskKind::DeliveryDrop) &&
@@ -498,6 +500,8 @@ void World::validate() const {
         (r.task == TaskKind::BodyDrop && !facilityValid(r.target)) ||
         ((r.task == TaskKind::ConstructionPickup || r.task == TaskKind::ConstructionDrop) &&
          (r.target < 0 || std::size_t(r.target) >= projects.size())) ||
+        (r.task == TaskKind::FireResponse &&
+         (r.target < 0 || std::size_t(r.target) >= fires.size())) ||
         (r.task == TaskKind::Investigate &&
          (r.target < 0 || std::size_t(r.target) >= incidents.size())))
       throw std::runtime_error("Invalid resident task");
@@ -538,8 +542,9 @@ void World::validate() const {
         !accountValid(item.owner) || (item.carrier != none && !residentValid(item.carrier)) ||
         (item.reservedAt != none && !facilityValid(item.reservedAt)) ||
         !std::isfinite(item.cleanliness) || item.cleanliness < 0 || item.cleanliness > 1 ||
-        int(item.kind) < 0 || int(item.kind) > int(ItemKind::Waste) || item.askingPrice < 0 ||
-        (item.seller != none && !residentValid(item.seller)))
+        !std::isfinite(item.durability) || item.durability < 0 || item.durability > 1 ||
+        int(item.kind) < 0 || int(item.kind) > int(ItemKind::Extinguisher) ||
+        item.askingPrice < 0 || (item.seller != none && !residentValid(item.seller)))
       throw std::runtime_error("Invalid item");
   }
   for (std::size_t i = 0; i < officeOrders.size(); ++i) {
@@ -591,7 +596,7 @@ void World::validate() const {
   for (auto &[id, j] : liftJourneys)
     if (!residentValid(id) || j.lift < 0 || std::size_t(j.lift) >= lifts.size() ||
         !std::isfinite(j.goal.x) || !std::isfinite(j.goal.y) || !std::isfinite(j.goal.z) ||
-        int(j.task) < 0 || int(j.task) >= int(TaskKind::LiftWait))
+        int(j.task) < 0 || int(j.task) > int(TaskKind::Evacuate) || j.task == TaskKind::LiftWait)
       throw std::runtime_error("Invalid lift journey");
   for (auto &r : residents)
     if (r.lift != none &&

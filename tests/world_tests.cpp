@@ -38,6 +38,7 @@ static World small() {
   c.bedsPerFloor = 64;
   c.startingCash = 200000;
   c.mode = Mode::Cheat;
+  c.accidentRate = 0;
   auto w = World::generate(c);
   while (!w.events.empty())
     w.events.pop();
@@ -3250,6 +3251,369 @@ int main() {
             "Catch-up rent failed to clear the oldest unpaid days");
     conserved(w);
     w.validate();
+  });
+
+  test("Fire stations, firefighting jobs and accident settings are real generated state", [] {
+    auto w = small();
+    Id station = w.nearest(0, FacilityKind::FireStation);
+    require(station != none && w.facilities[station].owner == w.dormAccount &&
+                w.facilities[station].stock > 0,
+            "Initial fire department has no budget or supplies");
+    w.chooseJob(2, Role::Firefighter, station);
+    require(w.residents[2].employer == w.dormAccount && w.residents[2].hourlyWage == 1800,
+            "Firefighter has no real job contract");
+    auto cfg = w.config;
+    cfg.accidentRate = NAN;
+    rejects([&] { cfg.validate(); });
+    cfg.accidentRate = 11;
+    rejects([&] { cfg.validate(); });
+    w.config.accidentRate = 0;
+    for (int n = 0; n < 48; ++n) {
+      w.time += 3600;
+      w.emergencyTick();
+    }
+    require(w.fires.empty(), "Disabled accidents still started fires");
+    conserved(w);
+    w.validate();
+  });
+  test("Ignition closes service and releases actual customers without duplicate reservations", [] {
+    auto w = small();
+    Id f = w.nearest(0, FacilityKind::Food);
+    place(w, 0, w.facilities[f].pos + Vec3{0, 0, 1.6f});
+    w.joinQueue(0, f);
+    int stock = w.facilities[f].stock;
+    Id fire = w.ignite(f, .5f);
+    require(!w.operational(f) && w.residents[0].queuedAt == none && w.facilities[f].queue.empty() &&
+                w.facilities[f].serving.empty() && w.facilities[f].stock == stock + 1,
+            "Fire left customers using a burning counter or lost reserved stock");
+    rejects([&] { w.ignite(f); });
+    w.fires[fire].contained = true;
+    w.fires[fire].heat = w.fires[fire].smoke = 0;
+    w.emergencyTick();
+    require(w.fires[fire].out && w.operational(f),
+            "Clear smoke did not release the service closure");
+    w.config.mode = Mode::Survival;
+    rejects([&] { w.triggerFire(w.player, f); });
+    conserved(w);
+    w.validate();
+  });
+  test("Fire smoke rises locally and heat cannot harm someone on the floor below", [] {
+    auto w = small();
+    Id f = w.nearest(0, FacilityKind::Office);
+    w.ignite(f, .6f);
+    Vec3 p = w.facilities[f].pos;
+    require(w.dangerAt(p + Vec3{3, 0, 0}) > .2f && w.dangerAt(p + Vec3{3, 3, 0}) > 0 &&
+                w.dangerAt(p + Vec3{3, -3, 0}) == 0 && w.dangerAt(p + Vec3{100, 0, 0}) == 0,
+            "Hazard footprint crosses the wrong floors or distant places");
+    place(w, 3, p + Vec3{0, 0, -2});
+    float before = w.residents[3].health;
+    w.time += 60;
+    w.emergencyTick();
+    require(w.residents[3].health < before && w.facilities[f].condition < 1,
+            "Fire had no health or property consequences");
+    w.validate();
+  });
+  test("Extinguishers require stock, physical collection and payment or employment", [] {
+    auto w = small();
+    Id station = w.nearest(0, FacilityKind::FireStation);
+    rejects([&] { w.issueExtinguisher(0, station); });
+    place(w, 0, w.accessible(w.facilities[station].pos + Vec3{0, 0, -1.6f}));
+    auto funds = w.accounts[w.residents[0].account].balance;
+    auto stock = w.facilities[station].stock;
+    Id tool = w.issueExtinguisher(0, station);
+    require(w.extinguisher(0) == tool && w.facilities[station].stock == stock - 1 &&
+                w.accounts[w.residents[0].account].balance == funds - 4000,
+            "Public equipment was free or not carried");
+    rejects([&] { w.issueExtinguisher(0, station); });
+    w.chooseJob(2, Role::Firefighter, station);
+    w.residents[2].routine.shiftStart = 0;
+    w.residents[2].routine.shiftHours = 24;
+    w.residents[2].routine.daysOff = 0;
+    place(w, 2, w.position(0) + Vec3{.7f, 0, 0});
+    funds = w.accounts[w.residents[2].account].balance;
+    Id issued = w.issueExtinguisher(2, station);
+    require(w.items[issued].owner == w.residents[2].employer &&
+                w.accounts[w.residents[2].account].balance == funds,
+            "Crew equipment was not issued by the employer");
+    conserved(w);
+    w.validate();
+  });
+  test("A funded firefighter travels continuously before earning any response pay", [] {
+    auto w = small();
+    Id station = w.nearest(2, FacilityKind::FireStation), f = w.nearest(0, FacilityKind::Office);
+    w.chooseJob(2, Role::Firefighter, station);
+    auto &r = w.residents[2];
+    r.routine.shiftStart = 0;
+    r.routine.shiftHours = 24;
+    r.routine.daysOff = 0;
+    place(w, 2, w.accessible(w.facilities[station].pos + Vec3{0, 0, -1.6f}));
+    Id fire = w.ignite(f, .4f);
+    rejects([&] { w.assignFirefighter(2, fire); });
+    w.requestFireResponse(w.dormOwner, fire);
+    Money before = w.accounts[r.account].balance;
+    Vec3 start = w.position(2);
+    w.assignFirefighter(2, fire);
+    double arrival = r.route.back().time;
+    w.advance((arrival - w.time) / 2);
+    require(length(w.position(2) - start) > 1 && !w.fireSprays.contains(2) &&
+                w.fires[fire].paid == 0 && w.accounts[r.account].balance == before,
+            "Response teleported or rewarded travel as extinguishing");
+    w.advance(arrival - w.time + .1);
+    require(w.fireSprays.contains(2) && w.near(2, w.facilities[f].pos, 7),
+            "Arrived crew did not begin work at the scene");
+    w.time += 60;
+    w.emergencyTick();
+    require(w.fires[fire].paid > 0 && w.accounts[r.account].balance > before &&
+                w.items[w.extinguisher(2)].durability < 1,
+            "Field work consumed no equipment or paid nobody");
+    auto paid = w.fires[fire].paid;
+    w.emergencyTick();
+    require(w.fires[fire].paid == paid, "The same game minute was paid twice");
+    conserved(w);
+    w.validate();
+  });
+  test("Voluntary extinguishing needs a real charged item, range and clear view", [] {
+    auto w = small();
+    Id station = w.nearest(0, FacilityKind::FireStation), f = w.nearest(0, FacilityKind::Food);
+    Id fire = w.ignite(f, .5f);
+    rejects([&] { w.beginExtinguish(0, fire); });
+    place(w, 0, w.accessible(w.facilities[station].pos + Vec3{0, 0, -1.6f}));
+    Id tool = w.issueExtinguisher(0, station);
+    place(w, 0, w.accessible(w.facilities[f].pos + Vec3{0, 0, 9}));
+    rejects([&] { w.beginExtinguish(0, fire); });
+    place(w, 0, w.fireApproach(fire));
+    w.beginExtinguish(0, fire);
+    w.time += 60;
+    w.emergencyTick();
+    require(w.fires[fire].heat < .5f && w.items[tool].durability < 1,
+            "A nearby charged item could not suppress fire");
+    w.stopExtinguish(0);
+    float charge = w.items[tool].durability;
+    w.time += 60;
+    w.emergencyTick();
+    require(w.items[tool].durability == charge, "Stopped nozzle still consumed pressure");
+    w.items[tool].durability = 0;
+    rejects([&] { w.beginExtinguish(0, fire); });
+    conserved(w);
+    w.validate();
+  });
+  test("Evacuation finds a real safe route instead of moving residents instantly", [] {
+    auto w = small();
+    Id f = w.nearest(0, FacilityKind::Food);
+    w.ignite(f, .5f);
+    place(w, 0, w.accessible(w.facilities[f].pos + Vec3{0, 0, 2}));
+    Vec3 start = w.position(0);
+    require(w.evacuate(0), "No safe evacuation route found");
+    require(w.residents[0].task == TaskKind::Evacuate && !w.residents[0].route.empty() &&
+                length(w.position(0) - start) < .01f &&
+                w.dangerAt(w.residents[0].route.back().p) < .025f,
+            "Evacuation changed position instantly or ended in danger");
+    double until = w.residents[0].route.back().time;
+    w.advance(until - w.time + .1);
+    require(w.dangerAt(w.position(0)) < .025f, "Evacuee did not reach safe ground");
+    w.validate();
+  });
+  test("Funded fire response settles unused escrow only after smoke has cleared", [] {
+    auto w = small();
+    Id f = w.nearest(0, FacilityKind::Food), fire = w.ignite(f);
+    Money start = w.accounts[w.dormAccount].balance;
+    w.requestFireResponse(w.dormOwner, fire);
+    require(w.accounts[w.dormAccount].balance == start - 18000, "Response was not escrowed");
+    w.fires[fire].contained = true;
+    w.fires[fire].heat = 0;
+    w.fires[fire].smoke = .1f;
+    w.time += 60;
+    w.emergencyTick();
+    require(!w.fires[fire].out && !w.operational(f), "Smoke clearance was bypassed");
+    for (int n = 0; n < 4; ++n) {
+      w.time += 60;
+      w.emergencyTick();
+    }
+    require(w.fires[fire].out && w.accounts[w.fires[fire].escrow].balance == 0 &&
+                w.accounts[w.dormAccount].balance == start,
+            "Unused response budget was lost or minted");
+    conserved(w);
+    w.validate();
+  });
+  test("Changing a burning property or starting repairs cannot bypass the hazard", [] {
+    auto w = small();
+    Id f = w.nearest(0, FacilityKind::Office);
+    w.ignite(f);
+    w.facilities[f].askingPrice = 10000;
+    rejects([&] { w.buyFacility(0, f); });
+    rejects([&] { w.proposeProject(w.dormOwner, f, true, 100000); });
+    w.facilities[f].condition = .4f;
+    rejects([&] { w.requestRepair(w.facilities[f].manager, f); });
+    w.validate();
+  });
+  test("Extinguisher purchases use the physical delivery pipeline", [] {
+    auto w = small();
+    Id shop = w.nearest(0, FacilityKind::Shop);
+    place(w, 0, w.facilities[shop].pos);
+    Item phone;
+    phone.id = Id(w.items.size());
+    phone.owner = w.residents[0].account;
+    phone.carrier = 0;
+    phone.kind = ItemKind::Phone;
+    w.items.push_back(phone);
+    w.residents[0].items.push_back(phone.id);
+    Id order = w.order(0, shop, ItemKind::Extinguisher);
+    w.chooseJob(2, Role::Courier, shop);
+    w.assignDelivery(order, 2);
+    place(w, 2, w.facilities[shop].pos);
+    w.pickup(order, 2);
+    place(w, 2, w.position(0));
+    w.deliver(order, 2);
+    require(w.extinguisher(0) == w.orders[order].item &&
+                w.orders[order].state == OrderState::Delivered,
+            "Extinguisher appeared without a paid physical handover");
+    conserved(w);
+    w.validate();
+  });
+  test("Active fire, spray equipment and response funds survive save/load", [] {
+    auto w = small();
+    Id station = w.nearest(0, FacilityKind::FireStation), f = w.nearest(0, FacilityKind::Food);
+    place(w, 0, w.accessible(w.facilities[station].pos + Vec3{0, 0, -1.6f}));
+    Id tool = w.issueExtinguisher(0, station), fire = w.ignite(f);
+    w.requestFireResponse(w.dormOwner, fire);
+    place(w, 0, w.fireApproach(fire));
+    w.beginExtinguish(0, fire);
+    auto file = std::filesystem::temp_directory_path() / "mega-fire-test.mdsave";
+    w.save(file);
+    auto saved = World::load(file);
+    require(saved.activeFires.at(f) == fire && saved.fireSprays.at(0).item == tool &&
+                saved.accounts[saved.fires[fire].escrow].balance == 18000,
+            "Emergency state was not preserved");
+    saved.time += 60;
+    saved.emergencyTick();
+    require(saved.items[tool].durability < 1, "Saved suppression could not resume");
+    conserved(saved);
+    saved.validate();
+    std::filesystem::remove(file);
+    std::filesystem::remove(file.string() + ".bak");
+  });
+  test("Fatal fire exposure cleans up queues, nozzle activity and remains", [] {
+    auto w = small();
+    Id f = w.nearest(0, FacilityKind::Food);
+    w.ignite(f, 1);
+    place(w, 3, w.accessible(w.facilities[f].pos + Vec3{0, 0, 1.6f}));
+    w.residents[3].health = .01f;
+    w.time += 60;
+    w.emergencyTick();
+    require(!w.residents[3].alive && w.residents[3].activity == Activity::Dead &&
+                !w.remains.empty(),
+            "Fire casualty did not enter the normal death pipeline");
+    w.validate();
+  });
+  test("Malformed emergency references and pressure state are rejected", [] {
+    auto w = small();
+    Id f = w.nearest(0, FacilityKind::Food), fire = w.ignite(f);
+    auto bad = w;
+    bad.fires[fire].heat = NAN;
+    rejects([&] { bad.validate(); });
+    bad = w;
+    bad.fires[fire].worker = 999999;
+    rejects([&] { bad.validate(); });
+    bad = w;
+    bad.activeFires.clear();
+    rejects([&] { bad.validate(); });
+    bad = w;
+    bad.fireSprays[0] = {999999, 999999, w.time};
+    rejects([&] { bad.validate(); });
+    bad = w;
+    bad.items[0].durability = NAN;
+    rejects([&] { bad.validate(); });
+    bad = w;
+    bad.items[0].durability = 1.1f;
+    rejects([&] { bad.validate(); });
+    w.validate();
+  });
+
+  test("Ending a firefighter shift releases the route and makes the call available", [] {
+    auto w = small();
+    Id station = w.nearest(2, FacilityKind::FireStation), f = w.nearest(0, FacilityKind::Office);
+    w.chooseJob(2, Role::Firefighter, station);
+    auto &r = w.residents[2];
+    r.routine.shiftStart = 0;
+    r.routine.shiftHours = 24;
+    r.routine.daysOff = 0;
+    place(w, 2, w.accessible(w.facilities[station].pos + Vec3{0, 0, -1.6f}));
+    Id fire = w.ignite(f);
+    w.requestFireResponse(w.dormOwner, fire);
+    w.assignFirefighter(2, fire);
+    r.routine.shiftHours = 1;
+    w.time += 60;
+    w.emergencyTick();
+    require(w.fires[fire].worker == none && r.task == TaskKind::None && r.route.empty() &&
+                w.fires[fire].paid == 0,
+            "An off-duty responder remained stuck on the emergency route");
+    conserved(w);
+    w.validate();
+  });
+  test("An empty equipment rack cannot erase a firefighter's existing route", [] {
+    auto w = small();
+    Id station = w.nearest(2, FacilityKind::FireStation), f = w.nearest(0, FacilityKind::Office);
+    w.chooseJob(2, Role::Firefighter, station);
+    auto &r = w.residents[2];
+    r.routine.shiftStart = 0;
+    r.routine.shiftHours = 24;
+    r.routine.daysOff = 0;
+    place(w, 2, w.accessible(w.facilities[station].pos + Vec3{0, 0, -1.6f}));
+    w.routeTo(2, w.accessible(w.position(2) + Vec3{1, 0, 0}));
+    auto version = r.routeVersion;
+    auto route = r.route;
+    w.facilities[station].stock = 0;
+    Id fire = w.ignite(f);
+    w.requestFireResponse(w.dormOwner, fire);
+    rejects([&] { w.assignFirefighter(2, fire); });
+    require(r.routeVersion == version && r.route.size() == route.size() &&
+                w.fires[fire].worker == none,
+            "Failed equipment collection changed a route or claimed the call");
+    w.validate();
+  });
+  test("A firefighter casualty drops equipment and releases the funded call", [] {
+    auto w = small();
+    Id station = w.nearest(2, FacilityKind::FireStation), f = w.nearest(0, FacilityKind::Office);
+    w.chooseJob(2, Role::Firefighter, station);
+    auto &r = w.residents[2];
+    r.routine.shiftStart = 0;
+    r.routine.shiftHours = 24;
+    r.routine.daysOff = 0;
+    place(w, 2, w.accessible(w.facilities[station].pos + Vec3{0, 0, -1.6f}));
+    Id fire = w.ignite(f);
+    w.requestFireResponse(w.dormOwner, fire);
+    w.assignFirefighter(2, fire);
+    Id tool = w.extinguisher(2);
+    w.kill(2);
+    w.time += 60;
+    w.emergencyTick();
+    require(w.fires[fire].worker == none && w.items[tool].carrier == none &&
+                w.accounts[w.fires[fire].escrow].balance == 18000,
+            "A casualty erased equipment or unearned response money");
+    conserved(w);
+    w.validate();
+  });
+  test("Residents can evacuate through a crowded upper residential floor", [] {
+    auto w = small();
+    Id f = w.nearest(0, FacilityKind::Water);
+    w.ignite(f, .5f);
+    place(w, 4, w.accessible(w.facilities[f].pos + Vec3{0, 0, 2}));
+    require(w.evacuate(4), "Upper-floor bunk geometry prevented every escape route");
+    require(w.dangerAt(w.residents[4].route.back().p) < .025f,
+            "Upper-floor refuge remained in smoke");
+    w.validate();
+  });
+  test("Civilian path planning avoids a fire without turning heat into a solid wall", [] {
+    auto w = small();
+    Id f = w.nearest(0, FacilityKind::Food);
+    w.ignite(f, .5f);
+    auto a = w.accessible(w.facilities[f].pos + Vec3{0, 0, 16});
+    auto unsafe = w.fireApproach(w.activeFires.at(f));
+    rejects([&] { w.floorPath(a, unsafe); });
+    require(w.dangerAt(unsafe) > 0 && w.clearPosition(unsafe),
+            "Hazard incorrectly replaced physical collision");
+    auto route = w.floorPath(a, unsafe, false);
+    require(!route.empty(), "Equipped response path could not reach the scene");
   });
 
   std::cout << passed << " passed; " << failed << " failed\n";

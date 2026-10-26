@@ -6,6 +6,13 @@
 #include <limits>
 #include <stdexcept>
 namespace mega {
+struct SceneLighting {
+  Mat4 sun;
+  std::array<std::array<float, 4>, 16> fire{}, smoke{};
+  std::array<float, 4> counts{};
+};
+static_assert(sizeof(SceneLighting) == sizeof(Mat4) + 33 * 16);
+
 static void check(VkResult r, const char *operation) {
   if (r != VK_SUCCESS)
     throw std::runtime_error(std::string(operation) + ": Vulkan " + std::to_string(r));
@@ -244,7 +251,7 @@ void Renderer::uploadAtlas(const std::vector<unsigned char> &data, int size) {
   check(vkAllocateDescriptorSets(device, &a, &descriptor), "descriptor set");
   VkDescriptorImageInfo shadowInfo{shadowSampler, shadowView,
                                    VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
-  VkDescriptorBufferInfo lightInfo{lightBuffer, 0, sizeof(Mat4)};
+  VkDescriptorBufferInfo lightInfo{lightBuffer, 0, sizeof(SceneLighting)};
   VkWriteDescriptorSet lighting[2]{};
   lighting[0] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
   lighting[0].dstSet = descriptor;
@@ -396,7 +403,7 @@ void Renderer::setupShadows() {
   image(shadowSize, shadowSize, VK_FORMAT_D32_SFLOAT,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, shadowImage,
         shadowMemory, shadowView, VK_IMAGE_ASPECT_DEPTH_BIT);
-  buffer(sizeof(Mat4), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+  buffer(sizeof(SceneLighting), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, lightBuffer,
          lightMemory);
   VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -827,8 +834,18 @@ void Renderer::draw(const std::vector<Vertex> &world, const std::vector<Vertex> 
   view[13] = std::round(view[13] / texel) * texel;
   Mat4 lightMvp = mul(orthographic(64, 1, 220), view);
   void *lightData;
-  check(vkMapMemory(device, lightMemory, 0, sizeof(Mat4), 0, &lightData), "map light matrix");
-  std::memcpy(lightData, lightMvp.data(), sizeof(Mat4));
+  SceneLighting lighting{};
+  lighting.sun = lightMvp;
+  lighting.counts[0] =
+      float(std::min(emergencyLights.size(), software ? std::size_t(4) : std::size_t(16)));
+  for (int n = 0; n < int(lighting.counts[0]); ++n)
+    for (int axis = 0; axis < 4; ++axis) {
+      lighting.fire[n][axis] = emergencyLights[n][axis];
+      lighting.smoke[n][axis] = emergencyLights[n][axis + 4];
+    }
+  check(vkMapMemory(device, lightMemory, 0, sizeof(SceneLighting), 0, &lightData),
+        "map scene lighting");
+  std::memcpy(lightData, &lighting, sizeof(SceneLighting));
   vkUnmapMemory(device, lightMemory);
   begin();
   VkClearValue shadowClear{};

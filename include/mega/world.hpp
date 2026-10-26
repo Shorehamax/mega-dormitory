@@ -57,7 +57,8 @@ enum class FacilityKind {
   Dealership,
   Parking,
   Reception,
-  Morgue
+  Morgue,
+  FireStation
 };
 enum class Role {
   Unemployed,
@@ -75,7 +76,8 @@ enum class Role {
   Teacher,
   Chef,
   Lifeguard,
-  Attendant
+  Attendant,
+  Firefighter
 };
 enum class ItemKind {
   Phone,
@@ -88,7 +90,8 @@ enum class ItemKind {
   Materials,
   Handgun,
   Ammunition,
-  Waste
+  Waste,
+  Extinguisher
 };
 enum class OrderState { Waiting, ToPickup, ToCustomer, Delivered, Cancelled, Lost };
 enum class TaskKind {
@@ -111,7 +114,9 @@ enum class TaskKind {
   FreightPickup,
   FreightDrop,
   Emigrate,
-  LiftWait
+  LiftWait,
+  FireResponse,
+  Evacuate
 };
 enum class CrimeKind { QueueCutting, Assault, ExcessiveForce, Murder, Theft };
 enum class ProjectState { Proposed, AwaitingConsent, Funded, Working, Completed, Disputed };
@@ -127,7 +132,7 @@ struct Config {
   int bedsPerFloor = 256;
   int layoutVersion = 2;
   int floorWidth = 512, floorDepth = 512, lobbyWidth = 640, lobbyDepth = 640;
-  float supplies = 1;
+  float supplies = 1, accidentRate = 1;
   int wardensPerThousand = 4;
   void validate() const;
 };
@@ -359,6 +364,17 @@ struct Repair {
   double remaining = 3600, workedAt = -1;
   bool parts = false, complete = false;
 };
+struct Fire {
+  Id id = none, facility = none, worker = none, station = none, payer = none, escrow = none;
+  float heat = .35f, smoke = .2f, fuel = 1;
+  double started = 0, updated = 0;
+  Money budget = 18000, paid = 0;
+  bool contained = false, out = false;
+};
+struct FireSpray {
+  Id fire = none, item = none;
+  double workedAt = 0;
+};
 struct Company {
   Id id = none, owner = none, account = none, leader = none;
   std::string name;
@@ -522,6 +538,24 @@ public:
   void companyTick();
   void validateCompanies() const;
   std::vector<Repair> repairs;
+  std::vector<Fire> fires;
+  std::map<Id, Id> activeFires;
+  std::map<Id, FireSpray> fireSprays;
+  double nextAccidentAt = 0;
+  Id ignite(Id facility, float intensity = .35f);
+  void triggerFire(Id actor, Id facility);
+  float dangerAt(Vec3 position) const;
+  void requestFireResponse(Id actor, Id fire);
+  Id issueExtinguisher(Id actor, Id station);
+  Id extinguisher(Id actor) const;
+  Vec3 fireApproach(Id fire) const;
+  void assignFirefighter(Id actor, Id fire);
+  void beginExtinguish(Id actor, Id fire);
+  void stopExtinguish(Id actor);
+  void extinguishTick();
+  bool evacuate(Id actor);
+  void emergencyTick();
+  void validateEmergencies() const;
   std::vector<Shot> shots;
   std::map<Id, Id> activeOfficeOrders;
   std::map<Id, double> officeRetryAt;
@@ -565,7 +599,7 @@ public:
   const std::vector<Obstacle> &floorObstacles(int) const;
   bool clearPosition(Vec3, float radius = .29f) const;
   Vec3 accessible(Vec3) const;
-  std::vector<Vec3> floorPath(Vec3, Vec3) const;
+  std::vector<Vec3> floorPath(Vec3, Vec3, bool avoidHazards = true) const;
   void routeTo(Id, Vec3);
   float walkingSpeed(Id, bool running = false) const;
   void exercise(Id, double seconds, float intensity);

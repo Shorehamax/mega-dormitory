@@ -151,7 +151,8 @@ void World::changeOfficeEmployer(Id fid, Id employer, bool dismiss) {
 }
 static void availableWorkspace(const World &w, Id fid) {
   const auto &f = w.facilities.at(fid);
-  if (f.kind != FacilityKind::Office || !f.open || f.demolished || w.leasedWorkspaces.contains(fid))
+  if (f.kind != FacilityKind::Office || !f.open || f.demolished || w.activeFires.contains(fid) ||
+      w.leasedWorkspaces.contains(fid))
     throw std::runtime_error("An open, unleased office is required");
   for (const auto &p : w.projects)
     if (p.facility == fid && p.state != ProjectState::Completed)

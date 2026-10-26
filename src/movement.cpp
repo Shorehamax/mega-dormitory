@@ -147,14 +147,18 @@ Vec3 World::accessible(Vec3 p) const {
     }
   throw std::runtime_error("Destination has no accessible standing space");
 }
-std::vector<Vec3> World::floorPath(Vec3 from, Vec3 to) const {
+std::vector<Vec3> World::floorPath(Vec3 from, Vec3 to, bool avoidHazards) const {
   int floor = std::clamp(int(std::round(to.y / 3)), 0, config.floors - 1);
   from = accessible(from);
   to = accessible(to);
+  float allowedDanger = avoidHazards ? dangerAt(from) + .025f : 10.f;
+  auto safe = [&](Vec3 p) {
+    return clearPosition(p) && (!avoidHazards || dangerAt(p) <= allowedDanger);
+  };
   auto clearLine = [&](Vec3 a, Vec3 b) {
     int steps = std::max(1, int(std::ceil(length(b - a) / .35f)));
     for (int i = 0; i <= steps; ++i)
-      if (!clearPosition(a + (b - a) * (float(i) / steps)))
+      if (!safe(a + (b - a) * (float(i) / steps)))
         return false;
     return true;
   };
@@ -178,7 +182,7 @@ std::vector<Vec3> World::floorPath(Vec3 from, Vec3 to) const {
     };
     auto walkable = [&](int i) {
       if (free[i] < 0)
-        free[i] = clearPosition(point(i));
+        free[i] = safe(point(i));
       return free[i] == 1;
     };
     auto closest = [&](Vec3 p) {
@@ -227,7 +231,8 @@ std::vector<Vec3> World::floorPath(Vec3 from, Vec3 to) const {
             continue;
           if (dx && dz && (!walkable(i + dx) || !walkable(i + dz * width)))
             continue;
-          float c = cost[i] + step * (dx && dz ? 1.414214f : 1.f);
+          float risk = avoidHazards && !activeFires.empty() ? dangerAt(point(j)) : 0.f;
+          float c = cost[i] + step * (dx && dz ? 1.414214f : 1.f) * (1 + risk * 12);
           if (c >= cost[j] || !clearLine(point(i), point(j)))
             continue;
           cost[j] = c;
@@ -279,7 +284,9 @@ void World::routeTo(Id id, Vec3 dest) {
     p = next;
   };
   auto path = [&](Vec3 target) {
-    auto path = floorPath(p, target);
+    auto path =
+        floorPath(p, target,
+                  activeFires.empty() || (r.role != Role::Firefighter && extinguisher(id) == none));
     for (auto q : path)
       point(q);
   };
