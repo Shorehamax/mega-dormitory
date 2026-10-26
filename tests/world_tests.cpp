@@ -3616,6 +3616,157 @@ int main() {
     require(!route.empty(), "Equipped response path could not reach the scene");
   });
 
+  test("Named save slots expose lightweight metadata and keep the authoritative name", [] {
+    auto w = small();
+    w.saveName = "Étage 7 · 明天";
+    auto file = std::filesystem::temp_directory_path() / "mega-named-slot.mdsave";
+    w.save(file);
+    auto info = World::inspectSave(file);
+    require(info.available && info.metadata && !info.backup && info.name == w.saveName &&
+                info.time == w.time && info.population == int(w.living()) &&
+                info.floors == w.config.floors,
+            "Slot metadata lost name, time or world information");
+    auto copy = World::load(file);
+    require(copy.saveName == w.saveName, "World did not retain its save name");
+    require(std::filesystem::file_size(file.string() + ".meta.json") < 8192,
+            "Slot catalogue requires excessive data");
+    for (auto suffix : {"", ".bak", ".meta.json", ".bak.meta.json"})
+      std::filesystem::remove(file.string() + suffix);
+  });
+  test("Unavailable, legacy and malformed slot metadata never prevent world loading", [] {
+    auto w = small();
+    w.saveName = "Durable world";
+    auto file = std::filesystem::temp_directory_path() / "mega-slot-metadata.mdsave";
+    std::filesystem::remove(file);
+    std::filesystem::remove(file.string() + ".bak");
+    require(!World::inspectSave(file).available, "Empty slot advertised a world");
+    w.save(file);
+    std::filesystem::remove(file.string() + ".meta.json");
+    auto legacy = World::inspectSave(file);
+    require(legacy.available && !legacy.metadata, "Legacy slot was hidden");
+    require(World::load(file).saveName == w.saveName, "Missing advisory data broke the world");
+    {
+      std::ofstream out(file.string() + ".meta.json");
+      out << "{broken";
+    }
+    require(!World::inspectSave(file).metadata && World::load(file).saveName == w.saveName,
+            "Malformed slot metadata changed the world");
+    {
+      std::ofstream out(file.string() + ".meta.json");
+      out << std::string(9000, 'x');
+    }
+    require(!World::inspectSave(file).metadata, "Oversized slot metadata was accepted");
+    for (auto suffix : {"", ".bak", ".meta.json", ".bak.meta.json"})
+      std::filesystem::remove(file.string() + suffix);
+  });
+  test("Stale slot metadata is detected even when the file-size field is forged", [] {
+    auto w = small();
+    w.saveName = "First";
+    auto file = std::filesystem::temp_directory_path() / "mega-slot-stale.mdsave";
+    w.save(file);
+    std::ifstream input(file.string() + ".meta.json");
+    std::string old((std::istreambuf_iterator<char>(input)), {});
+    input.close();
+    w.saveName = "Second";
+    w.time += 60;
+    w.save(file);
+    auto start = old.find("\"bytes\":") + 8, end = old.find(',', start);
+    old.replace(start, end - start, std::to_string(std::filesystem::file_size(file)));
+    {
+      std::ofstream out(file.string() + ".meta.json");
+      out << old;
+    }
+    require(!World::inspectSave(file).metadata && World::load(file).saveName == "Second",
+            "Stale advisory data described a different world as current");
+    for (auto suffix : {"", ".bak", ".meta.json", ".bak.meta.json"})
+      std::filesystem::remove(file.string() + suffix);
+  });
+  test("Recovery never replaces the last good backup with a corrupt primary", [] {
+    auto w = small();
+    w.saveName = "Before";
+    auto file = std::filesystem::temp_directory_path() / "mega-slot-repair.mdsave";
+    w.save(file);
+    w.saveName = "After";
+    w.time += 60;
+    w.save(file);
+    std::ifstream in(file.string() + ".bak", std::ios::binary);
+    std::string knownGood((std::istreambuf_iterator<char>(in)), {});
+    in.close();
+    {
+      std::ofstream out(file, std::ios::binary | std::ios::trunc);
+      out << "corrupt primary";
+    }
+    auto recovered = World::load(file);
+    require(recovered.saveName == "Before" && !recovered.recoveredSavePath.empty(),
+            "Recovery did not identify the original slot");
+    recovered.saveName = "Recovered";
+    recovered.time += 120;
+    recovered.save(file);
+    std::ifstream check(file.string() + ".bak", std::ios::binary);
+    std::string preserved((std::istreambuf_iterator<char>(check)), {});
+    check.close();
+    require(preserved == knownGood && recovered.recoveredSavePath.empty() &&
+                World::load(file).saveName == "Recovered",
+            "Repair replaced the good backup with corrupt data");
+    recovered.saveName = "Next";
+    recovered.time += 60;
+    recovered.save(file);
+    require(World::loadBackup(file).saveName == "Recovered",
+            "Normal backups did not resume after repair");
+    std::filesystem::remove(file);
+    auto info = World::inspectSave(file);
+    require(info.available && info.backup && info.metadata && info.name == "Recovered",
+            "Backup-only slot had no correct catalogue entry");
+    auto backupOnly = World::load(file);
+    require(backupOnly.news.back().key == "save.recovered",
+            "Backup-only recovery was not reported");
+    for (auto suffix : {"", ".bak", ".meta.json", ".bak.meta.json"})
+      std::filesystem::remove(file.string() + suffix);
+  });
+  test("Save metadata write failure cannot discard a successful native save", [] {
+    auto w = small();
+    w.saveName = "Still safe";
+    auto file = std::filesystem::temp_directory_path() / "mega-slot-no-metadata.mdsave";
+    auto meta = file.string() + ".meta.json";
+    std::filesystem::remove_all(meta);
+    std::filesystem::create_directory(meta);
+    {
+      std::ofstream marker(std::filesystem::path(meta) / "keep");
+      marker << "metadata destination unavailable";
+    }
+    w.save(file);
+    require(World::load(file).saveName == "Still safe" && World::inspectSave(file).available &&
+                !World::inspectSave(file).metadata,
+            "Advisory write failure invalidated the native world");
+    std::filesystem::remove_all(meta);
+    for (auto suffix : {"", ".bak", ".meta.json.tmp", ".bak.meta.json"})
+      std::filesystem::remove(file.string() + suffix);
+  });
+  test("Save names are bounded and nearby saved routes preserve trained movement speed", [] {
+    auto w = small();
+    auto file = std::filesystem::temp_directory_path() / "mega-slot-route-speed.mdsave";
+    w.saveName = std::string(161, 'x');
+    rejects([&] { w.save(file); });
+    w.saveName = "Bad\nname";
+    rejects([&] { w.save(file); });
+    w.saveName = "Route";
+    place(w, 0, {-2, 0, 14});
+    w.residents[0].fitness = 50;
+    w.focus(0);
+    w.routeTo(0, {-2, 0, 12});
+    w.residents[0].activity = Activity::Walking;
+    w.crowd[0].pos = {-2, 0, 13};
+    w.crowd[0].next = 1;
+    double expected = 1 / w.walkingSpeed(0) * (1440 / w.config.dayMinutes);
+    w.save(file);
+    auto loaded = World::load(file);
+    require(std::abs(loaded.residents[0].route.back().time - loaded.time - expected) < .0001 &&
+                length(loaded.position(0) - Vec3{-2, 0, 13}) < .001f,
+            "Save reset movement to the obsolete 1.6 m/s speed");
+    for (auto suffix : {"", ".bak", ".meta.json", ".bak.meta.json"})
+      std::filesystem::remove(file.string() + suffix);
+  });
+
   std::cout << passed << " passed; " << failed << " failed\n";
   return failed ? 1 : 0;
 }

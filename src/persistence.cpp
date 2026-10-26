@@ -104,6 +104,12 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(VideoJob, id, worker, client, employer, escro
                                    submitted, budget, deadline)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(News, time, key, subject, other)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Event, time, seq, kind, id, other, version)
+static std::uint32_t frameTag(const char *p) {
+  return std::uint32_t(static_cast<unsigned char>(p[0])) |
+         (std::uint32_t(static_cast<unsigned char>(p[1])) << 8) |
+         (std::uint32_t(static_cast<unsigned char>(p[2])) << 16) |
+         (std::uint32_t(static_cast<unsigned char>(p[3])) << 24);
+}
 void World::save(const std::filesystem::path &path) const {
   validate();
   json j = {{"schema", 1},
@@ -119,6 +125,7 @@ void World::save(const std::filesystem::path &path) const {
             {"dormAccount", dormAccount},
             {"gameOver", gameOver},
             {"endReason", endReason},
+            {"saveName", saveName},
             {"accounts", accounts},
             {"ledger", ledger},
             {"residents", residents},
@@ -161,7 +168,8 @@ void World::save(const std::filesystem::path &path) const {
       double at = time;
       Vec3 p = b.pos;
       for (std::size_t n = b.next; n < r.route.size(); ++n) {
-        at += length(r.route[n].p - p) / 1.6 * (1440 / config.dayMinutes);
+        double speed = std::abs(r.route[n].p.y - p.y) > .1f ? 3.0 : walkingSpeed(id);
+        at += length(r.route[n].p - p) / speed * (1440 / config.dayMinutes);
         p = r.route[n].p;
         remaining.push_back({p, at});
       }
@@ -211,15 +219,88 @@ void World::save(const std::filesystem::path &path) const {
     if (!f)
       throw std::runtime_error("Cannot write save");
   }
-  if (std::filesystem::exists(path))
+  auto meta = path;
+  meta += ".meta.json";
+  auto backupMeta = backup;
+  backupMeta += ".meta.json";
+  bool repairing = !recoveredSavePath.empty() &&
+                   recoveredSavePath == std::filesystem::absolute(path).lexically_normal();
+  if (std::filesystem::exists(path) && !repairing) {
     std::filesystem::copy_file(path, backup, std::filesystem::copy_options::overwrite_existing);
+    std::error_code ignored;
+    std::filesystem::copy_file(meta, backupMeta, std::filesystem::copy_options::overwrite_existing,
+                               ignored);
+  }
   std::filesystem::rename(tmp, path);
+  if (repairing)
+    recoveredSavePath.clear();
+  // The world file remains authoritative if advisory metadata cannot be written.
+  try {
+    json info = {{"version", 1},           {"name", saveName},
+                 {"time", time},           {"floors", config.floors},
+                 {"population", living()}, {"mode", int(config.mode)},
+                 {"bytes", n + 8},         {"frameTag", frameTag(compressed.data() + n - 4)}};
+    auto temporary = meta;
+    temporary += ".tmp";
+    std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
+    out << info.dump();
+    out.flush();
+    if (!out)
+      throw std::runtime_error("Cannot write slot metadata");
+    out.close();
+    std::filesystem::rename(temporary, meta);
+  } catch (const std::exception &) {
+  }
+}
+SaveInfo World::inspectSave(const std::filesystem::path &path) {
+  SaveInfo info;
+  std::error_code error;
+  auto actual = path;
+  if (!std::filesystem::is_regular_file(actual, error)) {
+    actual += ".bak";
+    info.backup = true;
+  }
+  if (!std::filesystem::is_regular_file(actual, error))
+    return info;
+  info.available = true;
+  auto meta = actual;
+  meta += ".meta.json";
+  try {
+    if (std::filesystem::file_size(meta) > 8192)
+      return info;
+    std::ifstream input(meta, std::ios::binary);
+    auto data = json::parse(input);
+    if (data.at("version") != 1 ||
+        data.at("bytes").get<std::uint64_t>() != std::filesystem::file_size(actual))
+      return info;
+    std::ifstream world(actual, std::ios::binary);
+    char header[8], tag[4];
+    world.read(header, 8);
+    world.seekg(-4, std::ios::end);
+    world.read(tag, 4);
+    if (!world || std::string(header, 8) != "MDORM001" ||
+        data.at("frameTag").get<std::uint32_t>() != frameTag(tag))
+      return info;
+    auto name = data.at("name").get<std::string>();
+    auto at = data.at("time").get<double>();
+    int floors = data.at("floors").get<int>(), population = data.at("population").get<int>(),
+        mode = data.at("mode").get<int>();
+    if (name.size() > 160 || name.find_first_of("\r\n\t") != std::string::npos ||
+        name.find('\0') != std::string::npos || !std::isfinite(at) || at < 0 || floors < 1 ||
+        floors > 10000 || population < 0 || population > 500000 || mode < 0 || mode > 2)
+      return info;
+    info.name = std::move(name);
+    info.time = at;
+    info.floors = floors;
+    info.population = population;
+    info.mode = Mode(mode);
+    info.metadata = true;
+  } catch (const std::exception &) {
+  }
+  return info;
 }
 static World readSave(const std::filesystem::path &path) {
   auto actual = path;
-  if (!std::filesystem::exists(actual)) {
-    actual += ".bak";
-  }
   auto size = std::filesystem::file_size(actual);
   if (size < 8 || size > 256 * 1024 * 1024ULL)
     throw std::runtime_error("Invalid save size");
@@ -263,6 +344,7 @@ static World readSave(const std::filesystem::path &path) {
   READ(dormAccount);
   READ(gameOver);
   READ(endReason);
+  w.saveName = j.value("saveName", std::string{});
   READ(accounts);
   READ(ledger);
   READ(residents);
@@ -361,6 +443,14 @@ static World readSave(const std::filesystem::path &path) {
   w.validate();
   return w;
 }
+World World::loadBackup(const std::filesystem::path &path) {
+  auto backup = path;
+  backup += ".bak";
+  auto world = readSave(backup);
+  world.recoveredSavePath = std::filesystem::absolute(path).lexically_normal();
+  world.log("save.recovered");
+  return world;
+}
 World World::load(const std::filesystem::path &path) {
   try {
     return readSave(path);
@@ -369,9 +459,7 @@ World World::load(const std::filesystem::path &path) {
     backup += ".bak";
     if (!std::filesystem::exists(backup))
       throw;
-    auto world = readSave(backup);
-    world.log("save.recovered");
-    return world;
+    return loadBackup(path);
   }
 }
 } // namespace mega

@@ -76,6 +76,11 @@ public:
   float networkScroll = 0;
   int customCategory = 0, buildKind = 1, cheatStat = 0;
   std::string cheatValue = "100";
+  bool savesOpen = false, savingSlots = false, savesWasPaused = false, savesEscapeHeld = false;
+  int overwriteSlot = 0;
+  double nextSlotScan = 0;
+  std::array<SaveInfo, 8> saveCatalogue{};
+  std::string saveDraft;
   bool emergencyScreen = false;
   bool cheatOpen = false, companyScreen = false, companyConstruction = false;
   Id selectedCompany = none;
@@ -127,6 +132,7 @@ public:
         ui(font) {
     assets.loadDormitory(std::filesystem::path(MEGA_ASSETS) / "models");
     renderer = std::make_unique<Renderer>(w, MEGA_SHADERS, font.atlas, font.atlasSize);
+    font.dirty = false;
     renderer->uploadMaterials(assets.textures, AssetLibrary::atlasSize);
     for (auto &pixels : assets.textures) {
       pixels.clear();
@@ -156,12 +162,148 @@ public:
       notify(t(e.what()));
     }
   }
-  std::filesystem::path savePath() {
-    return saveRoot / ("slot-" + std::to_string(slot) + ".mdsave");
+  std::filesystem::path savePath(int which = 0) {
+    return saveRoot / ("slot-" + std::to_string(which > 0 ? which : slot) + ".mdsave");
+  }
+  void refreshSaveCatalogue(bool force = false) {
+    if (!force && glfwGetTime() < nextSlotScan)
+      return;
+    for (int i = 0; i < 8; ++i)
+      saveCatalogue[i] = World::inspectSave(savePath(i + 1));
+    nextSlotScan = glfwGetTime() + 2;
+  }
+  void openSaves(bool writing) {
+    savingSlots = writing && world && !menu;
+    savesWasPaused = paused;
+    paused = true;
+    savesOpen = true;
+    overwriteSlot = 0;
+    saveDraft = world ? world->saveName : std::string{};
+    mouseLocked = false;
+    phone = false;
+    helpOpen = false;
+    ui.blur();
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    refreshSaveCatalogue(true);
+  }
+  void closeSaves() {
+    savesOpen = false;
+    paused = savesWasPaused;
+    overwriteSlot = 0;
+    ui.blur();
+  }
+  void saveBrowser() {
+    refreshSaveCatalogue();
+    float width = std::min(800.f, float(ui.width) - 48),
+          height = std::min(740.f, float(ui.height) - 48);
+    float x = (ui.width - width) / 2, y = (ui.height - height) / 2;
+    ui.enabled = true;
+    ui.fill({0, 0, float(ui.width), float(ui.height)}, hex(0x080d14, .86f));
+    ui.fill({x, y, width, height}, hex(0x171f28), 12);
+    ui.text(x + 24, y + 22, t(savingSlots ? "save.browser_save" : "save.browser_load"), 25,
+            hex(0xe6eadf));
+    if (ui.button("closeSaveBrowser", {x + width - 56, y + 16, 32, 32}, "×")) {
+      closeSaves();
+      return;
+    }
+    if (savingSlots) {
+      ui.text(x + 24, y + 70, t("save.name"), 14, hex(0xb1c2bd));
+      ui.input("worldSaveName", {x + 144, y + 58, width - 168, 34}, saveDraft);
+    } else {
+      ui.wrap(x + 24, y + 66, width - 48, t("save.browser_help"), 13, hex(0x9db0b4));
+    }
+    float rowHeight = std::min(54.f, (height - 235) / 8);
+    for (int i = 0; i < 8; ++i) {
+      const auto &info = saveCatalogue[i];
+      float ry = y + 110 + i * rowHeight;
+      Rect row{x + 22, ry, width - 44, rowHeight - 5};
+      if (ui.button("savedSlot" + std::to_string(i), row, "", false, slot == i + 1)) {
+        slot = i + 1;
+        overwriteSlot = 0;
+        ui.blur();
+      }
+      ui.text(row.x + 12, ry + 10, std::to_string(i + 1), 17, hex(0xa5cbb9));
+      auto name = !info.available     ? t("save.empty")
+                  : info.name.empty() ? t("save.untitled")
+                                      : info.name;
+      Rect previous = ui.clipRect();
+      ui.clip({row.x + 48, ry + 2, row.w - 62, row.h - 3});
+      ui.text(row.x + 50, ry + 5, name, 14, hex(info.available ? 0xdde5df : 0x8b9a9e));
+      std::string detail;
+      if (info.metadata) {
+        detail = t(info.mode == Mode::Survival  ? "mode.survival"
+                   : info.mode == Mode::Manager ? "mode.manager"
+                                                : "mode.cheat") +
+                 " · " + timeLabel(info.time) + " · " + t("hud.population") + " " +
+                 number(info.population);
+      } else if (info.available)
+        detail = t("save.legacy_info");
+      if (info.backup && info.available)
+        detail = t("save.backup") + " · " + detail;
+      ui.text(row.x + 50, ry + 25, detail, 11, hex(0x93aaa3));
+      ui.clip(previous);
+    }
+    float foot = y + height - 112;
+    if (savingSlots) {
+      auto &info = saveCatalogue[slot - 1];
+      bool confirm = info.available && overwriteSlot != slot;
+      ui.wrap(x + 24, foot, width - 48,
+              t(info.available ? "save.overwrite_help" : "save.name_help"), 13, hex(0xc5b999));
+      if (ui.button("writeSelectedSlot", {x + 24, y + height - 58, width - 48, 36},
+                    t(confirm ? "save.confirm_overwrite" : "nav.save"), true)) {
+        if (confirm) {
+          overwriteSlot = slot;
+          return;
+        }
+        act([&] {
+          auto previous = world->saveName;
+          try {
+            world->saveName = saveDraft;
+            world->save(savePath());
+          } catch (...) {
+            world->saveName = std::move(previous);
+            throw;
+          }
+          refreshSaveCatalogue(true);
+          closeSaves();
+          notify(t("save.saved"));
+        });
+      }
+    } else {
+      const auto &info = saveCatalogue[slot - 1];
+      auto backup = savePath();
+      backup += ".bak";
+      std::error_code error;
+      bool hasBackup = std::filesystem::is_regular_file(backup, error);
+      ui.wrap(x + 24, foot, width - 48, t("save.backup_help"), 13, hex(0x9fb1b1));
+      ui.enabled = info.available;
+      if (ui.button("readSelectedSlot", {x + 24, y + height - 58, (width - 56) / 2, 36},
+                    t("nav.load"), true)) {
+        act([&] {
+          auto loaded = World::load(savePath());
+          savesOpen = false;
+          setWorld(std::move(loaded));
+        });
+        return;
+      }
+      ui.enabled = hasBackup;
+      if (ui.button("readSelectedBackup",
+                    {x + 32 + (width - 56) / 2, y + height - 58, (width - 56) / 2, 36},
+                    t("save.load_backup"))) {
+        act([&] {
+          auto loaded = World::loadBackup(savePath());
+          savesOpen = false;
+          setWorld(std::move(loaded));
+        });
+        return;
+      }
+      ui.enabled = true;
+    }
   }
   void setWorld(World &&w) {
     world = std::make_unique<World>(std::move(w));
     selected = world->player;
+    savesOpen = false;
     emergencyScreen = companyScreen = companyConstruction = cheatOpen = false;
     selectedCompany = video = office = customVehicle = lethalConfirm = none;
     companyPage = 0;
@@ -277,8 +419,11 @@ public:
         generation =
             std::async(std::launch::async, [cfg = config] { return World::generate(cfg); });
       });
+    bool enabled = ui.enabled;
+    ui.enabled = enabled && !busy;
     if (ui.button("menuLoad", {x, h - 98, w - right - 96, 34}, t("new.load")))
-      act([&] { setWorld(World::load(savePath())); });
+      openSaves(false);
+    ui.enabled = enabled;
     ui.text(left, h - 50, t("status.early"), 11, hex(0x738b91));
     if (generation.valid() &&
         generation.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
@@ -1879,7 +2024,11 @@ public:
                       false, locale.language == lang))
           locale.language = lang;
       }
-      bottom += 62;
+      bottom += 54;
+      if (ui.button("settingsSaveBrowser", {content.x, bottom, content.w, 38},
+                    t("save.browser_save")))
+        openSaves(true);
+      bottom += 54;
       ui.text(content.x, bottom, t("hud.draw_distance"), 16, hex(0xf0f2f4));
       bottom += 34;
       for (int i = 0; i < 3; ++i) {
@@ -1937,15 +2086,9 @@ public:
     if (ui.button("slotplus", {width - 330, h - 45, 30, 32}, "+"))
       slot = std::min(8, slot + 1);
     if (ui.button("save", {width - 287, h - 45, 84, 32}, t("nav.save")))
-      act([&] {
-        w.save(savePath());
-        notify(t("save.saved"));
-      });
+      act([&] { openSaves(true); });
     if (ui.button("load", {width - 193, h - 45, 84, 32}, t("nav.load")))
-      act([&] {
-        setWorld(World::load(savePath()));
-        notify(t("save.loaded"));
-      });
+      act([&] { openSaves(false); });
     if (ui.button("menu", {width - 99, h - 45, 82, 32}, t("nav.menu"))) {
       menu = true;
       phone = false;
@@ -3674,15 +3817,8 @@ public:
     ui.text(x + 78, y + 164, t("save.slot") + " " + std::to_string(slot), 15, hex(0xd2ddd5));
     if (ui.button("endingSlotNext", {x + width - 64, y + 155, 36, 32}, "+"))
       slot = std::min(8, slot + 1);
-    std::error_code error;
-    auto backup = savePath();
-    backup += ".bak";
-    bool exists =
-        std::filesystem::exists(savePath(), error) || std::filesystem::exists(backup, error);
-    ui.enabled = exists;
-    if (ui.button("endingLoad", {x + 28, y + 201, width - 56, 36},
-                  t(exists ? "nav.load" : "end.no_save"), exists))
-      act([&] { setWorld(World::load(savePath())); });
+    if (ui.button("endingLoad", {x + 28, y + 201, width - 56, 36}, t("save.browser_load"), true))
+      openSaves(false);
     ui.enabled = true;
     if (ui.button("endingMenu", {x + 28, y + 249, width - 56, 34}, t("nav.menu"))) {
       menu = true;
@@ -3741,7 +3877,14 @@ public:
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
       glfwGetCursorPos(window, &oldMx, &oldMy);
     }
-    update(dt);
+    bool saveEscape = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+    if (savesOpen && saveEscape && !savesEscapeHeld) {
+      closeSaves();
+      escapeHeld = true;
+    }
+    savesEscapeHeld = saveEscape;
+    if (!savesOpen)
+      update(dt);
     auto &scene = sceneGeometry;
     scene.clear();
     if (scene.capacity() < 250000)
@@ -3756,7 +3899,7 @@ public:
       mouseLocked = false;
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
-    ui.enabled = !phone && !helpOpen && (!world || !world->gameOver || menu);
+    ui.enabled = !savesOpen && !phone && !helpOpen && (!world || !world->gameOver || menu);
     if (menu) {
       header();
       newWorld();
@@ -3772,9 +3915,11 @@ public:
           toolbar();
         ui.enabled = enabled;
       }
-      if (world->gameOver)
+      if (world->gameOver && !savesOpen)
         endingPanel();
     }
+    if (savesOpen)
+      saveBrowser();
     if (phone)
       network();
     if (helpOpen && !menu)
@@ -3788,6 +3933,10 @@ public:
       ui.wrap(38, toastY + 12, toastWidth - 28, toast, 14, hex(0xf0e4cc));
     }
     ui.end();
+    if (font.dirty) {
+      renderer->updateFont(font.atlas, font.atlasSize);
+      font.dirty = false;
+    }
     for (auto &vertex : ui.vertices) {
       vertex.p.x *= uiScale;
       vertex.p.y *= uiScale;
@@ -3921,7 +4070,9 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "lobby") {
+      if (panel == "saves" || panel == "save-browser") {
+        app.openSaves(panel == "saves");
+      } else if (panel == "lobby") {
         app.setFirstPerson(true);
         app.playerYaw = -.35f;
         app.playerPitch = -.08f;

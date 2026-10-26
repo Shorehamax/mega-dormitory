@@ -198,7 +198,7 @@
   "save.slot": "Save slot",
   "save.saved": "World saved.",
   "save.loaded": "World restored.",
-  "save.empty": "This slot is empty.",
+  "save.empty": "Empty slot",
   "world.created": "The dormitory opens a new chapter.",
   "message.sent": "Message sent",
   "order.placed": "An order was placed",
@@ -650,5 +650,18 @@
   "fire.error.dispatch": "An available firefighter must be on shift at their station to take a funded call.",
   "fire.error.busy": "Finish or hand over the current emergency first.",
   "fire.error.empty_rack": "The fire station has no charged equipment.",
-  "fire.error.spray": "Carry a charged extinguisher and approach within seven metres with a clear view."
+  "fire.error.spray": "Carry a charged extinguisher and approach within seven metres with a clear view.",
+  "save.browser_save": "Save world",
+  "save.browser_load": "Load a world",
+  "save.name": "World name",
+  "save.browser_help": "Choose a slot. Loading replaces the current session; unsaved progress will be lost.",
+  "save.untitled": "Unnamed world",
+  "save.legacy_info": "Preview unavailable — load to inspect",
+  "save.backup": "Backup only",
+  "save.overwrite_help": "This slot already contains a world. Confirm twice to replace it; its previous save becomes the backup.",
+  "save.name_help": "Give this world a name, then save it in the selected slot.",
+  "save.confirm_overwrite": "Replace this slot…",
+  "save.backup_help": "A damaged primary save automatically falls back to its backup. You can also load the backup explicitly.",
+  "save.load_backup": "Load previous backup",
+  "save.error.name": "Use a world name of at most 160 UTF-8 bytes, without line breaks."
 }

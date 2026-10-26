@@ -486,6 +486,13 @@ struct EventLater {
     return a.time == b.time ? a.seq > b.seq : a.time > b.time;
   }
 };
+struct SaveInfo {
+  std::string name;
+  double time = 0;
+  int floors = 0, population = 0;
+  Mode mode = Mode::Survival;
+  bool available = false, backup = false, metadata = false;
+};
 class World {
 public:
   Config config;
@@ -494,7 +501,10 @@ public:
   Id player = 0, dormOwner = 1, dormAccount = 1;
   Governance governance;
   bool gameOver = false;
-  std::string endReason;
+  std::string endReason, saveName;
+  static SaveInfo inspectSave(const std::filesystem::path &);
+  static World loadBackup(const std::filesystem::path &);
+  mutable std::filesystem::path recoveredSavePath;
   std::vector<Account> accounts;
   std::vector<Transfer> ledger;
   std::vector<Resident> residents;

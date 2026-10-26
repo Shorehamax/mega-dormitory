@@ -15,7 +15,7 @@ compile_commands.json
 /userdata/
 /captures/
 *.mdsave
-*.mdsave.bak
+*.mdsave.*
 *.tmp
 *.log
 *.ppm

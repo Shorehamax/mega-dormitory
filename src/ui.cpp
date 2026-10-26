@@ -90,54 +90,70 @@ Font::Font(const std::filesystem::path &file, const std::string &characters) {
   std::ifstream f(file, std::ios::binary);
   if (!f)
     throw std::runtime_error("Missing font");
-  std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(f)), {});
-  stbtt_fontinfo info;
-  if (!stbtt_InitFont(&info, bytes.data(), stbtt_GetFontOffsetForIndex(bytes.data(), 2)))
-    throw std::runtime_error("Cannot decode CJK font");
+  source.assign(std::istreambuf_iterator<char>(f), {});
   atlas.assign(atlasSize * atlasSize, 0);
   for (int y = 0; y < 3; ++y)
     for (int x = 0; x < 3; ++x)
       atlas[y * atlasSize + x] = 255;
-  std::set<std::uint32_t> charset;
+  std::string initial;
   for (unsigned c = 32; c < 591; ++c)
-    charset.insert(c);
-  for (auto c : decodeUTF8(characters))
-    charset.insert(c);
+    initial += encode(c);
+  ensure(initial + characters);
+}
+void Font::ensure(const std::string &characters) {
+  auto codepoints = decodeUTF8(characters);
+  bool missing = false;
+  for (auto cp : codepoints)
+    missing |= !glyphs.contains(cp);
+  if (!missing)
+    return;
+  stbtt_fontinfo info;
+  if (!stbtt_InitFont(&info, source.data(), stbtt_GetFontOffsetForIndex(source.data(), 2)))
+    throw std::runtime_error("Cannot decode CJK font");
   float scale = stbtt_ScaleForMappingEmToPixels(&info, 40);
-  int x = 4, y = 4, row = 0;
-  for (auto cp : charset) {
+  for (auto cp : codepoints) {
+    if (glyphs.contains(cp))
+      continue;
+    // Unsupported code points use the fallback without repeatedly re-rasterizing.
+    if (!stbtt_FindGlyphIndex(&info, cp) && cp != '?') {
+      glyphs[cp] = glyphs.at('?');
+      continue;
+    }
     int w, h, xoff, yoff, advance, lsb;
     auto *bitmap = stbtt_GetCodepointBitmap(&info, 0, scale, cp, &w, &h, &xoff, &yoff);
     stbtt_GetCodepointHMetrics(&info, cp, &advance, &lsb);
-    if (x + w + 2 >= atlasSize) {
-      x = 4;
-      y += row + 3;
-      row = 0;
+    if (cursorX + w + 2 >= atlasSize) {
+      cursorX = 4;
+      cursorY += rowHeight + 3;
+      rowHeight = 0;
     }
-    if (y + h + 2 >= atlasSize) {
+    if (cursorY + h + 2 >= atlasSize) {
       stbtt_FreeBitmap(bitmap, nullptr);
-      throw std::runtime_error("Font atlas capacity exceeded");
+      glyphs[cp] = glyphs.at('?');
+      continue;
     }
     for (int yy = 0; yy < h; ++yy)
       for (int xx = 0; xx < w; ++xx)
-        atlas[(y + yy) * atlasSize + x + xx] = bitmap[yy * w + xx];
+        atlas[(cursorY + yy) * atlasSize + cursorX + xx] = bitmap[yy * w + xx];
     Glyph g;
-    g.u0 = float(x) / atlasSize;
-    g.v0 = float(y) / atlasSize;
-    g.u1 = float(x + w) / atlasSize;
-    g.v1 = float(y + h) / atlasSize;
+    g.u0 = float(cursorX) / atlasSize;
+    g.v0 = float(cursorY) / atlasSize;
+    g.u1 = float(cursorX + w) / atlasSize;
+    g.v1 = float(cursorY + h) / atlasSize;
     g.x = float(xoff);
     g.y = float(yoff);
     g.w = float(w);
     g.h = float(h);
     g.advance = advance * scale;
     glyphs[cp] = g;
-    x += w + 3;
-    row = std::max(row, h);
+    cursorX += w + 3;
+    rowHeight = std::max(rowHeight, h);
     stbtt_FreeBitmap(bitmap, nullptr);
+    dirty = true;
   }
 }
-float Font::width(const std::string &s, float size) const {
+float Font::width(const std::string &s, float size) {
+  ensure(s);
   float n = 0;
   for (auto c : decodeUTF8(s)) {
     auto it = glyphs.find(c);
@@ -212,6 +228,7 @@ void UI::line(float x, float y, float x2, float y2, Color c, float t) {
     vertices.push_back(p[i]);
 }
 void UI::text(float x, float y, const std::string &s, float size, Color c) {
+  font.ensure(s);
   float scale = size / 40;
   for (auto cp : decodeUTF8(s)) {
     auto it = font.glyphs.find(cp);
@@ -316,7 +333,9 @@ bool UI::input(const std::string &id, Rect r, std::string &value, bool numeric) 
   float left = std::max(r.x, previous.x), top = std::max(r.y, previous.y);
   clip({left, top, std::max(0.f, std::min(r.x + r.w, previous.x + previous.w) - left),
         std::max(0.f, std::min(r.y + r.h, previous.y + previous.h) - top)});
-  text(r.x + 12, r.y + (r.h - 17) / 2, value + (activeInput == id ? "_" : ""), 17, hex(0xe2e9e6));
+  auto displayed = value + (activeInput == id ? "_" : "");
+  float shift = activeInput == id ? std::min(0.f, r.w - 24 - font.width(displayed, 17)) : 0;
+  text(r.x + 12 + shift, r.y + (r.h - 17) / 2, displayed, 17, hex(0xe2e9e6));
   clip(previous);
   return changed;
 }

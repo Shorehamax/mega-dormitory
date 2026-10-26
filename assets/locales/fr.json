@@ -198,7 +198,7 @@
   "save.slot": "Emplacement",
   "save.saved": "Monde sauvegardé.",
   "save.loaded": "Monde restauré.",
-  "save.empty": "Cet emplacement est vide.",
+  "save.empty": "Emplacement vide",
   "world.created": "Le dortoir ouvre un nouveau chapitre.",
   "message.sent": "Message envoyé",
   "order.placed": "Commande passée",
@@ -650,5 +650,18 @@
   "fire.error.dispatch": "Pour prendre une mission financée, un pompier disponible doit être de service à sa caserne.",
   "fire.error.busy": "Terminez ou transmettez d’abord l’intervention en cours.",
   "fire.error.empty_rack": "La caserne n’a plus d’extincteur chargé.",
-  "fire.error.spray": "Prenez un extincteur chargé et approchez à moins de sept mètres avec une vue dégagée."
+  "fire.error.spray": "Prenez un extincteur chargé et approchez à moins de sept mètres avec une vue dégagée.",
+  "save.browser_save": "Sauvegarder le monde",
+  "save.browser_load": "Charger un monde",
+  "save.name": "Nom du monde",
+  "save.browser_help": "Choisissez un emplacement. Le chargement remplace la session actuelle ; la progression non sauvegardée sera perdue.",
+  "save.untitled": "Monde sans nom",
+  "save.legacy_info": "Aperçu indisponible — chargez le monde pour le consulter",
+  "save.backup": "Copie de secours seule",
+  "save.overwrite_help": "Cet emplacement contient déjà un monde. Confirmez deux fois pour le remplacer ; la sauvegarde précédente devient la copie de secours.",
+  "save.name_help": "Nommez ce monde, puis sauvegardez-le dans l’emplacement sélectionné.",
+  "save.confirm_overwrite": "Remplacer cet emplacement…",
+  "save.backup_help": "Une sauvegarde endommagée utilise automatiquement sa copie de secours. Vous pouvez aussi charger directement cette copie.",
+  "save.load_backup": "Charger la copie de secours",
+  "save.error.name": "Le nom doit contenir au plus 160 octets UTF-8, sans saut de ligne."
 }

@@ -344,6 +344,9 @@ void World::depart(Id id) {
 }
 void World::validate() const {
   config.validate();
+  if (saveName.size() > 160 || saveName.find_first_of("\r\n\t") != std::string::npos ||
+      saveName.find('\0') != std::string::npos)
+    throw std::runtime_error("save.error.name");
   validateCompanies();
   validateEmergencies();
   if (!std::isfinite(time) || time < 0 || accounts.size() < 2 || residents.size() < 2 ||

@@ -18,8 +18,16 @@ This is a development build, not a declaration that the complete accepted design
 | Ownership | Voluntary dorm sale, retirement invitations and succession, contested reception takeover with surviving security checks. Crimes survive takeover. AI ownership can commission facilities in response to crowding. |
 | Transport | Continuous ladders; sparse paid lifts with real calls/boarding/capacity/stops/alighting and saved journeys. Owned bikes/scooters/cars/vans, dealership transactions, customization and scarce physical paid parking. Ordinary driving is confined to the ground corridor. |
 | Modes/UI | Survival, Manager, Cheat; roleplay, free camera, controlled inspection, localized help, DORMNET, management pages and eight slots. Cheat has bounded resident-stat and cash overrides, not a complete rule editor. Choosing departure or dying ends Survival/Manager; an empty population ends the world. |
-| Persistence | Schema-1 CBOR/Zstandard native state, checksums, backups/recovery and reference validation. New optional fields load with defaults. The browser prototype remains untouched; there is no browser importer. |
+| Persistence | Schema-1 CBOR/Zstandard native state, checksums, named slots, advisory quick previews, backup selection/recovery and reference validation. New optional fields load with defaults. The browser prototype remains untouched; there is no browser importer. |
 | Engine | C++20 custom simulation, A* routing, nearby crowd collision, gravity/fall damage, Vulkan rendering and native UI. Distant residents use coarse continuous routes rather than full body contact simulation. Static glTF/GLB/OBJ art plus glTF skeletal bodies, PBR maps, mipmaps, local lights, fog and filtered directional shadows. |
+
+## Latest named saves and multilingual input
+
+- Save/Load now opens an eight-slot browser from world creation, Settings and game over. Names, modes, game times and populations are visible without decompressing the resident arrays. The simulation pauses while browsing; cancellation restores its previous pause state. Replacement requires two clicks. Loading warns that unsaved progress will be replaced.
+- Bounded sidecars are tied to the native file size and Zstandard checksum tag. Missing, corrupt, oversized or stale metadata falls back to an unnamed preview and never becomes authoritative state. Backup-only slots are listed. Both automatic corruption recovery and explicit previous-backup loading are supported. A recovered primary is repaired without overwriting its good backup with the old corrupt file.
+- Saving nearby walking residents now uses their actual fitness-dependent walking speed when rebuilding the remaining saved route, instead of the old 1.6 m/s constant.
+- Text glyphs are appended on demand to a bounded 4096-pixel atlas, preserving existing UVs. Chinese save names and French accents can use supported font characters beyond the fixed menu catalogue. The Vulkan texture updates only when new glyphs are added. Long text inputs scroll to keep their caret visible. Platform IME integration remains unfinished.
+- Release verification: **189 simulation checks, asset imports and the multilingual UI suite pass** (6.95 seconds total). Address/undefined-behavior/leak checking passed: simulation 254.23 seconds, assets 10.26 seconds, UI 5.66 seconds. French RTX and Chinese software-Vulkan menus were captured at 1000 × 720 with validation enabled and no validation errors. All **665 locale keys** match across English, French and Chinese.
 
 ## Latest fire, evacuation and recovery systems
 

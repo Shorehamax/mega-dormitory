@@ -18,12 +18,17 @@ struct Glyph {
   float u0 = 0, v0 = 0, u1 = 0, v1 = 0, x = 0, y = 0, w = 0, h = 0, advance = 0;
 };
 class Font {
+  std::vector<unsigned char> source;
+  int cursorX = 4, cursorY = 4, rowHeight = 0;
+
 public:
-  int atlasSize = 2048;
+  int atlasSize = 4096;
+  bool dirty = false;
   std::vector<unsigned char> atlas;
   std::unordered_map<std::uint32_t, Glyph> glyphs;
   Font(const std::filesystem::path &, const std::string &characters);
-  float width(const std::string &, float size) const;
+  void ensure(const std::string &);
+  float width(const std::string &, float size);
 };
 class UI {
   Font &font;
@@ -49,6 +54,7 @@ public:
   void end();
   void fill(Rect, Color, float radius = 0);
   void line(float, float, float, float, Color, float thickness = 1);
+  Rect clipRect() const { return currentClip; }
   void text(float x, float y, const std::string &, float size, Color);
   float textWidth(const std::string &s, float size) const { return font.width(s, size); }
   float wrap(float, float, float, const std::string &, float, Color);

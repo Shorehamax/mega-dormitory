@@ -409,3 +409,17 @@ fire.error.dispatch|An available firefighter must be on shift at their station t
 fire.error.busy|Finish or hand over the current emergency first.|Terminez ou transmettez d’abord l’intervention en cours.|请先完成或移交当前的救援任务。
 fire.error.empty_rack|The fire station has no charged equipment.|La caserne n’a plus d’extincteur chargé.|消防站没有可用的带压灭火装备。
 fire.error.spray|Carry a charged extinguisher and approach within seven metres with a clear view.|Prenez un extincteur chargé et approchez à moins de sept mètres avec une vue dégagée.|请携带带压灭火器，在有清晰视线的七米范围内灭火。
+save.browser_save|Save world|Sauvegarder le monde|保存世界
+save.browser_load|Load a world|Charger un monde|读取世界
+save.name|World name|Nom du monde|世界名称
+save.browser_help|Choose a slot. Loading replaces the current session; unsaved progress will be lost.|Choisissez un emplacement. Le chargement remplace la session actuelle ; la progression non sauvegardée sera perdue.|选择一个存档槽。读取会替换当前游戏，未保存的进度将丢失。
+save.empty|Empty slot|Emplacement vide|空存档槽
+save.untitled|Unnamed world|Monde sans nom|未命名世界
+save.legacy_info|Preview unavailable — load to inspect|Aperçu indisponible — chargez le monde pour le consulter|暂无预览，请读取查看
+save.backup|Backup only|Copie de secours seule|仅有备份
+save.overwrite_help|This slot already contains a world. Confirm twice to replace it; its previous save becomes the backup.|Cet emplacement contient déjà un monde. Confirmez deux fois pour le remplacer ; la sauvegarde précédente devient la copie de secours.|此槽位已有世界。需要两次确认才能覆盖，旧存档将成为备份。
+save.name_help|Give this world a name, then save it in the selected slot.|Nommez ce monde, puis sauvegardez-le dans l’emplacement sélectionné.|为世界命名，然后保存到选中的槽位。
+save.confirm_overwrite|Replace this slot…|Remplacer cet emplacement…|覆盖此槽位…
+save.backup_help|A damaged primary save automatically falls back to its backup. You can also load the backup explicitly.|Une sauvegarde endommagée utilise automatiquement sa copie de secours. Vous pouvez aussi charger directement cette copie.|主存档损坏时会自动恢复备份，也可以主动读取上一次备份。
+save.load_backup|Load previous backup|Charger la copie de secours|读取上一次备份
+save.error.name|Use a world name of at most 160 UTF-8 bytes, without line breaks.|Le nom doit contenir au plus 160 octets UTF-8, sans saut de ligne.|世界名称最多为 160 个 UTF-8 字节，不能包含换行。

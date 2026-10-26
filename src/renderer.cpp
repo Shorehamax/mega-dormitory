@@ -275,6 +275,47 @@ void Renderer::uploadAtlas(const std::vector<unsigned char> &data, int size) {
   write.pImageInfo = &ii;
   vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
 }
+void Renderer::updateFont(const std::vector<unsigned char> &data, int size) {
+  if (size < 1 || data.size() != std::size_t(size) * size)
+    throw std::runtime_error("Invalid font atlas dimensions");
+  // Atlas allocation and UVs stay fixed; append-only glyphs preserve cached text.
+  check(vkDeviceWaitIdle(device), "wait for font update");
+  VkBuffer staging;
+  VkDeviceMemory memory;
+  buffer(data.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging,
+         memory);
+  void *mapped;
+  check(vkMapMemory(device, memory, 0, data.size(), 0, &mapped), "map font update");
+  std::memcpy(mapped, data.data(), data.size());
+  vkUnmapMemory(device, memory);
+  begin();
+  VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  barrier.srcQueueFamilyIndex = barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = atlasImage;
+  barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+  barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  vkCmdPipelineBarrier(command, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+  VkBufferImageCopy copy{};
+  copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+  copy.imageExtent = {std::uint32_t(size), std::uint32_t(size), 1};
+  vkCmdCopyBufferToImage(command, staging, atlasImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+                         &copy);
+  barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  vkCmdPipelineBarrier(command, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                       &barrier);
+  submit();
+  vkDestroyBuffer(device, staging, nullptr);
+  vkFreeMemory(device, memory, nullptr);
+}
 void Renderer::uploadMaterials(const std::array<std::vector<unsigned char>, 3> &textures,
                                int size) {
   VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};

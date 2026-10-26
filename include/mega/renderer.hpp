@@ -53,6 +53,7 @@ public:
   }
   std::size_t instanceCount() const { return pendingInstances.size(); }
   std::vector<float> pressure(const std::vector<std::array<float, 4>> &needs);
+  void updateFont(const std::vector<unsigned char> &, int size);
   void uploadMaterials(const std::array<std::vector<unsigned char>, 3> &textures, int size);
 
 private:
