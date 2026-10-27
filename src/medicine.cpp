@@ -51,7 +51,8 @@ void World::generateMedical() {
         for (int shift = 0; shift < 3; ++shift) {
           Id chosen = none;
           for (auto &r : residents)
-            if (r.id > 1 && r.role == Role::Unemployed && std::abs(r.home - f.floor) < 20) {
+            if (r.id > 1 && r.alive && r.present && r.age >= 18 && r.role == Role::Unemployed &&
+                std::abs(r.home - f.floor) < 20) {
               chosen = r.id;
               break;
             }
@@ -534,7 +535,7 @@ void World::consumeItem(Id id, Id item) {
   auto &r = residents.at(id);
   auto &i = items.at(item);
   if (!r.alive || !r.present || i.owner != r.account || i.carrier != id || i.consumed ||
-      i.reservedAt != none)
+      i.reservedAt != none || itemInUse(item))
     throw std::runtime_error("Item is not available in your inventory");
   if (i.kind == ItemKind::Food) {
     ++r.personalWaste;

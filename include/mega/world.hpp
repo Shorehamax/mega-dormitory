@@ -91,7 +91,10 @@ enum class ItemKind {
   Handgun,
   Ammunition,
   Waste,
-  Extinguisher
+  Extinguisher,
+  Fan,
+  Tableware,
+  RiceCooker
 };
 enum class OrderState { Waiting, ToPickup, ToCustomer, Delivered, Cancelled, Lost };
 enum class TaskKind {
@@ -134,7 +137,7 @@ struct Config {
   int floorWidth = 512, floorDepth = 512, lobbyWidth = 640, lobbyDepth = 640;
   float supplies = 1, accidentRate = 1;
   int wardensPerThousand = 4;
-  void validate() const;
+  void validate(bool generation = true) const;
 };
 struct FloorPlan {
   int width = 512, depth = 512;
@@ -177,7 +180,7 @@ struct HomeStyle {
 struct Resident {
   Id id = none, account = none, home = 0, employer = none, jobSite = none;
   std::string name;
-  int age = 25;
+  int age = 25, sex = -1;
   Vec3 pos{};
   std::vector<Waypoint> route;
   std::uint64_t routeVersion = 0;
@@ -486,6 +489,11 @@ struct EventLater {
     return a.time == b.time ? a.seq > b.seq : a.time > b.time;
   }
 };
+struct PersonalUse {
+  Id item = none, ingredient = none;
+  double remaining = 0, workedAt = 0;
+  Vec3 origin{};
+};
 struct SaveInfo {
   std::string name;
   double time = 0;
@@ -502,6 +510,11 @@ public:
   Governance governance;
   bool gameOver = false;
   std::string endReason, saveName;
+  // Historical browser-only records are retained for audit/future migration, not executed.
+  std::string browserArchive;
+  std::filesystem::path browserSourcePath;
+  std::map<std::string, std::int64_t> importReport;
+  static World importBrowser(const std::filesystem::path &, Mode mode = Mode::Cheat);
   static SaveInfo inspectSave(const std::filesystem::path &);
   static World loadBackup(const std::filesystem::path &);
   mutable std::filesystem::path recoveredSavePath;
@@ -515,6 +528,12 @@ public:
   std::map<int, std::vector<Id>> floorHomes;
   std::vector<Id> residentHomes;
   std::vector<Item> items;
+  std::map<Id, PersonalUse> personalUses;
+  bool itemInUse(Id item) const;
+  void usePersonalItem(Id resident, Id item);
+  void stopPersonalUse(Id resident);
+  void personalUseTick();
+  void validatePersonalUses() const;
   std::vector<Vehicle> vehicles;
   std::vector<Ambulance> ambulances;
   std::vector<Remains> remains;

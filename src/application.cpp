@@ -19,9 +19,11 @@ static std::string number(std::int64_t n) {
 }
 static std::string money(Money n) { return "¥" + number(n / 100); }
 static std::string timeLabel(double t) {
-  int d = int(t) / 86400 + 1, h = (int(t) / 3600) % 24, m = (int(t) / 60) % 60;
+  auto seconds = std::int64_t(std::clamp(t, 0., 1e15));
+  long long d = seconds / 86400 + 1;
+  int h = int((seconds / 3600) % 24), m = int((seconds / 60) % 60);
   char s[48];
-  std::snprintf(s, sizeof(s), "%03d  /  %02d:%02d", d, h, m);
+  std::snprintf(s, sizeof(s), "%03lld  /  %02d:%02d", d, h, m);
   return s;
 }
 static Color palette(int i) {
@@ -49,6 +51,12 @@ static const char *itemLabel(ItemKind kind) {
     return "item.ammunition";
   case ItemKind::Extinguisher:
     return "item.extinguisher";
+  case ItemKind::Fan:
+    return "item.fan";
+  case ItemKind::Tableware:
+    return "item.tableware";
+  case ItemKind::RiceCooker:
+    return "item.ricecooker";
   default:
     return "trade.item";
   }
@@ -81,6 +89,10 @@ public:
   double nextSlotScan = 0;
   std::array<SaveInfo, 8> saveCatalogue{};
   std::string saveDraft;
+  bool importOpen = false, importSummary = false, importWasPaused = false;
+  Mode importMode = Mode::Cheat;
+  std::string browserPath;
+  std::future<World> importing;
   bool emergencyScreen = false;
   bool cheatOpen = false, companyScreen = false, companyConstruction = false;
   Id selectedCompany = none;
@@ -270,6 +282,11 @@ public:
         });
       }
     } else {
+      if (ui.button("openBrowserImporter", {x + 24, y + height - 162, width - 48, 32},
+                    t("import.title"))) {
+        openImporter();
+        return;
+      }
       const auto &info = saveCatalogue[slot - 1];
       auto backup = savePath();
       backup += ".bak";
@@ -300,10 +317,109 @@ public:
       ui.enabled = true;
     }
   }
+  void openImporter() {
+    if (savesOpen)
+      closeSaves();
+    importWasPaused = paused;
+    paused = true;
+    importOpen = true;
+    importSummary = false;
+    helpOpen = phone = false;
+    mouseLocked = false;
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    ui.blur();
+  }
+  void closeImporter() {
+    if (importing.valid())
+      return;
+    importOpen = false;
+    paused = importSummary ? true : importWasPaused;
+    ui.blur();
+  }
+  void importPanel() {
+    const bool busy = importing.valid();
+    float width = std::min(900.f, float(ui.width) - 48),
+          height = std::min(780.f, float(ui.height) - 48);
+    float x = (ui.width - width) / 2, y = (ui.height - height) / 2;
+    ui.enabled = true;
+    ui.clip({0, 0, float(ui.width), float(ui.height)});
+    ui.fill({0, 0, float(ui.width), float(ui.height)}, hex(0x080d14, .9f));
+    ui.fill({x, y, width, height}, hex(0x171f28), 12);
+    ui.text(x + 24, y + 24, t(importSummary ? "import.summary" : "import.title"), 25,
+            hex(0xe6eadf));
+    ui.enabled = !busy;
+    if (ui.button("closeImporter", {x + width - 56, y + 16, 32, 32}, "×")) {
+      closeImporter();
+      return;
+    }
+    if (importSummary) {
+      float at = ui.wrap(x + 24, y + 80, width - 48, t("import.ready"), 15, hex(0xa5cbb9)) + 20;
+      for (auto key : {"residents", "homes", "items", "services", "restarted", "funds",
+                       "outsideFunds", "infrastructure"}) {
+        ui.text(x + 28, at, t(std::string("import.") + key), 14, hex(0x9fb5b0));
+        auto value = world->importReport.at(key);
+        std::string text = std::string(key) == "funds" || std::string(key) == "outsideFunds"
+                               ? money(value)
+                               : number(value);
+        ui.text(x + width - 245, at, text, 16, hex(0xe2e8df));
+        at += 32;
+      }
+      at = ui.wrap(x + 24, at + 14, width - 48, t("import.changed"), 14, hex(0xc7ba9e)) + 18;
+      ui.wrap(x + 24, at, width - 48, t("import.archived"), 14, hex(0x99acae));
+      if (ui.button("saveImportedWorld", {x + 24, y + height - 104, width - 48, 36},
+                    t("save.browser_save"), true)) {
+        importOpen = false;
+        openSaves(true);
+        return;
+      }
+      if (ui.button("continueImportedWorld", {x + 24, y + height - 58, width - 48, 34},
+                    t("action.play"))) {
+        importOpen = false;
+        paused = false;
+      }
+      return;
+    }
+    float at = ui.wrap(x + 24, y + 80, width - 48, t("import.desc"), 15, hex(0xa5b8b7)) + 26;
+    ui.text(x + 24, at, t("import.path"), 14, hex(0xb2c6bb));
+    at += 25;
+    ui.input("browserExportPath", {x + 24, at, width - 48, 40}, browserPath);
+    at += 62;
+    for (int i = 0; i < 3; ++i) {
+      auto mode = Mode(i);
+      float card = (width - 64) / 3;
+      if (ui.button("importMode" + std::to_string(i), {x + 24 + i * (card + 8), at, card, 38},
+                    t(i == 0   ? "mode.survival"
+                      : i == 1 ? "mode.manager"
+                               : "mode.cheat"),
+                    false, importMode == mode))
+        importMode = mode;
+    }
+    at = ui.wrap(x + 24, at + 64, width - 48, t("import.warning"), 15, hex(0xd1b689)) + 24;
+    at = ui.wrap(x + 24, at, width - 48, t("import.changed"), 14, hex(0xa5b7b3)) + 20;
+    ui.wrap(x + 24, at, width - 48, t("import.archived"), 14, hex(0x99acae));
+    ui.enabled = !busy && !browserPath.empty();
+    if (ui.button("convertBrowserExport", {x + 24, y + height - 62, width - 48, 38},
+                  t(busy ? "import.busy" : "import.convert"), true)) {
+      importing = std::async(std::launch::async, [path = browserPath, mode = importMode] {
+        return World::importBrowser(std::filesystem::path(path), mode);
+      });
+      ui.blur();
+    }
+    ui.enabled = true;
+    if (importing.valid() &&
+        importing.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+      act([&] {
+        auto imported = importing.get();
+        setWorld(std::move(imported));
+        importOpen = importSummary = true;
+        helpOpen = false;
+        paused = true;
+      });
+  }
   void setWorld(World &&w) {
     world = std::make_unique<World>(std::move(w));
     selected = world->player;
-    savesOpen = false;
+    savesOpen = importOpen = importSummary = false;
     emergencyScreen = companyScreen = companyConstruction = cheatOpen = false;
     selectedCompany = video = office = customVehicle = lethalConfirm = none;
     companyPage = 0;
@@ -611,7 +727,8 @@ public:
         if (glfwGetKey(window, GLFW_KEY_A))
           move = move - right;
         if (length(move) > .01f) {
-          if (r.activity == Activity::Sleeping) {
+          if (r.activity == Activity::Sleeping || w.personalUses.contains(selected)) {
+            w.stopPersonalUse(selected);
             r.pos = w.accessible(w.position(selected));
             w.crowd.erase(selected);
           }
@@ -889,6 +1006,32 @@ public:
         y += 42;
         break;
       }
+    if (w.personalUses.contains(selected)) {
+      const auto &use = w.personalUses.at(selected);
+      ui.text(x, y,
+              t(itemLabel(w.items[use.item].kind)) + " · " +
+                  std::to_string(int(std::ceil(use.remaining / 60))) + " " + t("personal.minutes"),
+              14, hex(0xa5cbb9));
+      y += 30;
+      if (ui.button("stopPersonalUse", {x, y, width, 34}, t("personal.stop")))
+        w.stopPersonalUse(selected);
+      y += 44;
+    } else {
+      for (Id item : r.items) {
+        const auto &object = w.items[item];
+        if (!object.consumed && object.carrier == selected &&
+            (object.kind == ItemKind::Fan || object.kind == ItemKind::Tableware ||
+             object.kind == ItemKind::RiceCooker)) {
+          if (ui.button("personalItem" + std::to_string(item), {x, y, width, 34},
+                        t("personal.use") + " · " + t(itemLabel(object.kind))))
+            act([&] {
+              w.usePersonalItem(selected, item);
+              paused = false;
+            });
+          y += 42;
+        }
+      }
+    }
     Id nearby = none;
     for (const auto &other : w.residents)
       if (other.id != selected && other.alive && other.present &&
@@ -2029,6 +2172,16 @@ public:
                     t("save.browser_save")))
         openSaves(true);
       bottom += 54;
+      if (!world->importReport.empty()) {
+        if (ui.button("importReportAgain", {content.x, bottom, content.w, 38},
+                      t("import.summary"))) {
+          importOpen = importSummary = true;
+          importWasPaused = paused;
+          paused = true;
+          ui.blur();
+        }
+        bottom += 54;
+      }
       ui.text(content.x, bottom, t("hud.draw_distance"), 16, hex(0xf0f2f4));
       bottom += 34;
       for (int i = 0; i < 3; ++i) {
@@ -2621,12 +2774,14 @@ public:
     if (networkTab == 0) {
       y -= networkScroll;
       y = ui.wrap(x, y, width - 56, t("network.desc"), 16, hex(0xa4b7b9)) + 28;
-      std::array<ItemKind, 8> products = {
-          ItemKind::Food,  ItemKind::Phone,   ItemKind::Laptop,     ItemKind::Medicine,
-          ItemKind::Tools, ItemKind::Handgun, ItemKind::Ammunition, ItemKind::Extinguisher};
-      const char *names[] = {"food",  "phone",   "laptop",     "medicine",
-                             "tools", "handgun", "ammunition", "extinguisher"};
-      Money prices[] = {800, 15000, 65000, 2000, 4500, 120000, 1500, 4500};
+      std::array<ItemKind, 11> products = {
+          ItemKind::Food,  ItemKind::Phone,     ItemKind::Laptop,     ItemKind::Medicine,
+          ItemKind::Tools, ItemKind::Handgun,   ItemKind::Ammunition, ItemKind::Extinguisher,
+          ItemKind::Fan,   ItemKind::Tableware, ItemKind::RiceCooker};
+      const char *names[] = {"food",  "phone",     "laptop",     "medicine",
+                             "tools", "handgun",   "ammunition", "extinguisher",
+                             "fan",   "tableware", "ricecooker"};
+      Money prices[] = {800, 15000, 65000, 2000, 4500, 120000, 1500, 4500, 5000, 1000, 8000};
       float card = (width - 80) / 3;
       for (int i = 0; i < int(products.size()); ++i) {
         float cx = x + (i % 3) * (card + 12), cy = y + (i / 3) * 182;
@@ -2645,8 +2800,9 @@ public:
             paused = false;
           });
       }
-      ui.text(x, y + 560, t("network.escrow"), 13, hex(0x9ab0b2));
-      y += 610;
+      float productHeight = float((products.size() + 2) / 3) * 182;
+      ui.text(x, y + productHeight + 14, t("network.escrow"), 13, hex(0x9ab0b2));
+      y += productHeight + 64;
       ui.text(x, y, t("trade.title"), 21, hex(0xa5cbb9));
       y += 35;
       y = ui.wrap(x, y, width - 56, t("trade.desc"), 14, hex(0xa4b7b9)) + 20;
@@ -3505,6 +3661,38 @@ public:
         continue;
       float phase =
           float(std::fmod(w.time / (1440 / w.config.dayMinutes), 1000.0)) * 5 + r.id * 1.7f;
+      auto personal = w.personalUses.find(r.id);
+      bool usingPersonal = personal != w.personalUses.end() && r.activity == Activity::Using;
+      bool resting = r.activity == Activity::Sleeping ||
+                     (usingPersonal && w.items[personal->second.item].kind == ItemKind::Fan);
+      float personalTier = 0;
+      if (usingPersonal && w.residentHomes[r.id] != none) {
+        const auto &h = w.housing[w.residentHomes[r.id]];
+        if (!h.custom)
+          personalTier = float((h.bed / w.layout(r.home).tierSize()) % 2) * 1.25f;
+      }
+      if (usingPersonal) {
+        auto kind = w.items[personal->second.item].kind;
+        Vec3 prop = p + Vec3{.8f, .55f + personalTier, 0};
+        if (kind == ItemKind::Fan) {
+          box(v, prop, {.3f, .06f, .28f}, hex(0xb0bcb6));
+          cylinder(v, prop, prop + Vec3{0, .3f, 0}, .025f, hex(0x667c82), 6);
+          auto hub = prop + Vec3{0, .38f, 0};
+          cylinder(v, hub, hub + Vec3{0, 0, .08f}, .18f, hex(0x667c82), 12);
+          for (int blade = 0; blade < 3; ++blade) {
+            float angle = phase * 4 + blade * 2.0944f;
+            cylinder(v, hub + Vec3{0, 0, -.015f},
+                     hub + Vec3{std::cos(angle) * .14f, std::sin(angle) * .14f, -.015f}, .03f,
+                     hex(0xa6c6be), 5);
+          }
+        } else if (kind == ItemKind::RiceCooker) {
+          box(v, prop, {.34f, .28f, .32f}, hex(0xd1d8cc));
+          box(v, prop + Vec3{0, .17f, 0}, {.36f, .05f, .34f}, hex(0x506a6d));
+          for (int steam = 0; steam < 3; ++steam)
+            sphere(v, prop + Vec3{std::sin(phase + steam) * .04f, .3f + steam * .09f, 0},
+                   {.035f, .06f, .035f}, hex(0xc2d3c9), 3, 5);
+        }
+      }
       bool moving = (!r.route.empty() && length(p - r.route.back().p) > .03f) || r.ladder >= 0;
       bool climbing = w.climbing(r.id);
       auto [blend, newBlend] = walkBlend.try_emplace(r.id, moving ? 1.f : 0.f);
@@ -3552,7 +3740,7 @@ public:
       }
       float facing = heading->second, co = std::cos(facing), si = std::sin(facing);
       CharacterPose pose = moving ? CharacterPose::Walk : CharacterPose::Idle;
-      if (r.activity == Activity::Sleeping || r.carriedBy != none)
+      if (resting || r.carriedBy != none)
         pose = CharacterPose::Sleep;
       else if (climbing)
         pose = CharacterPose::Climb;
@@ -3562,6 +3750,8 @@ public:
         pose = CharacterPose::Fight;
       else if (r.carrying != none)
         pose = CharacterPose::Carry;
+      else if (!moving && usingPersonal)
+        pose = CharacterPose::Eat;
       else if (!moving && r.activity == Activity::Working)
         pose = CharacterPose::Work;
       else if (!moving && r.activity == Activity::Using && r.queuedAt != none) {
@@ -3591,8 +3781,11 @@ public:
         style.trousers = pants;
         style.skin = {.86f + float(r.id % 4) * .05f, .86f + float(r.id % 3) * .04f,
                       .85f + float(r.id % 5) * .03f, 1};
-        style.height = 1.68f + float(r.id % 9) * .018f;
-        if (r.activity == Activity::Sleeping) {
+        style.height =
+            (1.68f + float(r.id % 9) * .018f) * (r.age < 18 ? .55f + r.age * .025f : 1.f);
+        if (usingPersonal && !resting)
+          p.y += personalTier;
+        if (resting) {
           Id home = w.residentHomes[r.id];
           if (home != none && !w.housing[home].custom)
             p.y += float((w.housing[home].bed / w.layout(r.home).tierSize()) % 2) * 1.25f;
@@ -3608,12 +3801,15 @@ public:
                        ? 3.1415927f
                        : 3.1415927f * (1 - std::clamp(float((r.nextHit - w.time) / 20), 0.f, 1.f)))
                 : phase;
-        std::string characterMesh = r.id % 2 ? "resident_Female" : "resident_Male";
+        std::string characterMesh =
+            (r.sex < 0 ? r.id % 2 : r.sex) ? "resident_Female" : "resident_Male";
         if (renderer->software || length(p - viewCenter) > 5 || fullCharacters++ >= 4)
           characterMesh += "_lod";
         assets.appendCharacter(v, characterMesh, p, facing, transition->second.previous, pose,
                                transition->second.blend, animationPhase, blend->second, style);
         std::size_t accessories = v.size();
+        if (usingPersonal && !resting)
+          sphere(v, p + Vec3{.2f, .94f, -.28f}, {.13f, .07f, .13f}, hex(0xd9dfd0), 4, 8);
         if (rescueGear && pose != CharacterPose::Sleep && pose != CharacterPose::Sit &&
             pose != CharacterPose::Eat) {
           box(v, p + Vec3{0, style.height - .01f, 0}, {.36f, .14f, .37f}, hex(0xcba65c));
@@ -3646,7 +3842,7 @@ public:
         sphere(v, p + Vec3{0, .2f, -.74f}, {.17f, .19f, .17f}, skin);
         continue;
       }
-      if (r.activity == Activity::Sleeping) {
+      if (resting) {
         Id home = w.residentHomes[r.id];
         if (home != none)
           p.y += w.housing[home].custom
@@ -3766,8 +3962,17 @@ public:
     if (firstPerson && world) {
       const auto &r = world->residents[selected];
       Vec3 offset{0, 1.6f, 0};
-      if (r.activity == Activity::Sleeping) {
+      bool personal = world->personalUses.contains(selected) && r.activity == Activity::Using;
+      bool rest =
+          personal && world->items[world->personalUses.at(selected).item].kind == ItemKind::Fan;
+      if (r.activity == Activity::Sleeping || rest) {
         offset = {0, .8f, -.7f};
+        Id home = world->residentHomes[selected];
+        if (home != none && !world->housing[home].custom)
+          offset.y +=
+              float((world->housing[home].bed / world->layout(r.home).tierSize()) % 2) * 1.25f;
+      } else if (personal) {
+        offset = {0, 1.12f, 0};
         Id home = world->residentHomes[selected];
         if (home != none && !world->housing[home].custom)
           offset.y +=
@@ -3878,12 +4083,15 @@ public:
       glfwGetCursorPos(window, &oldMx, &oldMy);
     }
     bool saveEscape = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
-    if (savesOpen && saveEscape && !savesEscapeHeld) {
+    if (importOpen && saveEscape && !savesEscapeHeld) {
+      closeImporter();
+      escapeHeld = true;
+    } else if (savesOpen && saveEscape && !savesEscapeHeld) {
       closeSaves();
       escapeHeld = true;
     }
     savesEscapeHeld = saveEscape;
-    if (!savesOpen)
+    if (!savesOpen && !importOpen)
       update(dt);
     auto &scene = sceneGeometry;
     scene.clear();
@@ -3899,7 +4107,8 @@ public:
       mouseLocked = false;
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
-    ui.enabled = !savesOpen && !phone && !helpOpen && (!world || !world->gameOver || menu);
+    ui.enabled =
+        !savesOpen && !importOpen && !phone && !helpOpen && (!world || !world->gameOver || menu);
     if (menu) {
       header();
       newWorld();
@@ -3915,11 +4124,13 @@ public:
           toolbar();
         ui.enabled = enabled;
       }
-      if (world->gameOver && !savesOpen)
+      if (world->gameOver && !savesOpen && !importOpen)
         endingPanel();
     }
     if (savesOpen)
       saveBrowser();
+    if (importOpen)
+      importPanel();
     if (phone)
       network();
     if (helpOpen && !menu)
@@ -4005,7 +4216,7 @@ int runApplication(int argc, char **argv) {
     Application app(window);
     int frames = 0, maxFrames = 0;
     bool demo = false, computeTest = false, animate = false;
-    std::string panel;
+    std::string panel, browserImport;
     float demoYaw = 0, demoPitch = 0, demoScroll = 0;
     bool demoLook = false;
     std::filesystem::path capture;
@@ -4054,6 +4265,8 @@ int runApplication(int argc, char **argv) {
         app.floors = std::to_string(app.config.floors);
       } else if (arg == "--panel")
         panel = value();
+      else if (arg == "--import-browser")
+        browserImport = value();
       else if (arg == "--saves")
         app.saveRoot = value();
       else if (arg == "--width" || arg == "--height") {
@@ -4061,7 +4274,13 @@ int runApplication(int argc, char **argv) {
       } else if (arg == "--compute-test")
         computeTest = true;
     }
-    if (demo) {
+    if (!browserImport.empty()) {
+      app.setWorld(World::importBrowser(browserImport));
+      app.importOpen = app.importSummary = true;
+      app.helpOpen = false;
+      app.paused = true;
+    }
+    if (demo && browserImport.empty()) {
       app.setWorld(World::generate(app.config));
       app.paused = true;
       app.helpOpen = panel == "help";
@@ -4070,7 +4289,46 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "saves" || panel == "save-browser") {
+      if (panel == "personal") {
+        auto &w = *app.world;
+        w.leaveQueue(w.player);
+        auto &r = w.residents[w.player];
+        for (Id home = 0; home < Id(w.housing.size()); ++home)
+          if (w.housing[home].floor == r.home && w.housing[home].active &&
+              w.housing[home].tenant == none &&
+              w.housing[home].bed >= w.layout(r.home).tierSize()) {
+            w.rentHome(r.id, home);
+            break;
+          }
+        r.route.clear();
+        r.activity = Activity::Idle;
+        r.pos = w.homePosition(w.residentHomes[w.player]);
+        w.crowd.erase(w.player);
+        Id cooker = none;
+        for (auto kind :
+             {ItemKind::Fan, ItemKind::Tableware, ItemKind::RiceCooker, ItemKind::Food}) {
+          Item item;
+          item.id = Id(w.items.size());
+          item.kind = kind;
+          item.owner = r.account;
+          item.carrier = r.id;
+          item.pos = r.pos;
+          if (kind == ItemKind::RiceCooker)
+            cooker = item.id;
+          r.items.push_back(item.id);
+          w.items.push_back(item);
+        }
+        w.usePersonalItem(r.id, cooker);
+        app.setFirstPerson(false);
+        app.currentFloor = r.home;
+        app.cameraFocus = r.pos + Vec3{-4, 0, 0};
+        app.distance = 10;
+        app.pitch = -.2f;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+      } else if (panel == "import") {
+        app.openImporter();
+      } else if (panel == "saves" || panel == "save-browser") {
         app.openSaves(panel == "saves");
       } else if (panel == "lobby") {
         app.setFirstPerson(true);

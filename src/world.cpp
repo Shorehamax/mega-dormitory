@@ -7,7 +7,7 @@
 #include <limits>
 #include <numeric>
 namespace mega {
-void Config::validate() const {
+void Config::validate(bool generation) const {
   if (floors < 1 || floors > 10000 || population < 2 || population > 500000)
     throw std::runtime_error("World size outside supported limits (1–10,000 "
                              "floors; 2–500,000 residents)");
@@ -29,7 +29,7 @@ void Config::validate() const {
   for (int f = 0; f < floors; ++f)
     if (Layout{layoutVersion}.residential(f, floors))
       ++residential;
-  if (population > residential * bedsPerFloor)
+  if (generation && population > residential * bedsPerFloor)
     throw std::runtime_error("Population exceeds the available residential beds");
 }
 float World::random() {
@@ -410,9 +410,12 @@ void World::travel(Id id, Vec3 dest, TaskKind task, Id target) {
   if (target >= 0 && std::size_t(target) < facilities.size() &&
       (task == TaskKind::Service || task == TaskKind::Work))
     dest = facilities[target].pos + Vec3{0, 0, task == TaskKind::Work ? -1.6f : 1.6f};
-  if (task != TaskKind::LiftWait && planLift(id, dest, task, target))
+  if (task != TaskKind::LiftWait && planLift(id, dest, task, target)) {
+    stopPersonalUse(id);
     return;
+  }
   routeTo(id, dest);
+  stopPersonalUse(id);
   double at = r.route.back().time;
   r.task = task;
   r.target = target;
@@ -548,12 +551,33 @@ void World::decide(Id id) {
   if (r.activity != Activity::Idle && r.activity != Activity::Working &&
       r.activity != Activity::Sleeping)
     return;
-  if (r.hunger > .55f)
+  if (r.hunger > .55f) {
+    Id food = none, utensil = none;
     for (Id item : r.items)
-      if (items[item].kind == ItemKind::Food && !items[item].consumed &&
-          items[item].carrier == id && items[item].reservedAt == none) {
-        consumeItem(id, item);
-        break;
+      if (!items[item].consumed && items[item].carrier == id && items[item].reservedAt == none) {
+        if (items[item].kind == ItemKind::Food)
+          food = item;
+        if ((items[item].kind == ItemKind::Tableware || items[item].kind == ItemKind::RiceCooker) &&
+            items[item].durability > 0)
+          utensil = item;
+      }
+    if (food != none && utensil != none && r.thirst < .95f) {
+      try {
+        usePersonalItem(id, utensil);
+        return;
+      } catch (const std::runtime_error &) {
+      }
+    }
+    if (food != none)
+      consumeItem(id, food);
+  }
+  if (r.energy < .65f && r.energy > .3f && !onShift(id) && !sleepTime(id))
+    for (Id item : r.items)
+      if (items[item].kind == ItemKind::Fan && !items[item].consumed && items[item].carrier == id &&
+          items[item].durability > 0 && residentHomes[id] != none &&
+          near(id, homePosition(residentHomes[id]), .75f)) {
+        usePersonalItem(id, item);
+        return;
       }
   if (r.health < 65 && r.hunger < .95f && r.thirst < .95f && r.ambulance == none &&
       r.carriedBy == none) {
@@ -900,6 +924,7 @@ void World::dispatch(const Event &e) {
     for (auto &p : projects)
       if (p.newConstruction && p.state == ProjectState::Working)
         workProject(p.id, 60);
+    personalUseTick();
     emergencyTick();
     refreshServices();
     medicalTick();
@@ -1181,6 +1206,7 @@ void World::joinQueue(Id id, Id fId) {
   if (f.queue.size() >= 64)
     throw std::runtime_error("The waiting area is full");
   clockOut(id);
+  stopPersonalUse(id);
   r.pos = position(id);
   r.route.clear();
   ++r.routeVersion;

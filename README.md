@@ -14,7 +14,7 @@ bash run.sh
 
 The launcher builds into `$XDG_CACHE_HOME/mega-dormitory/native` (normally `~/.cache/mega-dormitory/native`). Source, art and save slots stay in this project. `MEGA_BUILD_DIR` overrides the cache and `MEGA_BUILD_JOBS` controls build concurrency. Keeping builds in the cache also supports source checkouts on filesystems with executable or metadata limitations.
 
-Requires a C++20 compiler, CMake 3.24+, Ninja, Vulkan headers/loader, GLFW 3.3+, Zstandard development files and `glslc`. Rendering, UI and simulation are project code; small utility libraries provide window/input, font/image/mesh decoding, serialization and compression.
+Requires a C++20 compiler, CMake 3.24+, Ninja, Vulkan headers/loader, GLFW 3.3+, Zstandard and zlib development files, and `glslc`. Rendering, UI and simulation are project code; small utility libraries provide window/input, font/image/mesh decoding, serialization and compression.
 
 ```bash
 bash run.sh --demo --floors 20 --population 600
@@ -43,6 +43,19 @@ The software option uses lavapipe and selects X11 when available on this Linux i
 - Cheat permits inspection/possession, autonomous/manual control and bounded overrides for cash, health, needs, happiness, hygiene, strength and aggression. Cash changes go through the ledger. This is not yet an editor for every world rule.
 - Menu → Settings → Save / Load opens eight **named save slots**, with mode, game time, population and backup-only previews. Existing slots require a second confirmation before replacement. Previews are advisory; missing or stale metadata never prevents loading the world. A previous `.bak` is retained and used if a slot is corrupt; the browser also offers explicit backup loading. Saving after recovery repairs the primary without destroying the good backup. Game over opens the same browser or returns to the main menu. Default location is `userdata/`; `--saves /path` overrides it. Do not overwrite your only save with an experimental build.
 
+## Import a browser world
+
+Open **Load a world → Import browser save**, enter the exported file’s full path, choose a mode and review the conversion report. Then save to a separate named slot. The original export is protected from overwrite during conversion. Existing paid services continue without a second charge; native geometry, staffing, schedules and later transactions use the native simulation.
+
+Versions 1/2, gzip and plain JSON are accepted within bounded limits. Identities, wallets, property, possessions, queues and remaining service progress carry over. Browser-only family/pregnancy/history/experimental state is archived inside the save; those systems are **not yet continued natively**. See [conversion policy](docs/importing.md) for precise behavior and limitations. The prototype remains untouched.
+
+```bash
+bash run.sh --headless --import-browser /path/to/browser-export.mdsave --seconds 0 \
+  --save /path/to/separate-native-world.mdsave --save-name 'Converted world'
+```
+
+Fans, tableware and rice cookers can be ordered through DORMNET with actual courier delivery. **My life** exposes their timed use at the resident’s bed. Recipes reserve real food, consume it only on completion, create waste and wear equipment. Movement, theft, combat and death can interrupt them; active tools/ingredients cannot also be sold or consumed. Activity progress persists through native saves.
+
 ## Current systems and limits
 
 Daily schedules include day/night shifts, commuting, sleep on assigned beds, meals, hygiene and preferences. Kitchens have relief staff. Unstaffed services pause. NPCs choose local needs and work tasks, communicate with nearby residents, and may commit theft or queue violence. Incoming residents bring capital; departing residents take money out. Happiness and deprivation influence migration.
@@ -53,6 +66,6 @@ Distant floor structures use cached GPU instances (32/96/192 floor range, softwa
 
 Vulkan shades local fire lights and bounded smoke volumes, alongside animated flame/nozzle geometry. Fire and smoke are localized approximations; general fire spread, structural collapse and production effects/audio remain unfinished.
 
-Vulkan renders imported CC0 furniture and vehicles, PBR material maps, mipmaps, hardware multisample antialiasing, ceiling lighting, fog and a filtered directional shadow map. Nearby residents use imported CC0 male/female bodies with weighted skeletal posing, activity blends, textured faces and saved clothing colors. Distant residents and much of the structure remain procedural. Animation clips/retargeting, separate garment meshes, broader geometry streaming, production art, broader vehicle physics, arbitrary structural editing, company shareholding/succession, advanced investment AI and browser-save migration remain unfinished. The GPU pressure computation has been checked against CPU results; the authoritative simulation currently runs on the CPU.
+Vulkan renders imported CC0 furniture and vehicles, PBR material maps, mipmaps, hardware multisample antialiasing, ceiling lighting, fog and a filtered directional shadow map. Nearby residents use imported CC0 male/female bodies with weighted skeletal posing, activity blends, textured faces and saved clothing colors. Distant residents and much of the structure remain procedural. Animation clips/retargeting, separate garment meshes, broader geometry streaming, production art, broader vehicle physics, arbitrary structural editing, company shareholding/succession, advanced investment AI and full browser feature parity remain unfinished. The GPU pressure computation has been checked against CPU results; the authoritative simulation currently runs on the CPU.
 
 See [implementation status](docs/status.md), [art and licences](docs/assets.md), [customization](docs/customization.md), and [third-party utilities](third_party/manifest.json).

@@ -59,12 +59,15 @@ bool World::stealItem(Id thief, Id victim, Id item, bool robbery) {
       std::find(v.items.begin(), v.items.end(), item) == v.items.end())
     throw std::runtime_error(
         "The item must be within reach; worn, reserved or delivery items cannot be snatched");
+  stopPersonalUse(thief);
   bool noticed = robbery || v.activity != Activity::Sleeping;
   if (noticed)
     report(CrimeKind::Theft, thief, victim, robbery);
   bool success =
       robbery ? v.surrendered || a.strength > v.strength * 1.6f : random() < (noticed ? .6f : .9f);
   if (success) {
+    if (itemInUse(item))
+      stopPersonalUse(victim);
     if (i.stolenFrom == none)
       i.stolenFrom = i.owner;
     i.owner = a.account;
@@ -78,6 +81,8 @@ bool World::stealItem(Id thief, Id victim, Id item, bool robbery) {
   if (noticed) {
     v.happiness = std::max(0.f, v.happiness - .2f);
     if (!v.surrendered && (robbery || v.aggression > .55f)) {
+      stopPersonalUse(thief);
+      stopPersonalUse(victim);
       clockOut(thief);
       clockOut(victim);
       leaveQueue(thief);

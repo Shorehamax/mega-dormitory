@@ -76,8 +76,8 @@ void World::listItem(Id seller, Id id, Money price) {
   auto &r = residents.at(seller);
   auto &i = items.at(id);
   if (!r.alive || !r.present || i.owner != r.account || i.carrier != seller || i.consumed ||
-      i.reservedAt != none || i.stolenFrom != none || r.outfit == id || price < 0 ||
-      price > 100000000 || i.kind == ItemKind::Waste || i.kind == ItemKind::Materials)
+      i.reservedAt != none || itemInUse(id) || i.stolenFrom != none || r.outfit == id ||
+      price < 0 || price > 100000000 || i.kind == ItemKind::Waste || i.kind == ItemKind::Materials)
     throw std::runtime_error("Only an owned, unreserved, unworn item may be offered for sale");
   i.askingPrice = price;
   i.seller = price ? seller : none;
@@ -87,7 +87,7 @@ void World::buyItem(Id buyer, Id id) {
   auto &r = residents.at(buyer);
   auto &i = items.at(id);
   if (!r.alive || !r.present || i.askingPrice <= 0 || i.seller == none || i.seller == buyer ||
-      i.consumed || i.reservedAt != none || i.stolenFrom != none)
+      i.consumed || i.reservedAt != none || itemInUse(id) || i.stolenFrom != none)
     throw std::runtime_error("This item is not available for purchase");
   auto &seller = residents.at(i.seller);
   if (!seller.alive || !seller.present || i.owner != seller.account || i.carrier != seller.id ||

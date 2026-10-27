@@ -423,3 +423,46 @@ save.confirm_overwrite|Replace this slot…|Remplacer cet emplacement…|覆盖�
 save.backup_help|A damaged primary save automatically falls back to its backup. You can also load the backup explicitly.|Une sauvegarde endommagée utilise automatiquement sa copie de secours. Vous pouvez aussi charger directement cette copie.|主存档损坏时会自动恢复备份，也可以主动读取上一次备份。
 save.load_backup|Load previous backup|Charger la copie de secours|读取上一次备份
 save.error.name|Use a world name of at most 160 UTF-8 bytes, without line breaks.|Le nom doit contenir au plus 160 octets UTF-8, sans saut de ligne.|世界名称最多为 160 个 UTF-8 字节，不能包含换行。
+import.title|Import browser save|Importer une sauvegarde Web|导入浏览器存档
+import.summary|Conversion report|Rapport de conversion|存档转换报告
+import.desc|Open an exported browser-world file (.gz or gzip .mdsave). The original file stays intact. Native limits: 2–500,000 residents, 1–2,000 floors.|Ouvrez un export du monde Web (.gz ou .mdsave gzip). Le fichier original est conservé. Limites natives : 2 à 500 000 habitants, 1 à 2 000 étages.|打开浏览器版导出的世界文件（.gz 或 gzip 压缩的 .mdsave）。原文件会保留。支持 2–500,000 位居民及 1–2,000 层。
+import.path|Export file — full path|Fichier exporté — chemin complet|导出文件的完整路径
+import.warning|Conversion replaces this session. Save any current progress first. Nothing is written to a save slot until you choose Save.|La conversion remplace cette session. Sauvegardez votre progression d’abord. Aucun emplacement n’est écrit avant votre choix de sauvegarder.|转换会替换当前游戏，请先保存进度。只有主动选择保存后，才会写入原生存档槽。
+import.changed|The building is rebuilt in the larger native layout. Identities, wallets, property, items and queue order carry over. Travel restarts; prepaid services resume without a second charge. Canceling an imported prepaid service does not refund its old payment. Jobs, staffing and later services follow native rules. New civic buildings start without cash or supplies.|Le bâtiment adopte le plan natif agrandi. Identités, argent, biens, objets et ordre des files sont conservés. Les trajets redémarrent ; les services prépayés reprennent sans double paiement. Leur annulation ne rembourse pas l’ancien paiement. Le travail et les services suivants suivent les règles natives. Les nouveaux bâtiments civiques n’ont ni argent ni stock.|建筑会按更大的原生布局重建，保留身份、钱包、产权、物品与排队顺序。行程重新规划，已付费服务继续且不重复收费；取消这类导入服务不会退还原支付。之后的工作、员工与服务采用原生规则。新增公共建筑没有初始资金或库存。
+import.archived|Family, pregnancy, birth, old history and experimental parameters are archived inside the native save. Those browser-only systems are not replayed. Historical deaths do not create new corpses. Keep the original export for the complete browser state.|Familles, grossesses, naissances, historique et anciens paramètres sont archivés dans la sauvegarde native. Ces systèmes Web ne sont pas rejoués. Les décès historiques ne créent pas de nouveaux corps. Gardez l’export original pour l’état Web complet.|家庭、妊娠、生育、旧历史和实验参数会归档到原生存档中，浏览器版专有系统暂不会继续运行。历史死者不会生成新尸体。请保留原始导出文件，以保存完整的浏览器状态。
+import.ready|The native world is ready. Review what was converted, then save it in a separate slot or continue playing.|Le monde natif est prêt. Vérifiez la conversion, puis sauvegardez dans un autre emplacement ou reprenez la partie.|原生世界已准备好。查看转换结果后，可保存到单独的槽位或继续游戏。
+import.convert|Convert and open world|Convertir et ouvrir le monde|转换并打开世界
+import.busy|Converting world…|Conversion du monde…|正在转换世界…
+import.residents|Resident records|Dossiers des habitants|居民记录
+import.homes|Available housing units|Logements disponibles|有效居住单元
+import.items|Personal item records|Objets personnels|个人物品记录
+import.services|Prepaid services resumed|Services prépayés repris|继续的已付费服务
+import.restarted|Activities transferred to native rules|Activités adaptées aux règles natives|转为原生规则的活动
+import.funds|Opening internal funds|Fonds internes à la conversion|转换后的内部资金
+import.outsideFunds|Departed residents’ outside money|Argent des habitants déjà partis|已搬离居民的外部资金
+import.infrastructure|Added civic buildings (unfunded)|Bâtiments civiques ajoutés (sans fonds)|新增公共建筑（待筹资）
+import.completed|Browser world converted to the native simulation.|Monde Web converti à la simulation native.|浏览器世界已转换为原生模拟。
+import.error.file|Cannot read this export, or it exceeds the size limit (100 MiB gzip / 512 MiB JSON).|Export illisible ou trop volumineux (100 Mio gzip / 512 Mio JSON).|无法读取导出文件，或文件超过大小限制（gzip 100 MiB，JSON 512 MiB）。
+import.error.gzip|The compressed export is damaged or incomplete.|L’export compressé est endommagé ou incomplet.|压缩导出文件损坏或不完整。
+import.error.format|This is not a supported browser-world export.|Ce fichier n’est pas un export de monde Web compatible.|这不是受支持的浏览器版世界导出文件。
+import.error.structure|Unsupported or invalid browser data. Check the version, world limits and resident references.|Données Web invalides ou incompatibles. Vérifiez la version, les limites du monde et les références des habitants.|浏览器数据无效或不受支持，请检查版本、世界规模和居民引用。
+import.error.facility|The export contains an unknown facility type.|L’export contient un type d’établissement inconnu.|导出文件包含未知的设施类型。
+import.error.housing|The export has conflicting tenants or invalid housing references.|L’export contient des locataires en conflit ou des références de logement invalides.|导出文件有冲突的租户或无效的住房引用。
+import.error.queue|The export contains invalid or duplicate queue reservations.|L’export contient des réservations invalides ou en double.|导出文件包含无效或重复的排队预约。
+item.fan|Personal fan|Ventilateur personnel|个人风扇
+item.tableware|Tableware|Vaisselle|餐具
+item.ricecooker|Rice cooker|Cuiseur à riz|电饭煲
+item.desc.fan|Rest on your own bed for 20 game minutes. Uses time and equipment condition.|Reposez-vous sur votre lit pendant 20 minutes de jeu. Le matériel s’use.|在自己的床位休息 20 游戏分钟，消耗时间并磨损设备。
+item.desc.tableware|Take 10 game minutes to eat an owned food pack at home, with a small comfort benefit.|Mangez une ration chez vous en 10 minutes de jeu, avec un petit gain de confort.|在自己的床位用餐 10 游戏分钟，消耗一份食物并略微提高舒适度。
+item.desc.ricecooker|Prepare an owned food pack at your bed for 15 game minutes. Better satiety, real wear and waste.|Préparez une ration chez vous en 15 minutes de jeu. Meilleure satiété, usure et déchets réels.|在自己的床位花 15 游戏分钟加工一份食物，提高饱腹感并产生真实磨损与垃圾。
+personal.use|Use|Utiliser|使用
+personal.stop|Stop activity|Arrêter l’activité|停止活动
+personal.minutes|min|min|分钟
+personal.started|Started using a personal item.|Utilisation d’un objet personnel.|开始使用个人物品。
+personal.stopped|Personal activity interrupted.|Activité personnelle interrompue.|个人活动已中断。
+personal.finished|Personal activity completed.|Activité personnelle terminée.|个人活动已完成。
+personal.error.busy|Finish your current activity and use an owned, carried item in working condition.|Terminez l’activité actuelle et utilisez un objet fonctionnel que vous possédez et portez.|请先完成当前活动，并使用自己拥有、随身携带且未损坏的物品。
+personal.error.kind|This item has another use.|Cet objet a un autre usage.|此物品需要通过其他方式使用。
+personal.error.home|Reach your own bed first. Use Sleep / return home, then choose this item.|Rejoignez votre lit d’abord. Utilisez Dormir / rentrer, puis choisissez cet objet.|请先回到自己的床位。可使用睡觉／回家操作，抵达后再选择物品。
+personal.error.food|Carry an available food pack to use tableware or the rice cooker.|Portez une ration disponible pour utiliser la vaisselle ou le cuiseur.|使用餐具或电饭煲需要随身携带一份可用的食物。
+import.error.destination|Choose a different native save destination; the browser export is protected.|Choisissez une autre destination native ; l’export Web est protégé.|请使用不同的原生存档路径，浏览器导出文件受到保护。

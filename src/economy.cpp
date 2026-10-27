@@ -8,7 +8,7 @@ bool World::hasDevice(Id id) const {
     return false;
   for (Id i : r.items)
     if (i >= 0 && std::size_t(i) < items.size() && !items[i].consumed &&
-        items[i].owner == r.account && items[i].carrier == id &&
+        items[i].owner == r.account && items[i].carrier == id && items[i].durability > 0 &&
         (items[i].kind == ItemKind::Phone || items[i].kind == ItemKind::Laptop))
       return true;
   return r.terminal != none && r.terminalUntil > time && facilities.at(r.terminal).open &&
@@ -51,7 +51,8 @@ Id World::order(Id buyer, Id shop, ItemKind product) {
     throw std::runtime_error("Shop out of stock");
   if (product != ItemKind::Food && product != ItemKind::Phone && product != ItemKind::Laptop &&
       product != ItemKind::Medicine && product != ItemKind::Tools && product != ItemKind::Handgun &&
-      product != ItemKind::Ammunition && product != ItemKind::Extinguisher)
+      product != ItemKind::Ammunition && product != ItemKind::Extinguisher &&
+      product != ItemKind::Fan && product != ItemKind::Tableware && product != ItemKind::RiceCooker)
     throw std::runtime_error("Product unavailable");
   Money price = product == ItemKind::Handgun      ? 120000
                 : product == ItemKind::Ammunition ? 1500
@@ -59,6 +60,9 @@ Id World::order(Id buyer, Id shop, ItemKind product) {
                 : product == ItemKind::Phone      ? 15000
                 : product == ItemKind::Laptop     ? 65000
                 : product == ItemKind::Medicine   ? 2000
+                : product == ItemKind::Fan        ? 5000
+                : product == ItemKind::Tableware  ? 1000
+                : product == ItemKind::RiceCooker ? 8000
                                                   : 4500;
   Money fee = 200 + Money(std::abs(position(buyer).y - f.pos.y)) * 2;
   if (accounts[residents[buyer].account].balance < price + fee)

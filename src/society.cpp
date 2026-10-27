@@ -73,6 +73,8 @@ void World::combatHit(Id attacker, Id victim, bool lethal, float reach) {
     if (former.activity == Activity::Fighting)
       former.activity = Activity::Idle;
   }
+  stopPersonalUse(attacker);
+  stopPersonalUse(victim);
   clockOut(attacker);
   clockOut(victim);
   a.pos = position(attacker);
@@ -107,6 +109,7 @@ void World::surrender(Id id) {
   auto &r = residents.at(id);
   if (!r.alive || !r.present)
     throw std::runtime_error("Resident unavailable");
+  stopPersonalUse(id);
   r.pos = position(id);
   r.route.clear();
   ++r.routeVersion;
@@ -246,6 +249,7 @@ void World::kill(Id id, Id killer, bool justified) {
       patient.activity = Activity::Idle;
     }
   stopExtinguish(id);
+  stopPersonalUse(id);
   r.alive = false;
   r.health = 0;
   r.activity = Activity::Dead;
@@ -329,6 +333,7 @@ void World::depart(Id id) {
   ++r.routeVersion;
   leaveQueue(id);
   clockOut(id);
+  stopPersonalUse(id);
   r.present = false;
   r.activity = Activity::Departed;
   pay(r.account, 0, accounts[r.account].balance, "emigration-outflow");
@@ -343,12 +348,18 @@ void World::depart(Id id) {
   log("resident.departed", id);
 }
 void World::validate() const {
-  config.validate();
+  config.validate(false);
   if (saveName.size() > 160 || saveName.find_first_of("\r\n\t") != std::string::npos ||
       saveName.find('\0') != std::string::npos)
     throw std::runtime_error("save.error.name");
+  if (browserArchive.size() > 64 * 1024 * 1024 || importReport.size() > 32)
+    throw std::runtime_error("Invalid browser migration archive");
+  for (const auto &[key, value] : importReport)
+    if (key.size() > 64 || value < 0 || value > 1000000000000000LL)
+      throw std::runtime_error("Invalid browser migration report");
   validateCompanies();
   validateEmergencies();
+  validatePersonalUses();
   if (!std::isfinite(time) || time < 0 || accounts.size() < 2 || residents.size() < 2 ||
       residents.size() > 500000 || names.size() != residents.size() ||
       residentHomes.size() != residents.size() || player < 0 ||
@@ -391,7 +402,8 @@ void World::validate() const {
   }
   for (std::size_t i = 0; i < residents.size(); ++i) {
     auto &r = residents[i];
-    if (r.id != Id(i) || !accountValid(r.account) || r.home < 0 || r.home >= config.floors ||
+    if (r.id != Id(i) || r.sex < -1 || r.sex > 1 || r.age < 0 || r.age > 150 ||
+        !accountValid(r.account) || r.home < 0 || r.home >= config.floors ||
         !std::isfinite(r.health) || !std::isfinite(r.pos.x) || !std::isfinite(r.pos.y) ||
         !std::isfinite(r.pos.z) || int(r.activity) < 0 ||
         int(r.activity) > int(Activity::Departed) || int(r.role) < 0 ||
@@ -546,8 +558,8 @@ void World::validate() const {
         (item.reservedAt != none && !facilityValid(item.reservedAt)) ||
         !std::isfinite(item.cleanliness) || item.cleanliness < 0 || item.cleanliness > 1 ||
         !std::isfinite(item.durability) || item.durability < 0 || item.durability > 1 ||
-        int(item.kind) < 0 || int(item.kind) > int(ItemKind::Extinguisher) ||
-        item.askingPrice < 0 || (item.seller != none && !residentValid(item.seller)))
+        int(item.kind) < 0 || int(item.kind) > int(ItemKind::RiceCooker) || item.askingPrice < 0 ||
+        (item.seller != none && !residentValid(item.seller)))
       throw std::runtime_error("Invalid item");
   }
   for (std::size_t i = 0; i < officeOrders.size(); ++i) {
@@ -736,7 +748,8 @@ void World::validate() const {
   for (auto &o : orders)
     if (!residentValid(o.buyer) || o.shop < 0 || std::size_t(o.shop) >= facilities.size() ||
         o.item < 0 || std::size_t(o.item) >= items.size() || !accountValid(o.escrow) ||
-        o.price < 0 || o.deliveryFee < 0)
+        o.price < 0 || o.deliveryFee < 0 || int(o.product) < 0 ||
+        int(o.product) > int(ItemKind::RiceCooker) || items[o.item].kind != o.product)
       throw std::runtime_error("Invalid order");
 }
 } // namespace mega

@@ -7,7 +7,7 @@ int runApplication(int, char **);
 }
 int main(int argc, char **argv) {
   try {
-    bool headless = false, autoplay = false;
+    bool headless = false, autoplay = false, modeGiven = false;
     for (int i = 1; i < argc; ++i)
       if (std::string(argv[i]) == "--headless")
         headless = true;
@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
       return mega::runApplication(argc, argv);
     mega::Config cfg;
     double seconds = 3600;
-    std::string save, load;
+    std::string save, load, browser, saveName;
     for (int i = 1; i < argc; ++i) {
       std::string a = argv[i];
       auto value = [&]() {
@@ -26,6 +26,7 @@ int main(int argc, char **argv) {
       if (a == "--autoplay")
         autoplay = true;
       else if (a == "--mode") {
+        modeGiven = true;
         auto m = value();
         if (m == "cheat")
           cfg.mode = mega::Mode::Cheat;
@@ -53,9 +54,20 @@ int main(int argc, char **argv) {
         save = value();
       else if (a == "--load")
         load = value();
+      else if (a == "--import-browser")
+        browser = value();
+      else if (a == "--save-name")
+        saveName = value();
     }
     auto start = std::chrono::steady_clock::now();
-    auto w = load.empty() ? mega::World::generate(cfg) : mega::World::load(load);
+    if (!browser.empty() && !load.empty())
+      throw std::runtime_error("Choose either --load or --import-browser");
+    auto w = !browser.empty()
+                 ? mega::World::importBrowser(browser, modeGiven ? cfg.mode : mega::Mode::Cheat)
+             : load.empty() ? mega::World::generate(cfg)
+                            : mega::World::load(load);
+    if (!saveName.empty())
+      w.saveName = saveName;
     auto created = std::chrono::steady_clock::now();
     if (autoplay)
       w.residents[w.player].automatic = true;

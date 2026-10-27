@@ -25,10 +25,10 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Appearance, primary, secondary, 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(HomeStyle, frame, linen, blanket, closet, curtain,
                                                 closetOpen)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
-    Resident, id, account, home, employer, jobSite, name, age, pos, route, routeVersion, activity,
-    role, task, target, queuedAt, carrying, opponent, escort, hunger, thirst, energy, health,
-    happiness, strength, aggression, needsAt, terminalUntil, nextHit, releaseAt, terminal, alive,
-    present, surrendered, items, hourlyWage, automatic, interests, hygiene, bladder, outfit,
+    Resident, id, account, home, employer, jobSite, name, age, sex, pos, route, routeVersion,
+    activity, role, task, target, queuedAt, carrying, opponent, escort, hunger, thirst, energy,
+    health, happiness, strength, aggression, needsAt, terminalUntil, nextHit, releaseAt, terminal,
+    alive, present, surrendered, items, hourlyWage, automatic, interests, hygiene, bladder, outfit,
     vehicle, routine, ladder, ladderExit, ladderWait, ladderTarget, ladderDirection, ambulance,
     medicalDuty, carriedBy, bodyCarrying, medicalProvider, medicalTier, medicalUntil, infectedAt,
     immuneUntil)
@@ -70,6 +70,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Fire, id, facility, worker, stat
                                                 heat, smoke, fuel, started, updated, budget, paid,
                                                 contained, out)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FireSpray, fire, item, workedAt)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PersonalUse, item, ingredient, remaining, workedAt, origin)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Company, id, owner, account, leader, name,
                                                 assignments, completed, revenue)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WorkspaceLease, id, company, facility, landlord,
@@ -111,6 +112,12 @@ static std::uint32_t frameTag(const char *p) {
          (std::uint32_t(static_cast<unsigned char>(p[3])) << 24);
 }
 void World::save(const std::filesystem::path &path) const {
+  if (!browserSourcePath.empty()) {
+    std::error_code error;
+    if (std::filesystem::absolute(path).lexically_normal() == browserSourcePath ||
+        std::filesystem::equivalent(path, browserSourcePath, error))
+      throw std::runtime_error("import.error.destination");
+  }
   validate();
   json j = {{"schema", 1},
             {"config", config},
@@ -126,6 +133,8 @@ void World::save(const std::filesystem::path &path) const {
             {"gameOver", gameOver},
             {"endReason", endReason},
             {"saveName", saveName},
+            {"browserArchive", browserArchive},
+            {"importReport", importReport},
             {"accounts", accounts},
             {"ledger", ledger},
             {"residents", residents},
@@ -135,6 +144,7 @@ void World::save(const std::filesystem::path &path) const {
             {"residentHomes", residentHomes},
             {"facilities", facilities},
             {"items", items},
+            {"personalUses", personalUses},
             {"vehicles", vehicles},
             {"ambulances", ambulances},
             {"remains", remains},
@@ -345,6 +355,9 @@ static World readSave(const std::filesystem::path &path) {
   READ(gameOver);
   READ(endReason);
   w.saveName = j.value("saveName", std::string{});
+  w.browserArchive = j.value("browserArchive", std::string{});
+  if (j.contains("importReport"))
+    j.at("importReport").get_to(w.importReport);
   READ(accounts);
   READ(ledger);
   READ(residents);
@@ -384,6 +397,8 @@ static World readSave(const std::filesystem::path &path) {
     if (!f.out && !w.activeFires.emplace(f.facility, f.id).second)
       throw std::runtime_error("Duplicate active fire");
   READ(items);
+  if (j.contains("personalUses"))
+    j.at("personalUses").get_to(w.personalUses);
   READ(vehicles);
   if (j.contains("ambulances"))
     j.at("ambulances").get_to(w.ambulances);

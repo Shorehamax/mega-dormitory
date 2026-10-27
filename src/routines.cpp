@@ -129,7 +129,8 @@ void World::refreshServices() {
 void World::setupRoutines() {
   std::map<int, std::vector<Id>> local;
   for (auto &r : residents) {
-    local[r.home].push_back(r.id);
+    if (r.alive && r.present && r.age >= 18)
+      local[r.home].push_back(r.id);
     r.routine.sleepStart = 22 + (r.id % 5) * .5;
     if (r.routine.sleepStart >= 24)
       r.routine.sleepStart -= 24;
@@ -230,6 +231,8 @@ void World::setupRoutines() {
     }
   }
   for (auto &r : residents) {
+    if (!r.alive || !r.present)
+      continue;
     if (r.jobSite != none &&
         std::find(facilities[r.jobSite].employees.begin(), facilities[r.jobSite].employees.end(),
                   r.id) == facilities[r.jobSite].employees.end())
@@ -241,7 +244,7 @@ void World::setupRoutines() {
       auto index = std::find(staff.begin(), staff.end(), r.id) - staff.begin();
       r.pos = facilities[r.jobSite].pos + Vec3{(float(index % 5) - 2) * .65f, 0, -1.6f};
       clockIn(r.id);
-    } else if (sleepTime(r.id)) {
+    } else if (sleepTime(r.id) && residentHomes[r.id] != none) {
       r.pos = homePosition(residentHomes[r.id]);
       r.activity = Activity::Sleeping;
     } else
