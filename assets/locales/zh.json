@@ -719,5 +719,17 @@
   "physics.falling": "腾空中",
   "physics.shoved": "一名居民推搡了另一名居民。",
   "physics.body_lost": "一具遗体坠落至建筑可达范围之外。",
-  "help.combat": "冲突 · F 攻击，G 推搡，Q 投降。推搡消耗体力并受到力量影响，坠落可能致命。袭击、过度使用武力和杀人都将受到法律追究。"
+  "help.combat": "冲突 · F 攻击，G 推搡，Q 投降。推搡消耗体力并受到力量影响，坠落可能致命。袭击、过度使用武力和杀人都将受到法律追究。",
+  "facility.washbasin": "公共洗涤池",
+  "wash.error.dirty": "请先到公共洗涤池清洗餐具或电饭锅部件，再使用它们。",
+  "wash.error.unavailable": "附近没有价格可负担、开放且有物资的公共洗涤池。",
+  "wash.tools": "待洗餐具与锅具部件：",
+  "wash.cleanliness": "清洁度",
+  "wash.find": "步行前往公共洗涤池",
+  "wash.info": "自助服务 · 每次最多清洗4件自有餐具或锅具部件，消耗一份水与洗涤剂。完成后才清洁并收费；取消将归还未洗物品。",
+  "wash.finished": "一名居民在公共洗涤池完成了清洗。",
+  "wash.paused": "清洗已暂停 · 服务不可用",
+  "wash.remaining": "正在清洗 · 剩余",
+  "wash.waiting": "洗涤池排队 · 位置",
+  "wash.cancel": "取消 · 取回未洗物品"
 }

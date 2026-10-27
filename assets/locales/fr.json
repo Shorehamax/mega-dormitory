@@ -719,5 +719,17 @@
   "physics.falling": "En l’air",
   "physics.shoved": "Un résident en a bousculé un autre.",
   "physics.body_lost": "Un corps est tombé hors de la structure accessible.",
-  "help.combat": "CONFLIT · F frappe, G bouscule, Q se rend. Bousculer consomme de l’endurance et dépend de la force ; une chute peut tuer. Agression, force excessive et meurtre ont des conséquences judiciaires."
+  "help.combat": "CONFLIT · F frappe, G bouscule, Q se rend. Bousculer consomme de l’endurance et dépend de la force ; une chute peut tuer. Agression, force excessive et meurtre ont des conséquences judiciaires.",
+  "facility.washbasin": "Éviers collectifs",
+  "wash.error.dirty": "Lavez cette vaisselle ou ces pièces de cuiseur dans un évier collectif avant utilisation.",
+  "wash.error.unavailable": "Aucun évier ouvert, abordable et approvisionné à proximité.",
+  "wash.tools": "Vaisselle et pièces de cuiseur à laver :",
+  "wash.cleanliness": "Propreté",
+  "wash.find": "Aller à un évier collectif",
+  "wash.info": "Libre-service · jusqu’à 4 articles possédés par visite. Un kit eau et savon est consommé ; lavage et paiement à la fin. Annuler rend les articles non lavés.",
+  "wash.finished": "Un résident a terminé son lavage à un évier collectif.",
+  "wash.paused": "Lavage en pause · service indisponible",
+  "wash.remaining": "Lavage · temps restant",
+  "wash.waiting": "File des éviers · place",
+  "wash.cancel": "Annuler · reprendre les articles non lavés"
 }

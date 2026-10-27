@@ -464,7 +464,7 @@ void World::validate() const {
     auto &f = facilities[i];
     if (f.id != Id(i) || !accountValid(f.owner) || f.floor < 0 || f.floor >= config.floors ||
         f.stations < 1 || f.stock < 0 || f.price < 0 || !std::isfinite(f.duration) ||
-        f.duration <= 0 || int(f.kind) < 0 || int(f.kind) > int(FacilityKind::FireStation) ||
+        f.duration <= 0 || int(f.kind) < 0 || int(f.kind) > int(FacilityKind::Washbasin) ||
         f.serving.size() > std::size_t(f.stations))
       throw std::runtime_error("Invalid facility");
     if (!std::isfinite(f.condition) || f.condition < 0 || f.condition > 1 || f.wageOffer < 0 ||

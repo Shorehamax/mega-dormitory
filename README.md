@@ -43,6 +43,10 @@ The software option uses lavapipe and selects X11 when available on this Linux i
 - Cheat permits inspection/possession, autonomous/manual control and bounded overrides for cash, health, needs, happiness, hygiene, strength and aggression. Cash changes go through the ledger. This is not yet an editor for every world rule.
 - Menu → Settings → Save / Load opens eight **named save slots**, with mode, game time, population and backup-only previews. Existing slots require a second confirmation before replacement. Previews are advisory; missing or stale metadata never prevents loading the world. A previous `.bak` is retained and used if a slot is corrupt; the browser also offers explicit backup loading. Saving after recovery repairs the primary without destroying the good backup. Game over opens the same browser or returns to the main menu. Default location is `userdata/`; `--saves /path` overrides it. Do not overwrite your only save with an experimental build.
 
+## Washbasins and household hygiene
+
+Use **My life → Walk to a washbasin**, visit one through Services, or press E nearby. A paid visit washes up to four owned tableware/cooker items; My life shows progress and cancellation. Very dirty equipment needs washing before reuse. New worlds have lobby/scattered basins; existing worlds can build them through Management. See [washing rules](docs/washing.md).
+
 ## Import a browser world
 
 Open **Load a world → Import browser save**, enter the exported file’s full path, choose a mode and review the conversion report. Then save to a separate named slot. The original export is protected from overwrite during conversion. Existing paid services continue without a second charge; native geometry, staffing, schedules and later transactions use the native simulation.

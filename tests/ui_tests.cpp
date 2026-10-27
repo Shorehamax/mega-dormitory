@@ -10,6 +10,21 @@ static void require(bool ok, const char *message) {
 }
 int main() {
   try {
+    // A viewed resident stays at the centre of the uncovered screen, even at close zoom.
+    for (float width : {1000.f, 1200.f, 1920.f})
+      for (float distance : {2.5f, 44.f, 200.f})
+        for (float slide : {0.f, .5f, 1.f}) {
+          Vec3 target{3, 6, -2};
+          auto eye = observerEye(target, .7f, .2f, distance);
+          auto matrix = mul(observerProjection(width, 720, 460 * slide), lookAt(eye, target));
+          float clipX =
+              matrix[0] * target.x + matrix[4] * target.y + matrix[8] * target.z + matrix[12];
+          float clipW =
+              matrix[3] * target.x + matrix[7] * target.y + matrix[11] * target.z + matrix[15];
+          float pixelX = (clipX / clipW + 1) * width * .5f;
+          require(std::abs(pixelX - (width - 460 * slide) * .5f) < .005f,
+                  "Opening the sidebar turned the camera away from its target");
+        }
     auto target = Vec3{2, 4, 6};
     require(length(observerEye(target, 0, 0, 5) - Vec3{2, 4, 11}) < .0001f,
             "Eye-level observer retained the old hidden height bias");

@@ -58,7 +58,8 @@ enum class FacilityKind {
   Parking,
   Reception,
   Morgue,
-  FireStation
+  FireStation,
+  Washbasin
 };
 enum class Role {
   Unemployed,
@@ -540,6 +541,14 @@ public:
   void stopPersonalUse(Id resident);
   void personalUseTick();
   void validatePersonalUses() const;
+  std::vector<Id> washableItems(Id resident) const;
+  void seekWashbasin(Id resident);
+
+private:
+  void reserveWashing(Id resident, Id facility);
+  void finishWashing(Id resident, Id facility);
+
+public:
   std::vector<Vehicle> vehicles;
   std::vector<Ambulance> ambulances;
   std::vector<Remains> remains;

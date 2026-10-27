@@ -719,5 +719,17 @@
   "physics.falling": "Airborne",
   "physics.shoved": "A resident shoved another resident.",
   "physics.body_lost": "A body fell beyond the reachable structure.",
-  "help.combat": "CONFLICT · F strikes, G shoves, Q surrenders. Shoves use strength and stamina and can cause fatal falls. Assault, excessive force and killing have legal consequences."
+  "help.combat": "CONFLICT · F strikes, G shoves, Q surrenders. Shoves use strength and stamina and can cause fatal falls. Assault, excessive force and killing have legal consequences.",
+  "facility.washbasin": "Communal washbasins",
+  "wash.error.dirty": "Wash these dishes or cooker parts at a communal basin before using them.",
+  "wash.error.unavailable": "No affordable, open washbasin with supplies is available nearby.",
+  "wash.tools": "Dishes & cooker parts to wash:",
+  "wash.cleanliness": "Clean",
+  "wash.find": "Walk to a washbasin",
+  "wash.info": "Self-service · up to 4 owned dishes/cooker parts per visit. One water-and-soap kit is used; payment and cleaning happen on completion. Cancellation returns your unwashed items.",
+  "wash.finished": "A resident finished washing at a communal basin.",
+  "wash.paused": "Washing paused · service unavailable",
+  "wash.remaining": "Washing · remaining",
+  "wash.waiting": "Washbasin queue · place",
+  "wash.cancel": "Cancel · return unwashed items"
 }

@@ -141,6 +141,8 @@ World World::generate(const Config &cfg) {
   }
   for (int f = 0; f < cfg.floors; f += 20) {
     addFacility(FacilityKind::Laundry, std::min(f + 3, cfg.floors - 1), 4);
+    if (cfg.layoutVersion > 1)
+      addFacility(FacilityKind::Washbasin, std::min(f + 3, cfg.floors - 1), 12);
     addFacility(FacilityKind::Shower, std::min(f + 6, cfg.floors - 1), 5);
     addFacility(FacilityKind::Leisure, std::min(f + 8, cfg.floors - 1), 6);
     if (f > 0)
@@ -156,10 +158,10 @@ World World::generate(const Config &cfg) {
   for (int f = 0; f < cfg.floors; f += 200)
     addFacility(FacilityKind::Pool, std::min(f + 99, cfg.floors - 1), 6);
   if (cfg.layoutVersion > 1) {
-    for (auto kind :
-         {FacilityKind::Reception, FacilityKind::Water, FacilityKind::Toilet, FacilityKind::Toilet,
-          FacilityKind::Shop, FacilityKind::Cafe, FacilityKind::Terminal, FacilityKind::Laundry,
-          FacilityKind::Shower, FacilityKind::Garbage, FacilityKind::Workshop})
+    for (auto kind : {FacilityKind::Reception, FacilityKind::Water, FacilityKind::Toilet,
+                      FacilityKind::Toilet, FacilityKind::Shop, FacilityKind::Cafe,
+                      FacilityKind::Terminal, FacilityKind::Laundry, FacilityKind::Shower,
+                      FacilityKind::Garbage, FacilityKind::Workshop, FacilityKind::Washbasin})
       addFacility(kind, 0, 0);
     for (auto &f : w.facilities)
       if (f.kind == FacilityKind::Reception) {
@@ -668,6 +670,17 @@ void World::decide(Id id) {
       return;
     }
   }
+  if (!workWindow && r.hunger < .85f && r.thirst < .65f && r.energy > .25f) {
+    auto tools = washableItems(id);
+    if (std::any_of(tools.begin(), tools.end(),
+                    [&](Id item) { return items[item].cleanliness < .4f; })) {
+      Id basin = serviceChoice(id, FacilityKind::Washbasin);
+      if (basin != none) {
+        travel(id, facilities[basin].pos, TaskKind::Service, basin);
+        return;
+      }
+    }
+  }
   if (r.role == Role::Warden && workWindow) {
     wardenRespond(id);
     if (r.task == TaskKind::Investigate || r.task == TaskKind::Escort ||
@@ -1010,6 +1023,8 @@ void World::dispatch(const Event &e) {
         exercise(r.id, f.duration, f.kind == FacilityKind::Gym ? 3.f : 2.f);
       if (f.kind == FacilityKind::Shower)
         r.hygiene = 1;
+      if (f.kind == FacilityKind::Washbasin)
+        finishWashing(r.id, f.id);
       if (f.kind == FacilityKind::Laundry)
         for (Id item : r.items)
           if (items[item].reservedAt == f.id) {
@@ -1243,7 +1258,7 @@ void World::leaveQueue(Id id) {
       items[item].reservedAt = none;
       items[item].carrier = r.alive && r.present ? id : none;
       items[item].pos = r.pos;
-      if (r.alive && r.outfit == none)
+      if (r.alive && r.outfit == none && items[item].kind == ItemKind::Clothes)
         r.outfit = item;
     }
   r.queuedAt = none;
@@ -1253,6 +1268,11 @@ void World::leaveQueue(Id id) {
 }
 Vec3 World::servicePosition(Id fid, int station) const {
   const auto &f = facilities.at(fid);
+  if (f.kind == FacilityKind::Washbasin) {
+    int columns = std::min(8, f.stations);
+    return f.pos + Vec3{(float(station % columns) - (columns - 1) * .5f) * .8f, 0,
+                        1.6f + float(station / columns) * 2.2f};
+  }
   return f.pos + Vec3{(float(station % 4) - 1.5f) * .72f, 0, 1.6f + float(station / 4) * .8f};
 }
 void World::serve(Id fId) {
@@ -1301,6 +1321,8 @@ void World::serve(Id fId) {
     f.queue.erase(f.queue.begin());
     --f.stock;
     r.activity = Activity::Using;
+    if (f.kind == FacilityKind::Washbasin)
+      reserveWashing(id, fId);
     if (f.kind == FacilityKind::Laundry && r.outfit != none) {
       items[r.outfit].reservedAt = fId;
       items[r.outfit].carrier = none;
@@ -1395,14 +1417,14 @@ std::string activityKey(Activity a) {
 }
 std::string facilityKey(FacilityKind f) {
   static const char *k[] = {
-      "facility.food",        "facility.water",     "facility.toilet",     "facility.shop",
-      "facility.office",      "facility.infirmary", "facility.jail",       "facility.terminal",
-      "facility.workshop",    "facility.garbage",   "facility.lift",       "facility.crematorium",
-      "facility.school",      "facility.laundry",   "facility.shower",     "facility.leisure",
-      "facility.pool",        "facility.arcade",    "facility.playground", "facility.cinema",
-      "facility.garden",      "facility.gym",       "facility.library",    "facility.cafe",
-      "facility.dealership",  "facility.parking",   "facility.reception",  "facility.morgue",
-      "facility.fire_station"};
+      "facility.food",         "facility.water",     "facility.toilet",     "facility.shop",
+      "facility.office",       "facility.infirmary", "facility.jail",       "facility.terminal",
+      "facility.workshop",     "facility.garbage",   "facility.lift",       "facility.crematorium",
+      "facility.school",       "facility.laundry",   "facility.shower",     "facility.leisure",
+      "facility.pool",         "facility.arcade",    "facility.playground", "facility.cinema",
+      "facility.garden",       "facility.gym",       "facility.library",    "facility.cafe",
+      "facility.dealership",   "facility.parking",   "facility.reception",  "facility.morgue",
+      "facility.fire_station", "facility.washbasin"};
   return k[int(f)];
 }
 } // namespace mega

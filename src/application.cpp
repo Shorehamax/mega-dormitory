@@ -1034,6 +1034,28 @@ public:
         y += 42;
         break;
       }
+    if (r.queuedAt != none && w.facilities[r.queuedAt].kind == FacilityKind::Washbasin) {
+      const auto &basin = w.facilities[r.queuedAt];
+      auto service = std::find_if(basin.serving.begin(), basin.serving.end(),
+                                  [&](const Service &s) { return s.resident == selected; });
+      std::string state;
+      if (service != basin.serving.end())
+        state =
+            service->until < 0
+                ? t("wash.paused")
+                : t("wash.remaining") + " " +
+                      std::to_string(int(std::ceil(std::max(0., service->until - w.time) / 60))) +
+                      " " + t("personal.minutes");
+      else {
+        auto place = std::find(basin.queue.begin(), basin.queue.end(), selected);
+        state = t("wash.waiting") + " " + std::to_string(place - basin.queue.begin() + 1);
+      }
+      y = ui.wrap(x, y, width, state, 14, hex(0xa5cbb9)) + 16;
+      if (ui.button("cancelWashing", {x, y, width, 34}, t("wash.cancel")))
+        act([&] { w.leaveQueue(selected); });
+      y += 44;
+      y = ui.wrap(x, y, width, t("wash.info"), 12, hex(0x8da5aa)) + 20;
+    }
     if (w.personalUses.contains(selected)) {
       const auto &use = w.personalUses.at(selected);
       ui.text(x, y,
@@ -1059,6 +1081,25 @@ public:
           y += 42;
         }
       }
+    }
+    auto dirtyTools = w.washableItems(selected);
+    if (!dirtyTools.empty()) {
+      ui.text(x, y, t("wash.tools") + " " + std::to_string(dirtyTools.size()), 13, hex(0xa5bfc4));
+      y += 26;
+      for (Id item : dirtyTools) {
+        y = ui.wrap(x, y, width,
+                    t(itemLabel(w.items[item].kind)) + " · " + t("wash.cleanliness") + " " +
+                        std::to_string(int(w.items[item].cleanliness * 100)) + "%",
+                    12, hex(w.items[item].cleanliness < .25f ? 0xd6a66d : 0xa5bfc4)) +
+            8;
+      }
+      if (ui.button("seekWashbasin", {x, y, width, 36}, t("wash.find")))
+        act([&] {
+          w.seekWashbasin(selected);
+          paused = false;
+        });
+      y += 44;
+      y = ui.wrap(x, y, width, t("wash.info"), 12, hex(0x8da5aa)) + 20;
     }
     Id nearby = none;
     for (const auto &other : w.residents)
@@ -1283,6 +1324,8 @@ public:
                                    : t("facility.self_service")),
                 11, hex(w.operational(f.id) ? 0x9ec4a2 : 0xd6a66d));
         y += 147;
+        if (f.kind == FacilityKind::Washbasin)
+          y = ui.wrap(x + 8, y, width - 16, t("wash.info"), 12, hex(0x9eb6bc)) + 18;
         if (f.kind == FacilityKind::Elevator) {
           Id cabin = none;
           for (auto &l : w.lifts)
@@ -1797,11 +1840,10 @@ public:
       ui.text(x, y, t("build.new_facility"), 18, hex(0xa5cbb9));
       y += 32;
       if (ui.button("buildKindPrev", {x, y, 32, 34}, "←"))
-        buildKind =
-            (buildKind + int(FacilityKind::FireStation)) % (int(FacilityKind::FireStation) + 1);
+        buildKind = (buildKind + int(FacilityKind::Washbasin)) % (int(FacilityKind::Washbasin) + 1);
       ui.text(x + 42, y + 9, t(facilityKey(FacilityKind(buildKind))), 13, hex(0xd3dfda));
       if (ui.button("buildKindNext", {x + width - 32, y, 32, 34}, "→"))
-        buildKind = (buildKind + 1) % (int(FacilityKind::FireStation) + 1);
+        buildKind = (buildKind + 1) % (int(FacilityKind::Washbasin) + 1);
       y += 48;
       ui.text(x, y, "X / Z (m)", 13, hex(0x9fb4b7));
       y += 22;
@@ -3420,6 +3462,33 @@ public:
                 cylinder(v, p + Vec3{(drop % 3 - 1) * .1f, y, 0},
                          p + Vec3{(drop % 3 - 1) * .1f, y - .15f, 0}, .007f, hex(0x9cc7cf), 4);
               }
+          } else if (f.kind == FacilityKind::Washbasin) {
+            Vec3 basin = p + Vec3{0, 0, -.65f};
+            box(v, basin + Vec3{0, .42f, 0}, {.64f, .84f, .5f}, dark);
+            box(v, basin + Vec3{0, .85f, 0}, {.65f, .08f, .53f}, ceramic);
+            box(v, basin + Vec3{0, .9f, 0}, {.42f, .025f, .32f}, hex(0x577b88));
+            cylinder(v, basin + Vec3{0, .9f, -.22f}, basin + Vec3{0, 1.15f, -.22f}, .022f, rail, 6);
+            cylinder(v, basin + Vec3{0, 1.15f, -.22f}, basin + Vec3{0, 1.15f, -.02f}, .022f, rail,
+                     6);
+            box(v, basin + Vec3{.24f, .97f, .06f}, {.08f, .14f, .1f}, hex(0xb4ccab));
+            bool washing =
+                std::any_of(f.serving.begin(), f.serving.end(), [&](const Service &service) {
+                  return service.station == station && service.until >= 0 && w.operational(f.id) &&
+                         length(w.position(service.resident) - p) < .3f;
+                });
+            if (washing) {
+              cylinder(v, basin + Vec3{.1f, .94f, .05f}, basin + Vec3{.1f, .97f, .05f}, .12f,
+                       ceramic, 12);
+              box(v, basin + Vec3{std::sin(realTime * 3) * .08f, .97f, -.05f}, {.1f, .04f, .07f},
+                  hex(0xb7c485));
+              cylinder(v, basin + Vec3{0, 1.13f, -.02f}, basin + Vec3{0, .91f, -.02f}, .009f,
+                       hex(0x8ac3ce), 5);
+              for (int bubble = 0; bubble < 4; ++bubble)
+                sphere(v,
+                       basin + Vec3{std::sin(realTime * 2 + bubble) * .13f, .93f,
+                                    std::cos(realTime * 1.7f + bubble) * .09f},
+                       {.025f, .015f, .025f}, hex(0xd8e4df), 3, 5);
+            }
           } else if (f.kind == FacilityKind::Laundry) {
             Vec3 machine = p + Vec3{0, 0, -.65f};
             box(v, machine + Vec3{0, .45f, 0}, {.65f, .9f, .55f}, ceramic);
@@ -3806,6 +3875,9 @@ public:
         if (next < r.route.size())
           direction = r.route[next].p - p;
       }
+      if (r.activity == Activity::Using && r.queuedAt != none &&
+          w.facilities[r.queuedAt].kind == FacilityKind::Washbasin)
+        direction = {0, 0, -1};
       if (climbing)
         direction = {0, 0, p.z > 0 ? 1.f : -1.f};
       float targetFacing = std::atan2(direction.x, -direction.z);
@@ -4052,7 +4124,6 @@ public:
     }
   }
   Mat4 camera() {
-    float aspect = float(ui.width) / ui.height;
     Vec3 target{cameraFocus.x, currentFloor * 3.f + 2 + observerHeight, cameraFocus.z}, eye;
     if (firstPerson && world) {
       const auto &r = world->residents[selected];
@@ -4094,11 +4165,11 @@ public:
                           -std::cos(playerYaw) * std::cos(playerPitch)};
     } else {
       eye = observerEye(target, orbit, pitch, distance);
-      if (drawerOpen)
-        target.x += 5;
     }
     cameraEye = eye;
-    return mul(perspective(1.02f, aspect, .08f, 5000), lookAt(eye, target));
+    return mul(
+        observerProjection(float(ui.width), float(ui.height), firstPerson ? 0 : 460 * drawerSlide),
+        lookAt(eye, target));
   }
   void endingPanel() {
     float width = std::min(600.f, float(ui.width) - 48), height = 310;
@@ -4418,7 +4489,48 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "personal") {
+      if (panel == "washbasin" || panel == "washing") {
+        auto &w = *app.world;
+        w.config.mode = Mode::Cheat;
+        auto &r = w.residents[w.player];
+        w.leaveQueue(w.player);
+        w.clockOut(w.player);
+        r.route.clear();
+        ++r.routeVersion;
+        r.automatic = false;
+        r.activity = Activity::Idle;
+        Id fid = w.nearestAt({0, 0, 0}, FacilityKind::Washbasin);
+        auto &basin = w.facilities[fid];
+        r.pos = w.accessible(basin.pos + Vec3{0, 0, 2.4f});
+        w.crowd.clear();
+        for (auto kind : {ItemKind::Tableware, ItemKind::RiceCooker}) {
+          Item item;
+          item.id = Id(w.items.size());
+          item.kind = kind;
+          item.owner = r.account;
+          item.carrier = r.id;
+          item.cleanliness = .15f;
+          item.pos = r.pos;
+          r.items.push_back(item.id);
+          w.items.push_back(item);
+        }
+        w.joinQueue(r.id, fid);
+        if (basin.serving.empty())
+          throw std::runtime_error("Washbasin demo failed to reserve a station");
+        w.advance(std::max(0., basin.serving.front().until - w.time - basin.duration) + 1, 100000);
+        app.setFirstPerson(false);
+        app.currentFloor = basin.floor;
+        app.cameraFocus = w.position(r.id);
+        app.observerHeight = -.9f;
+        app.distance = 4.5f;
+        app.pitch = .15f;
+        app.orbit = .7f;
+        app.drawerOpen = panel == "washing";
+        app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
+        app.tab = 0;
+        if (panel == "washing" && demoScroll == 0)
+          demoScroll = 570;
+      } else if (panel == "personal") {
         auto &w = *app.world;
         w.leaveQueue(w.player);
         auto &r = w.residents[w.player];

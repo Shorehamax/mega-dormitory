@@ -23,6 +23,8 @@ void World::usePersonalItem(Id id, Id item) {
   if (object.kind != ItemKind::Fan && object.kind != ItemKind::Tableware &&
       object.kind != ItemKind::RiceCooker)
     throw std::runtime_error("personal.error.kind");
+  if (object.kind != ItemKind::Fan && object.cleanliness < .25f)
+    throw std::runtime_error("wash.error.dirty");
   PersonalUse use;
   use.item = item;
   use.origin = position(id);

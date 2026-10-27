@@ -108,7 +108,7 @@ Id World::commissionFacility(Id owner, FacilityKind kind, int floor, Vec3 pos, i
                              Id company) {
   auto &r = residents.at(owner);
   if (!r.alive || !r.present || floor < 0 || floor >= config.floors || stations < 1 ||
-      stations > 16 || kind < FacilityKind::Food || kind > FacilityKind::FireStation)
+      stations > 16 || kind < FacilityKind::Food || kind > FacilityKind::Washbasin)
     throw std::runtime_error("Invalid facility construction plan");
   if (!std::isfinite(pos.x) || !std::isfinite(pos.z))
     throw std::runtime_error("Invalid construction location");

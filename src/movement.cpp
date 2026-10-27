@@ -97,8 +97,12 @@ const std::vector<Obstacle> &World::floorObstacles(int floor) const {
   if (fit != floorFacilities.end())
     for (Id id : fit->second) {
       auto &f = facilities[id];
-      if (!f.demolished)
+      if (!f.demolished) {
         add(f.pos + Vec3{0, .6f, 0}, {1.9f, 1.2f, 1.3f});
+        if (f.kind == FacilityKind::Washbasin)
+          for (int station = 0; station < std::min(16, f.stations); ++station)
+            add(servicePosition(f.id, station) + Vec3{0, .46f, -.65f}, {.65f, .92f, .53f});
+      }
     }
   for (int side : {-1, 1}) {
     add({side * 10.f, y + .4f, 7.5f}, {1.7f, .8f, 1.2f});
