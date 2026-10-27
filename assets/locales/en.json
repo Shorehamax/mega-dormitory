@@ -313,7 +313,7 @@
   "help.intro": "The entrance lobby has reception, food, water, toilets, shops and medical care. Services have real queues, prices and staff shifts.",
   "help.walk": "MOVE · Survival starts in first person. Resume, then click the world. WASD walks, Shift runs, Space jumps. Tab or Esc opens the menu and releases the mouse.",
   "help.ladder": "CLIMB · Walk to a gold ladder landing. E grabs it, W climbs up, S climbs down. Stop at a floor and press E to step off.",
-  "help.camera": "FREE VIEW · Menu → Settings → Observe. Right-drag rotates, the wheel zooms, WASD pans. + / − changes floors; Entire floor fits the footprint.",
+  "help.camera": "FREE VIEW · V switches first person / observer. Right-drag orbits, wheel zooms. WASD moves relative to the view; Q/E moves down/up between floors; Shift moves faster. + / − preserves your horizontal position. Find resident centres the view without taking control; Entire floor fits the building.",
   "help.services": "INTERACT · Approach a counter and press E, or choose Walk in Facilities. You must reach the business and wait your turn.",
   "help.expansion": "BUILD · Owners can fund floor expansions in Manage. A builder must travel to the site and work their shift before the extra area opens.",
   "help.to_ladder": "Walk me to a ladder",
@@ -547,7 +547,7 @@
   "hud.happiness": "Happiness",
   "hud.draw_distance": "Visible floors",
   "hud.graphics_help": "Distant floors use GPU instancing. Nearby beds, facilities and residents retain their detail. Software rendering uses a smaller range.",
-  "hud.controls": "WASD walk · Shift run · E interact · Tab menu",
+  "hud.controls": "WASD walk · Shift run · E interact · V free view · Tab menu",
   "hud.fitness": "Fitness",
   "hud.strength": "Strength",
   "hud.journal": "Journal",
@@ -710,5 +710,6 @@
   "graphics.gpu_skinning": "Character animation · GPU",
   "graphics.cpu_skinning": "Character animation · CPU",
   "graphics.skinning_help": "GPU skinning deforms nearby bodies and clothing in parallel. Software Vulkan uses the CPU path. This changes rendering, not simulation rules.",
-  "graphics.skinning_fallback": "GPU character storage exceeded this device’s limit. Switched to CPU animation."
+  "graphics.skinning_fallback": "GPU character storage exceeded this device’s limit. Switched to CPU animation.",
+  "observer.controls": "Right drag: orbit · Wheel: zoom · WASD: move · Q/E: down/up · Shift: faster · V: first person"
 }

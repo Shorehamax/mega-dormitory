@@ -21,6 +21,12 @@ This is a development build, not a declaration that the complete accepted design
 | Persistence | Schema-1 CBOR/Zstandard native state, checksums, named slots, advisory quick previews, backup selection/recovery and reference validation. New optional fields load with defaults. The browser prototype remains untouched. Bounded version-1/2 exports convert one way to native state; unsupported family/history/rules remain archived, not executed. |
 | Engine | C++20 custom simulation, A* routing, nearby crowd collision, gravity/fall damage, Vulkan rendering and native UI. Distant residents use coarse continuous routes rather than full body contact simulation. Static glTF/GLB/OBJ art plus glTF skeletal bodies, PBR maps, mipmaps, local lights, fog and filtered directional shadows. |
 
+## Latest observer controls and modal input
+
+- V switches first person/observer. Free view supports camera-relative WASD, Q/E vertical travel, Shift acceleration, close proportional zoom and a broad orbit pitch, without the former fixed nine-metre elevation. The floor selector follows continuous vertical motion and retains horizontal position on explicit floor changes. Find resident centres the observer without taking control; leaving first person starts observation at the selected resident.
+- Save/import/game-over modals block background orbit, movement, mode switching and mouse capture. The controls guide scrolls within a clipped body; its travel/close buttons stay fixed. English/French/Chinese guides and the observer hint describe the new controls.
+- Eye-level orbit geometry, zoom distance, continuous floor-boundary travel and upper/lower bounds pass the UI suite. UI/localization checks pass in release (0.10 seconds) and address/undefined-behavior/leak checking (5.81 seconds). French minimum-window and Chinese software-Vulkan views were captured. The catalogues contain **713 matching keys**. Resident simulation was not changed in this pass.
+
 ## Latest GPU character skinning
 
 - Nearby full/LOD character meshes now use Vulkan compute skinning, with shared source geometry, eight joint weights, transformed normals, clothing patterns/colors, hair and blended activity poses. CPU code builds small palettes; the GPU writes final vertices directly into the render buffer for both shadow and scene passes. CPU uploads skip those ranges. Coherent device-local BAR/UMA memory is preferred when available, with allocation fallback.

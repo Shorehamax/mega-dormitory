@@ -1,4 +1,5 @@
 #include "mega/assets.hpp"
+#include "mega/camera.hpp"
 #include "mega/renderer.hpp"
 #include "mega/ui.hpp"
 #include "mega/world.hpp"
@@ -70,7 +71,7 @@ static std::string hoursLabel(double start, double duration) {
 }
 class Application {
 public:
-  bool drawerOpen = false, menuKeyHeld = false, escapeHeld = false;
+  bool drawerOpen = false, menuKeyHeld = false, escapeHeld = false, viewKeyHeld = false;
   float drawerSlide = 0;
   int visibleFloors = 96;
   bool gpuSkinning = true;
@@ -82,10 +83,11 @@ public:
   bool interactHeld = false, helpHeld = false, helpOpen = false, punchHeld = false,
        fireHeld = false, surrenderHeld = false;
   std::vector<Vertex> sceneGeometry;
+  float observerHeight = 0;
   Vec3 cameraFocus{}, firstPersonOffset{0, 1.6f, 0};
   Id cameraResident = none;
   std::string floorWidth = "512", floorDepth = "512", lobbyWidth = "640", lobbyDepth = "640";
-  float networkScroll = 0;
+  float networkScroll = 0, helpScroll = 0;
   int customCategory = 0, buildKind = 1, cheatStat = 0;
   std::string cheatValue = "100";
   bool savesOpen = false, savingSlots = false, savesWasPaused = false, savesEscapeHeld = false;
@@ -131,7 +133,8 @@ public:
   std::vector<int> assignments{-1, -1, -1, -1};
   float speed = 1, orbit = .65f, distance = 44, pitch = .25f, playerYaw = 0, playerPitch = 0;
   Body body;
-  double oldMx = 0, oldMy = 0;
+  double oldMx = 0, oldMy = 0, observerMouseX = 0, observerMouseY = 0;
+  bool observerDragging = false;
   float scrollOffset = 0;
   std::string toast, floors = "2000", population = "100000", seed = "20261018", capacity = "0.45",
                      day = "30", wealth = "80000", recipient = "2", message, inspectId = "1";
@@ -431,7 +434,7 @@ public:
     selectedCompany = video = office = customVehicle = lethalConfirm = none;
     companyPage = 0;
     nextCompanyStats = 0;
-    scrollOffset = networkScroll = 0;
+    scrollOffset = networkScroll = helpScroll = 0;
     tab = networkTab = 0;
     program.clear();
     assignments.assign(4, -1);
@@ -443,6 +446,7 @@ public:
     mouseLocked = false;
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     currentFloor = int(world->position(selected).y / 3);
+    observerHeight = 0;
     body.position = world->position(selected);
     helpOpen = true;
     cameraFocus = {0, 0, world->config.layoutVersion == 1 ? 0 : world->layout(0).halfDepth() - 50};
@@ -553,7 +557,7 @@ public:
       act([&] { setWorld(generation.get()); });
   }
   void update(float dt) {
-    if (!world || menu)
+    if (!world || menu || world->gameOver)
       return;
     auto &w = *world;
     bool menuKey = glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS;
@@ -573,6 +577,8 @@ public:
     bool helpKey = glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS;
     if (helpKey && !helpHeld && !ui.typing()) {
       helpOpen = !helpOpen;
+      if (helpOpen)
+        phone = false;
       mouseLocked = false;
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
@@ -591,6 +597,10 @@ public:
         cachedQueued += f.queue.size();
       nextStats = glfwGetTime() + 1;
     }
+    bool viewKey = glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS;
+    if (viewKey && !viewKeyHeld && !ui.typing() && !phone && !helpOpen && !drawerOpen)
+      setFirstPerson(!firstPerson);
+    viewKeyHeld = viewKey;
     bool interact = glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS;
     if (firstPerson && (selected == w.player || w.config.mode == Mode::Cheat) && !phone &&
         !ui.typing() && !helpOpen && !drawerOpen && w.residents[selected].alive && !w.gameOver) {
@@ -1160,6 +1170,7 @@ public:
           selected = id;
           currentFloor = int(w.position(id).y / 3);
           cameraFocus = w.position(id);
+          observerHeight = 0;
           body.position = w.position(id);
           if (possessed)
             setFirstPerson(true);
@@ -1178,6 +1189,12 @@ public:
     return y;
   }
   void setFirstPerson(bool value) {
+    if (firstPerson && !value && world) {
+      cameraFocus = world->position(selected);
+      currentFloor = std::clamp(int(cameraFocus.y / 3), 0, world->config.floors - 1);
+      observerHeight = 0;
+      distance = std::clamp(distance, 8.f, 80.f);
+    }
     firstPerson = value;
     if (value)
       cameraResident = none;
@@ -2337,23 +2354,32 @@ public:
     if (!firstPerson) {
       if (ui.button("floorDown", {310, 20, 36, 38}, "−")) {
         currentFloor = std::max(0, currentFloor - 1);
-        cameraFocus = {};
+        observerHeight = 0;
       }
       if (ui.button("floorUp", {352, 20, 36, 38}, "+")) {
         currentFloor = std::min(w.config.floors - 1, currentFloor + 1);
-        cameraFocus = {};
+        observerHeight = 0;
       }
       if (ui.button("entireFloor", {400, 20, 160, 38}, t("view.entire"))) {
         cameraFocus = {};
+        observerHeight = 0;
         cutaway = true;
         nextInstances = 0;
         distance = w.layout(currentFloor).halfWidth() * 2;
         pitch = .95f;
       }
       if (ui.button("returnResident", {568, 20, 180, 38}, t("view.resident"))) {
-        setFirstPerson(true);
-        drawerOpen = false;
+        cameraFocus = w.position(selected);
+        currentFloor = std::clamp(int(cameraFocus.y / 3), 0, w.config.floors - 1);
+        observerHeight = 0;
+        distance = 10;
+        pitch = .12f;
       }
+    }
+    if (!firstPerson && !drawerOpen && !savesOpen && !importOpen && !helpOpen && !phone) {
+      float hintWidth = std::min(width - 40, 720.f), hintY = w.activeFires.empty() ? 84.f : 128.f;
+      ui.fill({20, hintY, hintWidth, 34}, hex(0x10141a, .78f), 6);
+      ui.text(32, hintY + 10, t("observer.controls"), 12, hex(0xacbfc3));
     }
     // Survival essentials stay visible; finances, jobs and world controls live in the drawer.
     float hudBottom = h - (drawerOpen && tab == 6 ? 62.f : 0.f);
@@ -2395,10 +2421,21 @@ public:
     ui.fill({0, 70, float(ui.width), float(ui.height) - 70}, hex(0x090d12, .75f));
     ui.fill({x, y, 800, 690}, hex(0x1a2028, .99f), 12);
     ui.text(x + 30, y + 24, t("help.title"), 29, hex(0xc3ddcf));
-    float line = ui.wrap(x + 30, y + 75, 735, t("help.intro"), 17, hex(0xc4d3d0)) + 25;
-    for (auto key :
-         {"help.walk", "help.ladder", "help.camera", "help.services", "help.expansion"}) {
-      line = ui.wrap(x + 30, line, 735, t(key), 16, hex(0xaabfc1)) + 18;
+    Rect content{x + 30, y + 75, 735, 470};
+    if (ui.hit(content) && ui.scroll != 0)
+      helpScroll = std::max(0.f, helpScroll - float(ui.scroll) * 48);
+    ui.clip(content);
+    float start = content.y - helpScroll;
+    float line = ui.wrap(content.x, start, content.w, t("help.intro"), 17, hex(0xc4d3d0)) + 25;
+    for (auto key : {"help.walk", "help.ladder", "help.camera", "help.services", "help.expansion"})
+      line = ui.wrap(content.x, line, content.w, t(key), 16, hex(0xaabfc1)) + 18;
+    ui.clip({0, 0, float(ui.width), float(ui.height)});
+    float extent = std::max(content.h, line - start), maximum = std::max(0.f, extent - content.h);
+    helpScroll = std::clamp(helpScroll, 0.f, maximum);
+    if (maximum > 0) {
+      float thumb = std::max(24.f, content.h * content.h / extent);
+      ui.fill({x + 779, content.y + (content.h - thumb) * helpScroll / maximum, 3, thumb},
+              hex(0x6e858b), 1);
     }
     if (ui.button("guideLadder", {x + 30, y + 569, 355, 42}, t("help.to_ladder"), true))
       act([&] {
@@ -3983,7 +4020,7 @@ public:
   }
   Mat4 camera() {
     float aspect = float(ui.width) / ui.height;
-    Vec3 target{cameraFocus.x, currentFloor * 3.f + 2, cameraFocus.z}, eye;
+    Vec3 target{cameraFocus.x, currentFloor * 3.f + 2 + observerHeight, cameraFocus.z}, eye;
     if (firstPerson && world) {
       const auto &r = world->residents[selected];
       Vec3 offset{0, 1.6f, 0};
@@ -4023,9 +4060,9 @@ public:
       target = eye + Vec3{std::sin(playerYaw) * std::cos(playerPitch), std::sin(playerPitch),
                           -std::cos(playerYaw) * std::cos(playerPitch)};
     } else {
-      eye = target +
-            Vec3{std::sin(orbit) * distance, 9 + pitch * distance, std::cos(orbit) * distance};
-      target.x += 5;
+      eye = observerEye(target, orbit, pitch, distance);
+      if (drawerOpen)
+        target.x += 5;
     }
     cameraEye = eye;
     return mul(perspective(1.02f, aspect, .08f, 5000), lookAt(eye, target));
@@ -4065,6 +4102,7 @@ public:
     glfwGetFramebufferSize(window, &width, &height);
     double mx, my;
     glfwGetCursorPos(window, &mx, &my);
+    double rawMouseX = mx, rawMouseY = my;
     int logicalW, logicalH;
     glfwGetWindowSize(window, &logicalW, &logicalH);
     mx *= double(width) / std::max(1, logicalW);
@@ -4080,28 +4118,41 @@ public:
     bool click = down && !previousMouse;
     previousMouse = down;
     ui.begin(width, height, mx, my, click, dt);
-    if (!menu && !phone && !helpOpen && !drawerOpen && !ui.typing() && !firstPerson) {
+    if (!menu && world && !world->gameOver && !phone && !helpOpen && !drawerOpen && !savesOpen &&
+        !importOpen && !ui.typing() && !firstPerson) {
       if (mx < width - 20 && my > 85 && my < height - 145) {
-        distance = std::clamp(distance - float(ui.scroll) * 3, 8.f, 1800.f);
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT)) {
-          orbit += float(mx - oldMx) * .006f;
-          pitch = std::clamp(pitch + float(my - oldMy) * .003f, -.15f, 1.f);
+        distance = std::clamp(distance * std::exp(-float(ui.scroll) * .12f), 2.5f, 1800.f);
+        bool dragging = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+        if (dragging && observerDragging) {
+          orbit = std::remainder(orbit + float(rawMouseX - observerMouseX) * .006f, 6.2831853f);
+          pitch = std::clamp(pitch + float(rawMouseY - observerMouseY) * .003f, -1.35f, 1.35f);
         }
+        observerDragging = dragging;
       }
-      float pan = std::max(10.f, distance * .7f) * dt;
-      if (glfwGetKey(window, GLFW_KEY_W))
-        cameraFocus.z -= pan;
-      if (glfwGetKey(window, GLFW_KEY_S))
-        cameraFocus.z += pan;
-      if (glfwGetKey(window, GLFW_KEY_A))
-        cameraFocus.x -= pan;
-      if (glfwGetKey(window, GLFW_KEY_D))
-        cameraFocus.x += pan;
-      oldMx = mx;
-      oldMy = my;
+      float pan = std::max(10.f, distance * .7f) * dt *
+                  (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ? 3.f : 1.f);
+      Vec3 forward{-std::sin(orbit), 0, -std::cos(orbit)},
+          right{std::cos(orbit), 0, -std::sin(orbit)}, move{};
+      if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        move = move + forward;
+      if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        move = move - forward;
+      if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        move = move - right;
+      if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        move = move + right;
+      cameraFocus = cameraFocus + normalized(move) * pan;
+      float vertical = float(glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) -
+                       float(glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS);
+      if (world && vertical != 0)
+        moveObserverHeight(currentFloor, observerHeight, vertical * pan, world->config.floors);
+    } else {
+      observerDragging = false;
     }
-    if (!menu && !phone && !helpOpen && !drawerOpen && firstPerson && click && mx < width - 20 &&
-        my > 85 && my < height - 145) {
+    observerMouseX = rawMouseX;
+    observerMouseY = rawMouseY;
+    if (!menu && world && !world->gameOver && !phone && !helpOpen && !drawerOpen && !savesOpen &&
+        !importOpen && firstPerson && click && mx < width - 20 && my > 85 && my < height - 145) {
       mouseLocked = true;
       fireHeld = true;
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -4368,9 +4419,17 @@ int runApplication(int argc, char **argv) {
         app.currentFloor = r.home;
         app.cameraFocus = r.pos + Vec3{-4, 0, 0};
         app.distance = 10;
-        app.pitch = -.2f;
+        app.pitch = .08f;
         app.drawerOpen = true;
         app.drawerSlide = 1;
+      } else if (panel == "observer") {
+        app.setFirstPerson(false);
+        auto &w = *app.world;
+        Id resident = std::min<Id>(1, Id(w.residents.size()) - 1);
+        app.cameraFocus = w.position(resident);
+        app.currentFloor = std::clamp(int(app.cameraFocus.y / 3), 0, w.config.floors - 1);
+        app.distance = 5;
+        app.pitch = -.2f;
       } else if (panel == "import") {
         app.openImporter();
       } else if (panel == "saves" || panel == "save-browser") {
@@ -4628,8 +4687,11 @@ int runApplication(int argc, char **argv) {
         throw std::runtime_error("GPU skinning parity failure");
     }
     double last = glfwGetTime(), renderStart = last;
-    if (demo)
+    if (demo) {
       app.scrollOffset = demoScroll;
+      if (panel == "help")
+        app.helpScroll = demoScroll;
+    }
     while (!glfwWindowShouldClose(window) && (maxFrames <= 0 || frames < maxFrames)) {
       glfwPollEvents();
       double now = glfwGetTime();

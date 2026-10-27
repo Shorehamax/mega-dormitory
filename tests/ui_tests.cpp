@@ -1,3 +1,4 @@
+#include "mega/camera.hpp"
 #include "mega/ui.hpp"
 #include <cmath>
 #include <iostream>
@@ -9,6 +10,25 @@ static void require(bool ok, const char *message) {
 }
 int main() {
   try {
+    auto target = Vec3{2, 4, 6};
+    require(length(observerEye(target, 0, 0, 5) - Vec3{2, 4, 11}) < .0001f,
+            "Eye-level observer retained the old hidden height bias");
+    require(length(observerEye(target, 1.5707963f, 0, 5) - Vec3{7, 4, 6}) < .0001f,
+            "Observer yaw is not relative to its target");
+    require(std::abs(length(observerEye(target, .7f, -.4f, 2.5f) - target) - 2.5f) < .0001f,
+            "Close orbit does not preserve zoom distance");
+    int floor = 10;
+    float offset = 2.9f;
+    moveObserverHeight(floor, offset, .2f, 2000);
+    require(floor == 11 && std::abs(offset - .1f) < .0001f,
+            "Upward observation jumped at a floor boundary");
+    moveObserverHeight(floor, offset, -.2f, 2000);
+    require(floor == 10 && std::abs(offset - 2.9f) < .0001f,
+            "Downward observation jumped at a floor boundary");
+    moveObserverHeight(floor, offset, -1000, 20);
+    require(floor == 0 && offset == 0, "Observer moved beneath its floor bounds");
+    moveObserverHeight(floor, offset, 1000, 20);
+    require(floor == 19 && offset == 0, "Observer moved past the highest floor");
     Locale locale(std::filesystem::path(MEGA_ASSETS) / "locales");
     Font font(std::filesystem::path(MEGA_ASSETS) / "fonts/NotoSansCJK-Regular.ttc",
               locale.charset());
@@ -46,7 +66,7 @@ int main() {
     ui.input("name", {20, 20, 160, 34}, input);
     ui.end();
     require(input.ends_with("visibility"), "backspace split a UTF-8 character");
-    std::cout << "Dynamic multilingual text, stable UVs and clipped input passed\n";
+    std::cout << "Multilingual text, clipped input and continuous observer camera passed\n";
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';
     return 1;

@@ -313,7 +313,7 @@
   "help.intro": "入口大厅设有接待处、餐饮、饮水、厕所、商店和医务室。服务有真实队列、价格和员工班次。",
   "help.walk": "移动 · 生存模式以第一人称开始。继续模拟并点击场景：WASD 行走，Shift 奔跑，空格跳跃。Tab 或 Esc 打开菜单并释放鼠标。",
   "help.ladder": "攀爬 · 走到金色梯子平台。E 抓住梯子，W 向上，S 向下。在楼层处停下，按 E 走下梯子。",
-  "help.camera": "自由视角 · 菜单 → 设置 → 自由观察。右键拖动旋转，滚轮缩放，WASD 平移。+ / − 切换楼层，“整层视图”显示全部面积。",
+  "help.camera": "自由观察 · V 切换第一人称／观察模式。右键拖动环绕，滚轮缩放；WASD 按视角平移，Q/E 升降楼层，Shift 加速。+ / − 保留水平位置。定位居民只聚焦视图，不会接管居民；整层视图显示全貌。",
   "help.services": "互动 · 靠近柜台按 E，或在设施列表点击前往。必须实际到达商家并排队等待。",
   "help.expansion": "建设 · 所有者可在管理页出资扩建楼层。工人必须到达工地并在工作时段施工，完工后开放新面积。",
   "help.to_ladder": "自动步行到梯子",
@@ -547,7 +547,7 @@
   "hud.happiness": "幸福度",
   "hud.draw_distance": "可见楼层",
   "hud.graphics_help": "远处楼层使用 GPU 实例化。近处的床铺、设施和居民保留细节。软件渲染采用较小范围。",
-  "hud.controls": "WASD 移动 · Shift 奔跑 · E 互动 · Tab 菜单",
+  "hud.controls": "WASD 行走 · Shift 奔跑 · E 交互 · V 自由观察 · Tab 菜单",
   "hud.fitness": "体能",
   "hud.strength": "力量",
   "hud.journal": "日志",
@@ -710,5 +710,6 @@
   "graphics.gpu_skinning": "角色动画 · GPU",
   "graphics.cpu_skinning": "角色动画 · CPU",
   "graphics.skinning_help": "GPU 并行处理附近角色的身体与服装变形；软件 Vulkan 使用 CPU 路径。此设置只影响渲染，不改变模拟规则。",
-  "graphics.skinning_fallback": "角色变形所需的缓冲区超过设备限制，已切换为 CPU 动画。"
+  "graphics.skinning_fallback": "角色变形所需的缓冲区超过设备限制，已切换为 CPU 动画。",
+  "observer.controls": "右键环绕 · 滚轮缩放 · WASD 平移 · Q/E 升降 · Shift 加速 · V 第一人称"
 }

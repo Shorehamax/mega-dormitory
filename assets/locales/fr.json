@@ -313,7 +313,7 @@
   "help.intro": "Le hall propose accueil, repas, eau, toilettes, commerces et soins. Les services ont des files, des tarifs et des horaires.",
   "help.walk": "MARCHER · Survie commence en vue subjective. Reprenez puis cliquez dans le monde. WASD marche, Maj court, Espace saute. Tab ou Échap ouvre le menu.",
   "help.ladder": "GRIMPER · Rejoignez une échelle dorée. E saisit, W monte, S descend. Arrêtez-vous à un étage puis appuyez sur E pour descendre au palier.",
-  "help.camera": "VUE LIBRE · Menu → Réglages → Observer. Glisser avec le bouton droit pivote, la molette zoome, WASD déplace. + / − change d’étage.",
+  "help.camera": "VUE LIBRE · V alterne première personne / observation. Clic droit glissé : orbite ; molette : zoom. WASD suit la vue ; Q/E descend/monte ; Maj accélère. + / − conserve la position horizontale. Retrouver le résident le cadre sans le contrôler ; Étage entier cadre le bâtiment.",
   "help.services": "INTERAGIR · Approchez d’un comptoir et appuyez sur E, ou utilisez Marcher dans Services. Rejoignez le commerce et attendez votre tour.",
   "help.expansion": "CONSTRUIRE · Les propriétaires financent les extensions dans Gestion. Un ouvrier doit rejoindre le chantier et travailler avant son ouverture.",
   "help.to_ladder": "Me guider vers une échelle",
@@ -547,7 +547,7 @@
   "hud.happiness": "Bonheur",
   "hud.draw_distance": "Étages visibles",
   "hud.graphics_help": "Les étages lointains utilisent les instances GPU. Les lits, services et résidents proches restent détaillés. Le rendu logiciel réduit la portée.",
-  "hud.controls": "WASD marcher · Maj courir · E interagir · Tab menu",
+  "hud.controls": "WASD marcher · Maj courir · E interagir · V vue libre · Tab menu",
   "hud.fitness": "Condition physique",
   "hud.strength": "Force",
   "hud.journal": "Journal",
@@ -710,5 +710,6 @@
   "graphics.gpu_skinning": "Animation des personnages · GPU",
   "graphics.cpu_skinning": "Animation des personnages · CPU",
   "graphics.skinning_help": "Le GPU déforme en parallèle les corps et vêtements proches. Vulkan logiciel utilise le CPU. Seul le rendu change, pas les règles de simulation.",
-  "graphics.skinning_fallback": "La déformation des personnages dépasse la mémoire autorisée. Animation basculée sur le CPU."
+  "graphics.skinning_fallback": "La déformation des personnages dépasse la mémoire autorisée. Animation basculée sur le CPU.",
+  "observer.controls": "Clic droit : orbite · Molette : zoom · WASD : déplacer · Q/E : monter/descendre · Maj : accélérer · V : vue"
 }
