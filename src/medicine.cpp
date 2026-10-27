@@ -341,7 +341,7 @@ void World::medicalTick() {
       }
     }
   for (auto &body : remains)
-    if (!body.cremated && body.storage != none) {
+    if (!body.cremated && !body.lost && body.storage != none) {
       auto &f = facilities[body.storage];
       if (f.kind == FacilityKind::Crematorium && operational(f.id)) {
         if (body.burnWorkedAt < 0)
@@ -364,7 +364,7 @@ void World::medicalReached(Id worker, Id id) {
       !near(worker, position(p.id), 1.8f))
     throw std::runtime_error("Medic has not reached the patient");
   if (p.carriedBy != none || p.ambulance != none || p.lift != none || p.vehicle != none ||
-      p.ladder >= 0)
+      p.ladder >= 0 || looseBodies.contains(p.id) || looseBodies.contains(worker))
     throw std::runtime_error("Patient must reach a safe landing");
   if (p.activity == Activity::Fighting)
     throw std::runtime_error("Extraction awaits a safe scene");
@@ -437,8 +437,9 @@ void World::medicalClinic(Id worker, Id id) {
 void World::transportBody(Id worker, Id id) {
   auto &r = residents.at(worker);
   auto &body = remains.at(id);
-  if (!r.alive || !r.present || r.role != Role::Cleaner || !onShift(worker) ||
-      r.bodyCarrying != none || r.carrying != none || body.cremated || body.carrier != none ||
+  if (!r.alive || !r.present || looseBodies.contains(worker) || r.role != Role::Cleaner ||
+      !onShift(worker) || r.bodyCarrying != none || r.carrying != none || body.cremated ||
+      body.lost || airborneRemains.contains(id) || body.carrier != none ||
       (body.worker != none && body.worker != worker) || body.ambulance != none || body.lift != none)
     throw std::runtime_error("Body transport worker unavailable");
   body.worker = worker;
@@ -447,7 +448,8 @@ void World::transportBody(Id worker, Id id) {
 void World::pickupBody(Id worker, Id id) {
   auto &r = residents.at(worker);
   auto &body = remains.at(id);
-  if (body.worker != worker || body.cremated || body.carrier != none || !near(worker, body.pos) ||
+  if (looseBodies.contains(worker) || body.worker != worker || body.cremated || body.lost ||
+      airborneRemains.contains(id) || body.carrier != none || !near(worker, body.pos) ||
       r.bodyCarrying != none)
     throw std::runtime_error("Reach the body with an available stretcher");
   Id destination =
@@ -456,7 +458,7 @@ void World::pickupBody(Id worker, Id id) {
     throw std::runtime_error("No body storage or cremation service is available");
   int count = 0;
   for (auto &b : remains)
-    if (!b.cremated && (b.storage == destination || b.destination == destination))
+    if (!b.cremated && !b.lost && (b.storage == destination || b.destination == destination))
       ++count;
   if (count >= std::max(4, facilities[destination].stations))
     throw std::runtime_error("Body storage is full");
@@ -485,7 +487,7 @@ void World::storeBody(Id worker, Id destination) {
   pay(f.owner, r.account, std::min(Money(1500), accounts[f.owner].balance), "body-transport-wage");
   int stored = 0;
   for (auto &b : remains)
-    if (!b.cremated && (b.storage == destination || b.destination == destination))
+    if (!b.cremated && !b.lost && (b.storage == destination || b.destination == destination))
       ++stored;
   body.pos = accessible(f.pos + Vec3{3.f + float(stored % 4) * .8f, 0, float(stored / 4) * 2.f});
   body.storage = destination;

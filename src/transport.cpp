@@ -106,6 +106,8 @@ void World::goByLift(Id id, Id cabin, int destination) {
 void World::requestLift(Id id, Id cabin, int destination) {
   auto &r = residents.at(id);
   auto &l = lifts.at(cabin);
+  if (looseBodies.contains(id))
+    throw std::runtime_error("physics.error.airborne");
   auto &f = facilities[l.facility];
   int floor = int(std::round(position(id).y / 3));
   if (!r.alive || !r.present || r.lift != none || r.ambulance != none || r.carriedBy != none ||

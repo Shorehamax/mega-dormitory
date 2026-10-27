@@ -57,6 +57,8 @@ std::string World::availability(Id fid) const {
 bool World::operational(Id fid) const { return availability(fid) == "facility.ready"; }
 void World::clockIn(Id id) {
   auto &r = residents.at(id);
+  if (looseBodies.contains(id))
+    return;
   if (!r.alive || !r.present || r.medicalDuty != none || r.ambulance != none ||
       r.carriedBy != none || r.jobSite == none || !onShift(id) ||
       !near(id, facilities[r.jobSite].pos, 3))

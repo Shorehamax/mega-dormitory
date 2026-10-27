@@ -85,6 +85,23 @@ PoseDescription describe(CharacterPose pose, float phase, float motion) {
       thigh.x = -.1f;
       calf.x = .17f;
     }
+    if (pose == CharacterPose::Fall) {
+      // Recoil and braced knees, with uneven arms instead of a standing surrender pose.
+      d.rotations["spine_02"] = {-.14f, 0, std::sin(phase * .8f) * .06f};
+      arm = {-.4f + std::sin(phase * 1.7f + side) * .16f, 0, -side * .65f};
+      elbow.x = -.7f;
+      thigh.x = -.35f + side * stride * .15f;
+      calf.x = .7f;
+    }
+    if (pose == CharacterPose::Push) {
+      float extension = std::sin(std::clamp(phase, 0.f, 3.1415927f));
+      d.rotations["spine_02"] = {.2f * extension, 0, 0};
+      arm = {-1.05f - extension * .5f, 0, -side * 1.3f};
+      elbow.x = -.9f + extension * .85f;
+      thigh.x = -.1f;
+      calf.x = .2f;
+      d.lower = -.03f * extension;
+    }
     if (pose == CharacterPose::Surrender) {
       arm = {-.1f, 0, side * .3f};
       elbow.x = -1.4f;

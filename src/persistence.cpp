@@ -36,7 +36,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Ambulance, id, provider, patient
                                                 guard, state, tier, pos, landing, route, readyAt)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Remains, resident, carrier, storage, worker,
                                                 destination, ambulance, lift, pos, diedAt,
-                                                burnUntil, cremated, burnRemaining, burnWorkedAt)
+                                                burnUntil, cremated, lost, burnRemaining,
+                                                burnWorkedAt)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LocalName, en, fr, zh)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(HousingUnit, owner, tenant, floor, bed, rent, price,
                                                 listed, active, decor, paidUntil, arrears, custom,
@@ -71,6 +72,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Fire, id, facility, worker, stat
                                                 contained, out)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FireSpray, fire, item, workedAt)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PersonalUse, item, ingredient, remaining, workedAt, origin)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LooseBody, velocity, pusher, justified, updated)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Company, id, owner, account, leader, name,
                                                 assignments, completed, revenue)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WorkspaceLease, id, company, facility, landlord,
@@ -148,6 +150,9 @@ void World::save(const std::filesystem::path &path) const {
             {"vehicles", vehicles},
             {"ambulances", ambulances},
             {"remains", remains},
+            {"looseBodies", looseBodies},
+            {"airborneRemains", airborneRemains},
+            {"nextPhysicsAt", nextPhysicsAt},
             {"parking", parking},
             {"orders", orders},
             {"freight", freight},
@@ -404,6 +409,11 @@ static World readSave(const std::filesystem::path &path) {
     j.at("ambulances").get_to(w.ambulances);
   if (j.contains("remains"))
     j.at("remains").get_to(w.remains);
+  if (j.contains("looseBodies"))
+    j.at("looseBodies").get_to(w.looseBodies);
+  if (j.contains("airborneRemains"))
+    j.at("airborneRemains").get_to(w.airborneRemains);
+  w.nextPhysicsAt = j.value("nextPhysicsAt", -1.0);
   READ(parking);
   READ(orders);
   if (j.contains("freight"))
@@ -434,7 +444,7 @@ static World readSave(const std::filesystem::path &path) {
 #undef READ
   for (auto &e : j.at("events").get<std::vector<Event>>()) {
     if (!std::isfinite(e.time) || e.time < w.time || e.seq >= w.sequence || int(e.kind) < 0 ||
-        int(e.kind) > int(EventKind::FacilityTick))
+        int(e.kind) > int(EventKind::PhysicsTick))
       throw std::runtime_error("Invalid saved event");
     bool service = e.kind == EventKind::FinishService;
     if (e.id < 0 || std::size_t(e.id) >= (service ? w.facilities.size() : w.residents.size()) ||

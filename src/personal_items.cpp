@@ -11,6 +11,8 @@ bool World::itemInUse(Id item) const {
 void World::usePersonalItem(Id id, Id item) {
   auto &r = residents.at(id);
   auto &object = items.at(item);
+  if (looseBodies.contains(id))
+    throw std::runtime_error("physics.error.airborne");
   if (!r.alive || !r.present || r.surrendered || r.leaving || r.lift != none ||
       r.ambulance != none || r.carriedBy != none || r.vehicle != none || r.ladder >= 0 ||
       r.carrying != none || !r.route.empty() || personalUses.contains(id) ||

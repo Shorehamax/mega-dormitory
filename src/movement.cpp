@@ -513,6 +513,7 @@ void World::grabLadder(Id id) {
       r.activity == Activity::Escorted)
     throw std::runtime_error("Approach a ladder landing first");
   Vec3 p = position(id);
+  clearPhysics(id);
   stopPersonalUse(id);
   clockOut(id);
   leaveQueue(id);

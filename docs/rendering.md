@@ -10,7 +10,7 @@ Ranges, joint bounds, storage limits and overlapping dispatches are checked. If 
 
 ## Verification
 
-`--skin-test --frames 1` compares readback against the original CPU implementation for all ten activity poses, both body models, both detail levels and all three clothing patterns, including blended poses. It checks 3,239,190 vertices and all 16 packed vertex components. Hardware RTX and lavapipe both reported a maximum component difference of `9.53674e-07` in those cases. An additional multi-character batch checks separate palettes/output ranges, high-floor coordinates and rejection of overlapping output ranges.
+`--skin-test --frames 1` compares readback against the original CPU implementation for all twelve activity poses, including falling and a two-handed shove, both body models, both detail levels and all three clothing patterns, including blended poses. It checks 3,887,028 vertices and all 16 packed vertex components. Hardware RTX and lavapipe both reported a maximum component difference of `9.53674e-07` in those cases. An additional multi-character batch checks separate palettes/output ranges, high-floor coordinates and rejection of overlapping output ranges.
 
 Display-dependent integration checks are optional:
 
@@ -25,3 +25,5 @@ They require a desktop display, Vulkan driver/software driver and the Vulkan val
 A fixed 120-frame 600-person crowd sequence at 1200 × 800 on the development RTX 5070 submitted 741,132 GPU-skinned vertices in its final frame. GPU/CPU scene construction took 0.645/2.922 seconds; total render loops took 2.348/3.879 seconds. Including startup/capture, runs took 3.63/5.15 seconds. Both paths used the same detail budget and fixed timestep, with validation enabled. These are bounded local comparisons, not general FPS or hardware guarantees. An earlier system-memory output attempt was slower overall and was replaced with the local-memory preference described above.
 
 The changed asset/UI paths pass address, undefined-behavior and leak checking. Vulkan palette/readback and live rendering also passed address/undefined-behavior checks with driver leak detection disabled; graphics-driver allocations are outside that leak check. A forced tiny storage budget verifies automatic CPU fallback. This remains a procedural posing system: imported animation clips, retargeting, cloth simulation, contact IK and broader geometry streaming are unfinished.
+
+The falling pose braces the knees and recoils with asymmetric arms. A shove extends both hands with a brief torso lean, driven by the actual impulse/cooldown time. Asset checks verify both hands extend in front of the idle body and every pose retains finite bounds and normalized normals for both source and LOD meshes. This visual pass leaves the saved physics and collision rules unchanged.

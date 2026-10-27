@@ -402,6 +402,8 @@ void World::travel(Id id, Vec3 dest, TaskKind task, Id target) {
   if (!r.alive || !r.present || r.vehicle != none || r.lift != none || r.ambulance != none ||
       r.carriedBy != none || r.activity == Activity::Jailed || r.activity == Activity::Restrained)
     throw std::runtime_error("Resident cannot travel");
+  if (looseBodies.contains(id))
+    throw std::runtime_error("physics.error.airborne");
   cancelLift(id);
   clockOut(id);
   leaveQueue(id);
@@ -467,6 +469,8 @@ void World::decide(Id id) {
   if (!r.alive || !r.present)
     return;
   schedule(time + 180 + random() * 120, EventKind::Decide, id);
+  if (looseBodies.contains(id))
+    return;
   if (!r.automatic || r.vehicle != none || r.lift != none || r.ambulance != none ||
       r.carriedBy != none || r.medicalDuty != none || r.activity == Activity::Jailed ||
       r.activity == Activity::Restrained || r.activity == Activity::Escorted || r.surrendered)
@@ -728,7 +732,8 @@ void World::decide(Id id) {
     }
     for (Id b = 0; b < Id(remains.size()); ++b) {
       auto &body = remains[b];
-      if (!body.cremated && body.carrier == none && body.ambulance == none &&
+      if (!body.cremated && !body.lost && !airborneRemains.contains(Id(&body - remains.data())) &&
+          body.carrier == none && body.ambulance == none &&
           (body.worker == none || body.worker == id) &&
           (body.storage == none || facilities[body.storage].kind == FacilityKind::Morgue) &&
           length(position(id) - body.pos) < 200) {
@@ -892,6 +897,11 @@ void World::advance(double seconds, std::size_t budget) {
     time = target;
 }
 void World::dispatch(const Event &e) {
+  if (e.kind == EventKind::PhysicsTick) {
+    if (e.time == nextPhysicsAt)
+      physicsTick();
+    return;
+  }
   if (e.kind == EventKind::Decide) {
     try {
       decide(e.id);
@@ -1194,6 +1204,8 @@ void World::arrive(Id id) {
 void World::joinQueue(Id id, Id fId) {
   auto &r = residents.at(id);
   auto &f = facilities.at(fId);
+  if (looseBodies.contains(id))
+    throw std::runtime_error("physics.error.airborne");
   if (!r.alive || !r.present || !f.open || !accessAllowed(id, fId) ||
       !inHours(time, f.opensAt, f.openHours) || !near(id, f.pos, 3))
     throw std::runtime_error("Reach the open facility first");

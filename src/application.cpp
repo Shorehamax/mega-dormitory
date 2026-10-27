@@ -81,7 +81,7 @@ public:
   bool instanceView = false, cutaway = true, instanceCutaway = true;
   double nextInstances = 0;
   bool interactHeld = false, helpHeld = false, helpOpen = false, punchHeld = false,
-       fireHeld = false, surrenderHeld = false;
+       fireHeld = false, surrenderHeld = false, shoveHeld = false;
   std::vector<Vertex> sceneGeometry;
   float observerHeight = 0;
   Vec3 cameraFocus{}, firstPersonOffset{0, 1.6f, 0};
@@ -583,6 +583,23 @@ public:
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
     helpHeld = helpKey;
+    bool viewKey = glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS;
+    if (viewKey && !viewKeyHeld && !ui.typing() && !phone && !helpOpen && !drawerOpen)
+      setFirstPerson(!firstPerson);
+    viewKeyHeld = viewKey;
+    // The simulation owns momentum. Only an actively driven body skips event integration.
+    const auto &controlled = w.residents[selected];
+    bool movingInput = glfwGetKey(window, GLFW_KEY_W) || glfwGetKey(window, GLFW_KEY_A) ||
+                       glfwGetKey(window, GLFW_KEY_S) || glfwGetKey(window, GLFW_KEY_D);
+    auto airborne = w.looseBodies.find(selected);
+    bool knocked = airborne != w.looseBodies.end() && airborne->second.pusher != none;
+    bool canControl = selected == w.player || w.config.mode == Mode::Cheat;
+    w.physicsController =
+        firstPerson && canControl && !phone && !helpOpen && !drawerOpen && !ui.typing() &&
+                !controlled.surrendered && !knocked &&
+                (movingInput || (controlled.activity == Activity::Idle && controlled.route.empty()))
+            ? selected
+            : none;
     w.focus(firstPerson ? int(std::max(0.f, w.position(selected).y) / 3) : currentFloor);
     if (!paused && !w.gameOver && !helpOpen) {
       double elapsed = std::min(dt, .1f) * (1440 / w.config.dayMinutes) * speed;
@@ -597,13 +614,9 @@ public:
         cachedQueued += f.queue.size();
       nextStats = glfwGetTime() + 1;
     }
-    bool viewKey = glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS;
-    if (viewKey && !viewKeyHeld && !ui.typing() && !phone && !helpOpen && !drawerOpen)
-      setFirstPerson(!firstPerson);
-    viewKeyHeld = viewKey;
     bool interact = glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS;
-    if (firstPerson && (selected == w.player || w.config.mode == Mode::Cheat) && !phone &&
-        !ui.typing() && !helpOpen && !drawerOpen && w.residents[selected].alive && !w.gameOver) {
+    if (firstPerson && canControl && !phone && !ui.typing() && !helpOpen && !drawerOpen &&
+        w.residents[selected].alive && !w.gameOver) {
       double mx, my;
       glfwGetCursorPos(window, &mx, &my);
       if (mouseLocked) {
@@ -615,13 +628,15 @@ public:
       auto &r = w.residents[selected];
       bool punch = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS,
            fire = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS,
-           yield = glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS;
+           yield = glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS,
+           push = glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS;
       if (!paused && mouseLocked && r.lift == none && r.ambulance == none && r.carriedBy == none &&
           r.medicalDuty == none) {
         if (yield && !surrenderHeld)
           act([&] { w.surrender(selected); });
-        if ((punch && !punchHeld) || (fire && !fireHeld && w.hasGun(selected))) {
-          float reach = punch ? 2.5f : 35.f;
+        if ((push && !shoveHeld) || (punch && !punchHeld) ||
+            (fire && !fireHeld && w.hasGun(selected))) {
+          float reach = push ? 1.8f : punch ? 2.5f : 35.f;
           Id target = none;
           float best = reach;
           Vec3 forward{std::sin(playerYaw) * std::cos(playerPitch), std::sin(playerPitch),
@@ -631,7 +646,7 @@ public:
             if (other.id != selected && other.alive && other.present) {
               Vec3 delta = w.position(other.id) + Vec3{0, 1.25f, 0} - origin;
               float d = length(delta);
-              if (d < best && dot(normalized(delta), forward) > (punch ? .6f : .994f) &&
+              if (d < best && dot(normalized(delta), forward) > ((push || punch) ? .6f : .994f) &&
                   w.lineOfSight(origin, origin + delta)) {
                 target = other.id;
                 best = d;
@@ -639,13 +654,16 @@ public:
             }
           if (target != none)
             act([&] {
-              if (punch)
+              if (push)
+                w.shove(selected, target);
+              else if (punch)
                 w.attack(selected, target, false);
               else
                 w.shoot(selected, target);
             });
         }
       }
+      shoveHeld = push;
       punchHeld = punch;
       fireHeld = fire;
       surrenderHeld = yield;
@@ -732,7 +750,8 @@ public:
         playerYaw = w.vehicles[r.vehicle].yaw;
       } else if (!paused && r.activity != Activity::Jailed && r.activity != Activity::Escorted &&
                  r.activity != Activity::Restrained && !r.surrendered && r.lift == none &&
-                 r.ambulance == none && r.carriedBy == none && r.medicalDuty == none) {
+                 r.ambulance == none && r.carriedBy == none && r.medicalDuty == none &&
+                 !(w.looseBodies.contains(selected) && w.looseBodies.at(selected).pusher != none)) {
         Vec3 front{std::sin(playerYaw), 0, -std::cos(playerYaw)},
             right{std::cos(playerYaw), 0, std::sin(playerYaw)}, move{};
         if (glfwGetKey(window, GLFW_KEY_W))
@@ -758,22 +777,12 @@ public:
           r.activity = Activity::Idle;
         }
         if (r.route.empty() && r.activity == Activity::Idle) {
-          body.position = r.pos;
-          if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && body.grounded)
-            body.velocity.y = 4.5f;
-          Vec3 before = body.position;
+          Vec3 before = w.position(selected);
           bool running = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
-          float impact =
-              w.moveBody(selected, body, normalized(move) * w.walkingSpeed(selected, running), dt);
+          body = w.stepBody(selected, normalized(move) * w.walkingSpeed(selected, running),
+                            std::min(dt, .1f), glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS);
           if (length(body.position - before) > .01f && body.grounded)
             w.exercise(selected, dt * (1440 / w.config.dayMinutes), running ? 1.f : .2f);
-          r.pos = body.position;
-          if (w.crowd.contains(selected))
-            w.crowd[selected].pos = r.pos;
-          if (impact > 7)
-            w.applyFall(selected, impact);
-          if (r.pos.y < -100)
-            w.applyFall(selected, 60);
         }
       }
       currentFloor =
@@ -966,7 +975,9 @@ public:
     ui.text(x, y, w.displayName(selected, locale.language), 26, hex(0xe6e8df));
     ui.text(x, y + 39, "#" + std::to_string(selected + 1) + " · " + t(roleKey(r.role)), 13,
             hex(0xa5cbb9));
-    ui.text(x, y + 65, t(activityKey(r.activity)), 15, hex(0x99adaf));
+    ui.text(x, y + 65,
+            t(w.looseBodies.contains(r.id) ? "physics.falling" : activityKey(r.activity)), 15,
+            hex(0x99adaf));
     ui.text(x, y + 88,
             t("routine.sleep") + " " + hoursLabel(r.routine.sleepStart, r.routine.sleepHours), 12,
             hex(0x9cafa9));
@@ -1076,6 +1087,12 @@ public:
       if (ui.button("yieldNearby", {x + width / 2 + 5, y, width / 2 - 5, 34}, t("combat.yield")))
         act([&] { w.surrender(selected); });
       y += 42;
+      if (ui.button("shoveNearby", {x, y, width, 32}, t("action.shove")))
+        act([&] {
+          w.shove(selected, nearby);
+          paused = false;
+        });
+      y += 40;
       if (w.hasGun(selected)) {
         if (ui.button("shootNearby", {x, y, width, 32}, t("combat.shoot")))
           act([&] {
@@ -1206,7 +1223,7 @@ public:
     } else if (world) {
       speed = 1;
       body.position = world->position(selected);
-      currentFloor = int(body.position.y / 3);
+      currentFloor = std::clamp(int(body.position.y / 3), 0, world->config.floors - 1);
     }
   }
   void openNetwork() {
@@ -1693,7 +1710,8 @@ public:
         }
       for (Id id = 0; id < Id(w.remains.size()); ++id) {
         auto &b = w.remains[id];
-        if (b.cremated || b.carrier != none || b.ambulance != none || b.worker != none)
+        if (b.cremated || b.lost || w.airborneRemains.contains(id) || b.carrier != none ||
+            b.ambulance != none || b.worker != none)
           continue;
         if (b.storage != none && w.facilities[b.storage].kind == FacilityKind::Crematorium)
           continue;
@@ -2325,7 +2343,10 @@ public:
     int minutes = int(w.time / 60) % 1440;
     char clock[32];
     std::snprintf(clock, sizeof(clock), "%02d:%02d", minutes / 60, minutes % 60);
-    ui.text(36, 50, std::string(clock) + "  ·  " + t(activityKey(r.activity)), 12, hex(0xa0abb5));
+    ui.text(36, 50,
+            std::string(clock) + "  ·  " +
+                t(w.looseBodies.contains(r.id) ? "physics.falling" : activityKey(r.activity)),
+            12, hex(0xa0abb5));
     if (ui.button("hudPause", {width - 326, 20, 98, 38},
                   t(paused ? "action.play" : "action.pause")))
       paused = !paused;
@@ -2427,7 +2448,8 @@ public:
     ui.clip(content);
     float start = content.y - helpScroll;
     float line = ui.wrap(content.x, start, content.w, t("help.intro"), 17, hex(0xc4d3d0)) + 25;
-    for (auto key : {"help.walk", "help.ladder", "help.camera", "help.services", "help.expansion"})
+    for (auto key : {"help.walk", "help.combat", "help.ladder", "help.camera", "help.services",
+                     "help.expansion"})
       line = ui.wrap(content.x, line, content.w, t(key), 16, hex(0xaabfc1)) + 18;
     ui.clip({0, 0, float(ui.width), float(ui.height)});
     float extent = std::max(content.h, line - start), maximum = std::max(0.f, extent - content.h);
@@ -3643,7 +3665,7 @@ public:
       }
     }
     for (const auto &b : w.remains)
-      if (!b.cremated && b.ambulance == none) {
+      if (!b.cremated && !b.lost && b.ambulance == none) {
         Vec3 p = b.carrier == none ? b.pos : w.position(b.carrier) + Vec3{0, .7f, .9f};
         if (std::abs(p.y - floorY) > 6 || p.y >= ceilingCut)
           continue;
@@ -3798,11 +3820,18 @@ public:
         pose = CharacterPose::Sleep;
       else if (climbing)
         pose = CharacterPose::Climb;
+      else if (w.looseBodies.contains(r.id))
+        pose = CharacterPose::Fall;
       else if (r.surrendered)
         pose = CharacterPose::Surrender;
-      else if (r.activity == Activity::Fighting)
+      else if (r.activity == Activity::Fighting) {
         pose = CharacterPose::Fight;
-      else if (r.carrying != none)
+        auto victim = w.looseBodies.find(r.opponent);
+        float since = float((w.time - (r.nextHit - 20)) / (1440 / w.config.dayMinutes));
+        if (victim != w.looseBodies.end() && victim->second.pusher == r.id && since >= 0 &&
+            since < .5f)
+          pose = CharacterPose::Push;
+      } else if (r.carrying != none)
         pose = CharacterPose::Carry;
       else if (!moving && usingPersonal)
         pose = CharacterPose::Eat;
@@ -3850,7 +3879,11 @@ public:
           p.y -= .49f;
         }
         float animationPhase =
-            pose == CharacterPose::Fight
+            pose == CharacterPose::Push
+                ? 3.1415927f * std::clamp(float((w.time - (r.nextHit - 20)) /
+                                                (1440 / w.config.dayMinutes) / .5),
+                                          0.f, 1.f)
+            : pose == CharacterPose::Fight
                 ? (w.hasGun(r.id)
                        ? 3.1415927f
                        : 3.1415927f * (1 - std::clamp(float((r.nextHit - w.time) / 20), 0.f, 1.f)))
@@ -4422,6 +4455,35 @@ int runApplication(int argc, char **argv) {
         app.pitch = .08f;
         app.drawerOpen = true;
         app.drawerSlide = 1;
+      } else if (panel == "falling") {
+        auto &w = *app.world;
+        w.config.mode = Mode::Cheat;
+        Id victim = w.player == 1 ? 2 : 1;
+        for (Id id : {w.player, victim}) {
+          w.leaveQueue(id);
+          w.clockOut(id);
+          auto &r = w.residents[id];
+          r.route.clear();
+          ++r.routeVersion;
+          r.activity = Activity::Idle;
+          r.task = TaskKind::None;
+          r.automatic = false;
+          r.energy = 1;
+        }
+        w.residents[w.player].pos = {0, 9, 22};
+        w.residents[victim].pos = {0, 9, 20.5f};
+        w.residents[w.player].strength = 100;
+        w.residents[victim].strength = 10;
+        w.crowd.clear();
+        w.shove(w.player, victim);
+        w.advance(.2 * (1440 / w.config.dayMinutes), 100000);
+        app.setFirstPerson(false);
+        app.currentFloor = 3;
+        app.cameraFocus = {3, 9, 25};
+        app.distance = 8;
+        app.orbit = .45f;
+        app.pitch = .32f;
+        app.drawerOpen = false;
       } else if (panel == "observer") {
         app.setFirstPerson(false);
         auto &w = *app.world;
@@ -4624,7 +4686,7 @@ int runApplication(int argc, char **argv) {
       std::size_t checked = 0;
       for (const char *name :
            {"resident_Male", "resident_Female", "resident_Male_lod", "resident_Female_lod"})
-        for (int pose = 0; pose < 10; ++pose)
+        for (int pose = 0; pose < int(CharacterPose::Count); ++pose)
           for (int pattern = 0; pattern < 3; ++pattern) {
             CharacterStyle style;
             style.pattern = pattern;
@@ -4632,7 +4694,9 @@ int runApplication(int argc, char **argv) {
             style.shirt = {.25f, .6f, .3f, 1};
             style.trousers = {.2f, .15f, .5f, 1};
             style.skin = {.9f, .8f, .7f, 1};
-            auto previous = CharacterPose((pose + 9) % 10), current = CharacterPose(pose);
+            auto previous = CharacterPose((pose + int(CharacterPose::Count) - 1) %
+                                          int(CharacterPose::Count)),
+                 current = CharacterPose(pose);
             std::vector<Vertex> reference;
             app.assets.appendCharacter(reference, name, {3, 12, -7}, .39f, previous, current, .63f,
                                        .7f, .75f, style);

@@ -711,5 +711,13 @@
   "graphics.cpu_skinning": "Character animation · CPU",
   "graphics.skinning_help": "GPU skinning deforms nearby bodies and clothing in parallel. Software Vulkan uses the CPU path. This changes rendering, not simulation rules.",
   "graphics.skinning_fallback": "GPU character storage exceeded this device’s limit. Switched to CPU animation.",
-  "observer.controls": "Right drag: orbit · Wheel: zoom · WASD: move · Q/E: down/up · Shift: faster · V: first person"
+  "observer.controls": "Right drag: orbit · Wheel: zoom · WASD: move · Q/E: down/up · Shift: faster · V: first person",
+  "action.shove": "Shove · G",
+  "physics.error.body": "You cannot move freely during this activity.",
+  "physics.error.airborne": "Land before starting another activity.",
+  "physics.error.shove": "Approach an awake resident; you need energy and time to recover between shoves.",
+  "physics.falling": "Airborne",
+  "physics.shoved": "A resident shoved another resident.",
+  "physics.body_lost": "A body fell beyond the reachable structure.",
+  "help.combat": "CONFLICT · F strikes, G shoves, Q surrenders. Shoves use strength and stamina and can cause fatal falls. Assault, excessive force and killing have legal consequences."
 }

@@ -168,7 +168,8 @@ void World::apprehend(Id warden, Id suspect) {
   auto &w = residents.at(warden);
   auto &s = residents.at(suspect);
   if (w.role != Role::Warden || !w.alive || !s.alive || !w.present || !s.present ||
-      !s.surrendered || !near(warden, position(suspect), 2.5f) ||
+      looseBodies.contains(warden) || looseBodies.contains(suspect) || !s.surrendered ||
+      !near(warden, position(suspect), 2.5f) ||
       !std::any_of(incidents.begin(), incidents.end(), [&](auto &c) {
         return !c.resolved && c.offender == suspect && c.kind != CrimeKind::QueueCutting;
       }))
@@ -212,6 +213,11 @@ void World::kill(Id id, Id killer, bool justified) {
   if (!r.alive)
     return;
   r.pos = position(id);
+  LooseBody momentum;
+  if (auto found = looseBodies.find(id); found != looseBodies.end())
+    momentum = found->second;
+  momentum.updated = time;
+  clearPhysics(id);
   Id deathLift = r.lift;
   r.lift = none;
   cancelLift(id);
@@ -237,6 +243,18 @@ void World::kill(Id id, Id killer, bool justified) {
       b.destination = none;
     }
   r.bodyCarrying = none;
+  for (Id b = 0; b < Id(remains.size()); ++b) {
+    auto &corpse = remains[b];
+    if (corpse.cremated || corpse.lost || corpse.worker != none || corpse.carrier != none ||
+        corpse.storage != none || corpse.ambulance != none || corpse.lift != none ||
+        length(corpse.pos - r.pos) > .01f)
+      continue;
+    int floor = int(std::round(corpse.pos.y / 3));
+    if (floor < 0 || floor >= config.floors || std::abs(corpse.pos.y - floor * 3.f) > .025f ||
+        !layout(floor).supported(corpse.pos))
+      airborneRemains[b] = momentum;
+  }
+  ensurePhysicsTick();
   for (auto &shipment : freight)
     if (shipment.worker == id && shipment.state != FreightState::Delivered) {
       shipment.worker = none;
@@ -309,7 +327,7 @@ void World::kill(Id id, Id killer, bool justified) {
     endReason = id == player ? "player-died" : "population-empty";
   }
 }
-void World::applyFall(Id id, float speed, Id pusher) {
+void World::applyFall(Id id, float speed, Id pusher, bool justified) {
   if (!std::isfinite(speed) || speed < 0 || speed > 2000)
     throw std::runtime_error("Invalid impact speed");
   auto &r = residents.at(id);
@@ -318,12 +336,18 @@ void World::applyFall(Id id, float speed, Id pusher) {
   float damage = fallDamage(speed);
   r.health -= damage;
   if (r.health <= 0)
-    kill(id, pusher);
-  else if (pusher != none && damage > 0)
+    kill(id, pusher, justified);
+  else if (pusher != none && damage > 0 && !justified &&
+           std::none_of(incidents.begin(), incidents.end(), [&](const Incident &c) {
+             return !c.resolved && c.offender == pusher && c.victim == id &&
+                    c.kind == CrimeKind::Assault;
+           }))
     report(CrimeKind::Assault, pusher, id);
 }
 void World::depart(Id id) {
   auto &r = residents.at(id);
+  if (looseBodies.contains(id))
+    throw std::runtime_error("physics.error.airborne");
   if (!r.alive || !r.present || r.vehicle != none || r.lift != none || r.ambulance != none ||
       r.carriedBy != none || r.medicalDuty != none || r.activity == Activity::Jailed ||
       r.activity == Activity::Escorted || !near(id, layout(0).entrance(), 4))
@@ -360,6 +384,7 @@ void World::validate() const {
   validateCompanies();
   validateEmergencies();
   validatePersonalUses();
+  validatePhysics();
   if (!std::isfinite(time) || time < 0 || accounts.size() < 2 || residents.size() < 2 ||
       residents.size() > 500000 || names.size() != residents.size() ||
       residentHomes.size() != residents.size() || player < 0 ||
@@ -683,7 +708,9 @@ void World::validate() const {
         (b.lift != none && (b.lift < 0 || std::size_t(b.lift) >= lifts.size())) ||
         (b.ambulance != none && !ambulanceValid(b.ambulance)) || !std::isfinite(b.pos.x) ||
         !std::isfinite(b.pos.y) || !std::isfinite(b.pos.z) || !std::isfinite(b.diedAt) ||
-        !std::isfinite(b.burnUntil))
+        !std::isfinite(b.burnUntil) ||
+        (b.lost && (b.cremated || b.carrier != none || b.worker != none || b.storage != none ||
+                    b.destination != none || b.ambulance != none || b.lift != none)))
       throw std::runtime_error("Invalid remains");
   }
   for (std::size_t i = 0; i < ambulances.size(); ++i) {

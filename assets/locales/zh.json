@@ -711,5 +711,13 @@
   "graphics.cpu_skinning": "角色动画 · CPU",
   "graphics.skinning_help": "GPU 并行处理附近角色的身体与服装变形；软件 Vulkan 使用 CPU 路径。此设置只影响渲染，不改变模拟规则。",
   "graphics.skinning_fallback": "角色变形所需的缓冲区超过设备限制，已切换为 CPU 动画。",
-  "observer.controls": "右键环绕 · 滚轮缩放 · WASD 平移 · Q/E 升降 · Shift 加速 · V 第一人称"
+  "observer.controls": "右键环绕 · 滚轮缩放 · WASD 平移 · Q/E 升降 · Shift 加速 · V 第一人称",
+  "action.shove": "推搡 · G",
+  "physics.error.body": "当前活动无法自由移动。",
+  "physics.error.airborne": "请落地后再开始其他活动。",
+  "physics.error.shove": "靠近清醒的居民；推搡需要体力，两次推搡之间需要恢复。",
+  "physics.falling": "腾空中",
+  "physics.shoved": "一名居民推搡了另一名居民。",
+  "physics.body_lost": "一具遗体坠落至建筑可达范围之外。",
+  "help.combat": "冲突 · F 攻击，G 推搡，Q 投降。推搡消耗体力并受到力量影响，坠落可能致命。袭击、过度使用武力和杀人都将受到法律追究。"
 }

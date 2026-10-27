@@ -711,5 +711,13 @@
   "graphics.cpu_skinning": "Animation des personnages · CPU",
   "graphics.skinning_help": "Le GPU déforme en parallèle les corps et vêtements proches. Vulkan logiciel utilise le CPU. Seul le rendu change, pas les règles de simulation.",
   "graphics.skinning_fallback": "La déformation des personnages dépasse la mémoire autorisée. Animation basculée sur le CPU.",
-  "observer.controls": "Clic droit : orbite · Molette : zoom · WASD : déplacer · Q/E : monter/descendre · Maj : accélérer · V : vue"
+  "observer.controls": "Clic droit : orbite · Molette : zoom · WASD : déplacer · Q/E : monter/descendre · Maj : accélérer · V : vue",
+  "action.shove": "Bousculer · G",
+  "physics.error.body": "Cette activité empêche de se déplacer librement.",
+  "physics.error.airborne": "Atterrissez avant de commencer une autre activité.",
+  "physics.error.shove": "Approchez un résident éveillé ; il faut de l’énergie et du temps entre les poussées.",
+  "physics.falling": "En l’air",
+  "physics.shoved": "Un résident en a bousculé un autre.",
+  "physics.body_lost": "Un corps est tombé hors de la structure accessible.",
+  "help.combat": "CONFLIT · F frappe, G bouscule, Q se rend. Bousculer consomme de l’endurance et dépend de la force ; une chute peut tuer. Agression, force excessive et meurtre ont des conséquences judiciaires."
 }

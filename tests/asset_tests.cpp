@@ -64,10 +64,10 @@ int main() {
       require(gpuSource.size() == mesh.vertices.size() + 576,
               "GPU geometry lost body or hair triangles");
       CharacterStyle appearance;
-      for (auto pose :
-           {CharacterPose::Idle, CharacterPose::Walk, CharacterPose::Sit, CharacterPose::Eat,
-            CharacterPose::Sleep, CharacterPose::Climb, CharacterPose::Carry, CharacterPose::Work,
-            CharacterPose::Fight, CharacterPose::Surrender}) {
+      for (auto pose : {CharacterPose::Idle, CharacterPose::Walk, CharacterPose::Sit,
+                        CharacterPose::Eat, CharacterPose::Sleep, CharacterPose::Climb,
+                        CharacterPose::Carry, CharacterPose::Work, CharacterPose::Fight,
+                        CharacterPose::Surrender, CharacterPose::Fall, CharacterPose::Push}) {
         std::vector<Vertex> rendered;
         assets.appendCharacter(rendered, name, {}, 0, pose, pose, 1, 1.2f, 1, appearance);
         auto request = assets.characterSkin(name, 7, {}, 0, pose, pose, 1, 1.2f, 1, appearance);
@@ -87,6 +87,32 @@ int main() {
         }
         if (pose == CharacterPose::Sleep)
           require(minY > .35f && maxY < 1.05f, "Sleeping character is not lying on its mattress");
+      }
+      {
+        std::vector<Vertex> idle, pushing;
+        assets.appendCharacter(idle, name, {}, 0, CharacterPose::Idle, CharacterPose::Idle, 1,
+                               1.5707963f, 1, appearance);
+        assets.appendCharacter(pushing, name, {}, 0, CharacterPose::Push, CharacterPose::Push, 1,
+                               1.5707963f, 1, appearance);
+        for (const char *hand : {"hand_l", "hand_r"}) {
+          float restZ = 0, pushZ = 0;
+          int samples = 0;
+          for (std::size_t i = 0; i < mesh.influences.size(); ++i) {
+            const auto &influence = mesh.influences[i];
+            float weight = 0;
+            for (int k = 0; k < 8; ++k)
+              if (influence.weights[k] > 0 &&
+                  mesh.rig[mesh.skins[influence.skin].nodes[influence.joints[k]]].name == hand)
+                weight += influence.weights[k];
+            if (weight > .35f) {
+              restZ += idle[i].p.z;
+              pushZ += pushing[i].p.z;
+              ++samples;
+            }
+          }
+          require(samples > 5 && pushZ / samples < restZ / samples - .15f,
+                  "A shove did not extend both hands in front of the body");
+        }
       }
       std::cout << "PASS bind-pose fidelity, all activity poses and sleeping bounds: " << name
                 << '\n';

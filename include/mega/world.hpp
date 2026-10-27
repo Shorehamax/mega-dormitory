@@ -243,7 +243,7 @@ struct Remains {
      ambulance = none, lift = none;
   Vec3 pos{};
   double diedAt = 0, burnUntil = -1, burnRemaining = 1800, burnWorkedAt = -1;
-  bool cremated = false;
+  bool cremated = false, lost = false;
 };
 struct LocalName {
   std::string en, fr, zh;
@@ -476,7 +476,7 @@ struct News {
   std::string key;
   Id subject = none, other = none;
 };
-enum class EventKind { Decide, Arrive, FinishService, Payroll, Release, FacilityTick };
+enum class EventKind { Decide, Arrive, FinishService, Payroll, Release, FacilityTick, PhysicsTick };
 struct Event {
   double time = 0;
   std::uint64_t seq = 0;
@@ -488,6 +488,12 @@ struct EventLater {
   bool operator()(const Event &a, const Event &b) const {
     return a.time == b.time ? a.seq > b.seq : a.time > b.time;
   }
+};
+struct LooseBody {
+  Vec3 velocity{};
+  Id pusher = none;
+  bool justified = false;
+  double updated = 0;
 };
 struct PersonalUse {
   Id item = none, ingredient = none;
@@ -537,6 +543,16 @@ public:
   std::vector<Vehicle> vehicles;
   std::vector<Ambulance> ambulances;
   std::vector<Remains> remains;
+  std::map<Id, LooseBody> looseBodies, airborneRemains;
+  double nextPhysicsAt = -1;
+  Id physicsController = none; // transient: the active first-person input controller
+  Body stepBody(Id resident, Vec3 desired, float seconds, bool jump = false);
+  void ensurePhysicsTick();
+  void physicsTick();
+  void clearPhysics(Id resident);
+  void shove(Id actor, Id victim);
+  void loseRemains(Id body);
+  void validatePhysics() const;
   std::vector<ParkingBay> parking;
   std::vector<Order> orders;
   std::vector<Freight> freight;
@@ -735,7 +751,7 @@ public:
   void wardenRespond(Id);
   void apprehend(Id, Id);
   void kill(Id, Id = none, bool justified = false);
-  void applyFall(Id, float, Id = none);
+  void applyFall(Id, float, Id = none, bool justified = false);
   void depart(Id);
   void setupOffices();
   void prepareAdministration(OfficeOrder &order);

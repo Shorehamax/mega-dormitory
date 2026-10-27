@@ -91,6 +91,8 @@ void World::generateVehicles() {
 void World::buyVehicle(Id resident, Id id) {
   auto &r = residents.at(resident);
   auto &v = vehicles.at(id);
+  if (looseBodies.contains(resident))
+    throw std::runtime_error("physics.error.airborne");
   if (!available(r) || v.askingPrice <= 0 || v.driver != none || v.bay != none ||
       v.owner == r.account || v.dealer == none || !operational(v.dealer) ||
       !accessAllowed(resident, v.dealer) || !near(resident, facilities[v.dealer].pos, 3))

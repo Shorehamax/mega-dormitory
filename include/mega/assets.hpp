@@ -21,7 +21,21 @@ struct SkinVertex {
   std::array<unsigned, 8> joints{};
   std::array<float, 8> weights{};
 };
-enum class CharacterPose { Idle, Walk, Sit, Eat, Sleep, Climb, Carry, Work, Fight, Surrender };
+enum class CharacterPose {
+  Idle,
+  Walk,
+  Sit,
+  Eat,
+  Sleep,
+  Climb,
+  Carry,
+  Work,
+  Fight,
+  Surrender,
+  Fall,
+  Push,
+  Count
+};
 struct CharacterStyle {
   Color shirt{.3f, .4f, .5f, 1}, trousers{.16f, .2f, .25f, 1};
   Color skin{1, 1, 1, 1};
