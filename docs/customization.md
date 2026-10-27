@@ -14,7 +14,7 @@ These are currently free cosmetic configuration options. They do not grant capac
 
 Use one compatible humanoid skeleton per body family, with separate skinned head/hair/top/bottom/shoes/accessory meshes. Retarget locomotion and interaction clips once per skeleton. Define body-size compatibility and hide covered body regions so clothing does not intersect skin. Keep skin, hair, fabric, trims, dirt and damage as separate material inputs. Bake lower-detail meshes for crowds and share animation samples among distant residents; retain full identities and possessions in the simulation.
 
-The importer now supports static glTF/GLB/OBJ plus glTF/GLB joint hierarchies, inverse-bind matrices and up to eight skin influences. CPU skinning and blended procedural activity poses are implemented. Imported animation clips, retargeting, body morphs, independently fitted garment meshes and cloth simulation remain to be built.
+The importer now supports static glTF/GLB/OBJ plus glTF/GLB joint hierarchies, inverse-bind matrices and up to eight skin influences. Blended procedural activity poses have CPU and Vulkan compute skinning paths. Shared geometry remains immutable; per-resident palettes and appearance data deform into separate render-buffer ranges. Software Vulkan and limited storage fall back to the CPU path. See `rendering.md`. Imported animation clips, retargeting, body morphs, independently fitted garment meshes and cloth simulation remain to be built.
 
 ## Ownership and crime
 

@@ -706,5 +706,9 @@
   "personal.error.kind": "此物品需要通过其他方式使用。",
   "personal.error.home": "请先回到自己的床位。可使用睡觉／回家操作，抵达后再选择物品。",
   "personal.error.food": "使用餐具或电饭煲需要随身携带一份可用的食物。",
-  "import.error.destination": "请使用不同的原生存档路径，浏览器导出文件受到保护。"
+  "import.error.destination": "请使用不同的原生存档路径，浏览器导出文件受到保护。",
+  "graphics.gpu_skinning": "角色动画 · GPU",
+  "graphics.cpu_skinning": "角色动画 · CPU",
+  "graphics.skinning_help": "GPU 并行处理附近角色的身体与服装变形；软件 Vulkan 使用 CPU 路径。此设置只影响渲染，不改变模拟规则。",
+  "graphics.skinning_fallback": "角色变形所需的缓冲区超过设备限制，已切换为 CPU 动画。"
 }

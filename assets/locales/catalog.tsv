@@ -466,3 +466,7 @@ personal.error.kind|This item has another use.|Cet objet a un autre usage.|此�
 personal.error.home|Reach your own bed first. Use Sleep / return home, then choose this item.|Rejoignez votre lit d’abord. Utilisez Dormir / rentrer, puis choisissez cet objet.|请先回到自己的床位。可使用睡觉／回家操作，抵达后再选择物品。
 personal.error.food|Carry an available food pack to use tableware or the rice cooker.|Portez une ration disponible pour utiliser la vaisselle ou le cuiseur.|使用餐具或电饭煲需要随身携带一份可用的食物。
 import.error.destination|Choose a different native save destination; the browser export is protected.|Choisissez une autre destination native ; l’export Web est protégé.|请使用不同的原生存档路径，浏览器导出文件受到保护。
+graphics.gpu_skinning|Character animation · GPU|Animation des personnages · GPU|角色动画 · GPU
+graphics.cpu_skinning|Character animation · CPU|Animation des personnages · CPU|角色动画 · CPU
+graphics.skinning_help|GPU skinning deforms nearby bodies and clothing in parallel. Software Vulkan uses the CPU path. This changes rendering, not simulation rules.|Le GPU déforme en parallèle les corps et vêtements proches. Vulkan logiciel utilise le CPU. Seul le rendu change, pas les règles de simulation.|GPU 并行处理附近角色的身体与服装变形；软件 Vulkan 使用 CPU 路径。此设置只影响渲染，不改变模拟规则。
+graphics.skinning_fallback|GPU character storage exceeded this device’s limit. Switched to CPU animation.|La déformation des personnages dépasse la mémoire autorisée. Animation basculée sur le CPU.|角色变形所需的缓冲区超过设备限制，已切换为 CPU 动画。

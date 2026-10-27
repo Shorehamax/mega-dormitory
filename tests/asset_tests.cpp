@@ -60,6 +60,9 @@ int main() {
                 "Bind pose does not reproduce source geometry");
         require(std::abs(length(rest[i].normal) - 1) < .001f, "Skinned normal is invalid");
       }
+      auto gpuSource = assets.skinGeometry(name);
+      require(gpuSource.size() == mesh.vertices.size() + 576,
+              "GPU geometry lost body or hair triangles");
       CharacterStyle appearance;
       for (auto pose :
            {CharacterPose::Idle, CharacterPose::Walk, CharacterPose::Sit, CharacterPose::Eat,
@@ -67,6 +70,13 @@ int main() {
             CharacterPose::Fight, CharacterPose::Surrender}) {
         std::vector<Vertex> rendered;
         assets.appendCharacter(rendered, name, {}, 0, pose, pose, 1, 1.2f, 1, appearance);
+        auto request = assets.characterSkin(name, 7, {}, 0, pose, pose, 1, 1.2f, 1, appearance);
+        require(request.first == 7 && request.count == rendered.size() && !request.bones.empty(),
+                "GPU character job lost ranges or palettes");
+        for (const auto &vertex : gpuSource)
+          for (int joint = 0; joint < 8; ++joint)
+            require(vertex.weights[joint] == 0 || vertex.joints[joint] < request.bones.size(),
+                    "GPU geometry references an invalid palette joint");
         float minY = 100, maxY = -100;
         for (const auto &vertex : rendered) {
           require(std::isfinite(length(vertex.p)) && length(vertex.p) < 3,

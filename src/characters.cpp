@@ -382,4 +382,109 @@ void AssetLibrary::appendCharacter(std::vector<Vertex> &out, const std::string &
     v.normal = {-n.x * co + n.z * si, n.y, -n.x * si - n.z * co};
   }
 }
+std::vector<GpuSkinSource> AssetLibrary::skinGeometry(const std::string &name) const {
+  const auto &mesh = meshes.at(name);
+  if (mesh.rig.empty() || mesh.influences.size() != mesh.vertices.size())
+    throw std::runtime_error("Invalid GPU skin mesh");
+  std::vector<std::uint32_t> offsets;
+  std::uint32_t offset = 0;
+  int head = -1;
+  for (const auto &skin : mesh.skins) {
+    offsets.push_back(offset);
+    for (std::size_t j = 0; j < skin.nodes.size(); ++j)
+      if (mesh.rig.at(skin.nodes[j]).name == "Head")
+        head = int(offset + j);
+    offset += std::uint32_t(skin.nodes.size());
+  }
+  std::vector<GpuSkinSource> out;
+  out.reserve(mesh.vertices.size() + (head >= 0 ? 576 : 0));
+  for (std::size_t i = 0; i < mesh.vertices.size(); ++i) {
+    GpuSkinSource v;
+    v.vertex = mesh.vertices[i];
+    if (i < mesh.garments.size())
+      v.garment = {mesh.garments[i].x, mesh.garments[i].y, mesh.garments[i].z, 0};
+    const auto &influence = mesh.influences[i];
+    if (influence.skin >= 0) {
+      if (std::size_t(influence.skin) >= mesh.skins.size())
+        throw std::runtime_error("Invalid GPU skin binding");
+      v.garment[3] = 2;
+      for (int k = 0; k < 8; ++k) {
+        if (!std::isfinite(influence.weights[k]) || influence.weights[k] < 0 ||
+            influence.weights[k] > 1)
+          throw std::runtime_error("Invalid GPU skin weight");
+        if (influence.weights[k] > 0 &&
+            influence.joints[k] >= mesh.skins[influence.skin].nodes.size())
+          throw std::runtime_error("Invalid GPU skin joint");
+        v.joints[k] = offsets[influence.skin] + influence.joints[k];
+        v.weights[k] = influence.weights[k];
+      }
+    }
+    out.push_back(v);
+  }
+  if (head >= 0) {
+    auto cap = [&](int row, int col) {
+      float phi = float(col) * 6.2831853f / 16;
+      float theta = float(row) / 6 * (std::sin(phi) > .3f ? 1.55f : 1.96f);
+      Vec3 n{std::sin(theta) * std::cos(phi), std::cos(theta), std::sin(theta) * std::sin(phi)};
+      GpuSkinSource v;
+      v.vertex.p = {n.x * .112f, mesh.maximum.y - .105f + n.y * .128f, -.015f + n.z * .107f};
+      v.vertex.normal = normalized(Vec3{n.x / .112f, n.y / .128f, n.z / .107f});
+      v.vertex.color = {.065f, .055f, .05f, 1};
+      v.vertex.material = {-1, .85f, 0};
+      v.garment = {-1, 0, 0, 3};
+      v.joints[0] = std::uint32_t(head);
+      v.weights[0] = 1;
+      return v;
+    };
+    for (int row = 0; row < 6; ++row)
+      for (int col = 0; col < 16; ++col) {
+        auto a = cap(row, col), b = cap(row + 1, col), c = cap(row + 1, col + 1),
+             d = cap(row, col + 1);
+        out.insert(out.end(), {a, b, c, a, c, d});
+      }
+  }
+  return out;
+}
+SkinRequest AssetLibrary::characterSkin(const std::string &name, std::uint32_t first, Vec3 position,
+                                        float yaw, CharacterPose previous, CharacterPose current,
+                                        float blend, float phase, float locomotion,
+                                        const CharacterStyle &style) const {
+  const auto &mesh = meshes.at(name);
+  auto a = describe(previous, phase, locomotion), b = describe(current, phase, locomotion);
+  blend = std::clamp(blend, 0.f, 1.f);
+  blend = blend * blend * (3 - 2 * blend);
+  for (auto &[bone, r] : b.rotations)
+    r = a.rotations[bone] * (1 - blend) + r * blend;
+  auto bones = pose(name, b.rotations);
+  float lying = a.lying * (1 - blend) + b.lying * blend,
+        lower = a.lower * (1 - blend) + b.lower * blend;
+  auto root = rotation({-1.5707963f * lying, 0, 0}), bedTurn = rotation({0, 3.1415927f * lying, 0});
+  float scale = style.height / (mesh.maximum.y - mesh.minimum.y);
+  float co = std::cos(yaw), si = std::sin(yaw);
+  Mat4 world{-co, 0, -si, 0, 0, 1, 0, 0, si, 0, -co, 0, position.x, position.y, position.z, 1};
+  Mat4 translation = identity();
+  translation[13] = lower + .65f * lying;
+  translation[14] = .9f * lying;
+  Mat4 scaling = identity();
+  scaling[0] = scaling[5] = scaling[10] = scale;
+  SkinRequest request;
+  request.mesh = name;
+  request.first = first;
+  request.job.transform = mul(world, mul(bedTurn, mul(translation, mul(root, scaling))));
+  world[12] = world[13] = world[14] = 0;
+  request.job.rotation = mul(world, mul(bedTurn, root));
+  request.job.shirt = style.shirt;
+  request.job.trousers = style.trousers;
+  request.job.skin = style.skin;
+  request.job.options[0] = std::uint32_t(style.pattern);
+  bool head = false;
+  for (const auto &skin : mesh.skins)
+    for (std::size_t j = 0; j < skin.nodes.size(); ++j) {
+      auto m = mul(bones.at(skin.nodes[j]), skin.inverseBind.at(j));
+      request.bones.push_back({m, normalMatrix(m)});
+      head |= mesh.rig.at(skin.nodes[j]).name == "Head";
+    }
+  request.count = std::uint32_t(mesh.vertices.size() + (head ? 576 : 0));
+  return request;
+}
 } // namespace mega

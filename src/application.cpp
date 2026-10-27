@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <future>
 #include <iomanip>
 #include <iostream>
@@ -72,6 +73,9 @@ public:
   bool drawerOpen = false, menuKeyHeld = false, escapeHeld = false;
   float drawerSlide = 0;
   int visibleFloors = 96;
+  bool gpuSkinning = true;
+  std::vector<SkinRequest> frameSkins;
+  double sceneBuildSeconds = 0;
   int instanceFloor = -1, instanceRange = -1;
   bool instanceView = false, cutaway = true, instanceCutaway = true;
   double nextInstances = 0;
@@ -146,6 +150,9 @@ public:
     renderer = std::make_unique<Renderer>(w, MEGA_SHADERS, font.atlas, font.atlasSize);
     font.dirty = false;
     renderer->uploadMaterials(assets.textures, AssetLibrary::atlasSize);
+    for (const char *name :
+         {"resident_Male", "resident_Female", "resident_Male_lod", "resident_Female_lod"})
+      renderer->addSkinMesh(name, assets.skinGeometry(name));
     for (auto &pixels : assets.textures) {
       pixels.clear();
       pixels.shrink_to_fit();
@@ -2192,6 +2199,16 @@ public:
           visibleFloors = count;
       }
       bottom += 55;
+      bool skinEnabled = ui.enabled;
+      ui.enabled = skinEnabled && !renderer->software;
+      if (ui.button("gpuSkinningSetting", {content.x, bottom, content.w, 38},
+                    t(gpuSkinning && !renderer->software ? "graphics.gpu_skinning"
+                                                         : "graphics.cpu_skinning")))
+        gpuSkinning = !gpuSkinning;
+      ui.enabled = skinEnabled;
+      bottom = ui.wrap(content.x, bottom + 52, content.w, t("graphics.skinning_help"), 14,
+                       hex(0x8d99a5)) +
+               24;
       bottom =
           ui.wrap(content.x, bottom, content.w, t("hud.graphics_help"), 14, hex(0x8d99a5)) + 24;
       if (ui.button("cutaway", {content.x, bottom, content.w, 38},
@@ -3805,8 +3822,16 @@ public:
             (r.sex < 0 ? r.id % 2 : r.sex) ? "resident_Female" : "resident_Male";
         if (renderer->software || length(p - viewCenter) > 5 || fullCharacters++ >= 4)
           characterMesh += "_lod";
-        assets.appendCharacter(v, characterMesh, p, facing, transition->second.previous, pose,
-                               transition->second.blend, animationPhase, blend->second, style);
+        if (gpuSkinning && !renderer->software) {
+          auto request = assets.characterSkin(
+              characterMesh, std::uint32_t(v.size()), p, facing, transition->second.previous, pose,
+              transition->second.blend, animationPhase, blend->second, style);
+          v.resize(v.size() + request.count);
+          frameSkins.push_back(std::move(request));
+        } else {
+          assets.appendCharacter(v, characterMesh, p, facing, transition->second.previous, pose,
+                                 transition->second.blend, animationPhase, blend->second, style);
+        }
         std::size_t accessories = v.size();
         if (usingPersonal && !resting)
           sphere(v, p + Vec3{.2f, .94f, -.28f}, {.13f, .07f, .13f}, hex(0xd9dfd0), 4, 8);
@@ -4094,10 +4119,21 @@ public:
     if (!savesOpen && !importOpen)
       update(dt);
     auto &scene = sceneGeometry;
+    double sceneStart = glfwGetTime();
     scene.clear();
+    frameSkins.clear();
     if (scene.capacity() < 250000)
       scene.reserve(250000);
     buildScene(scene, float(glfwGetTime()));
+    if (!frameSkins.empty() && !renderer->canSkinVertices(scene.size())) {
+      gpuSkinning = false;
+      frameSkins.clear();
+      scene.clear();
+      buildScene(scene, float(glfwGetTime()));
+      notify(t("graphics.skinning_fallback"));
+    }
+    renderer->setSkinRequests(std::move(frameSkins));
+    sceneBuildSeconds += glfwGetTime() - sceneStart;
     distantFloors();
     if (world && world->gameOver && !menu) {
       phone = false;
@@ -4215,10 +4251,11 @@ int runApplication(int argc, char **argv) {
   try {
     Application app(window);
     int frames = 0, maxFrames = 0;
-    bool demo = false, computeTest = false, animate = false;
+    bool demo = false, computeTest = false, skinTest = false, animate = false;
     std::string panel, browserImport;
     float demoYaw = 0, demoPitch = 0, demoScroll = 0;
     bool demoLook = false;
+    float fixedStep = 0;
     std::filesystem::path capture;
     for (int i = 1; i < argc; ++i) {
       std::string arg = argv[i];
@@ -4233,6 +4270,8 @@ int runApplication(int argc, char **argv) {
         animate = true;
       else if (arg == "--frames")
         maxFrames = std::stoi(value());
+      else if (arg == "--fixed-step")
+        fixedStep = std::clamp(std::stof(value()), .001f, .05f);
       else if (arg == "--menu-scroll")
         demoScroll = std::max(0.f, std::stof(value()));
       else if (arg == "--look-yaw") {
@@ -4273,6 +4312,12 @@ int runApplication(int argc, char **argv) {
         (void)value();
       } else if (arg == "--compute-test")
         computeTest = true;
+      else if (arg == "--skin-test")
+        skinTest = true;
+      else if (arg == "--cpu-skinning")
+        app.gpuSkinning = false;
+      else if (arg == "--skin-budget")
+        app.renderer->skinVertexBudget = std::stoull(value());
     }
     if (!browserImport.empty()) {
       app.setWorld(World::importBrowser(browserImport));
@@ -4515,20 +4560,90 @@ int runApplication(int argc, char **argv) {
       if (error > 1e-5f)
         throw std::runtime_error("GPU/CPU mismatch");
     }
-    double last = glfwGetTime();
+    if (skinTest) {
+      float maximum = 0;
+      std::size_t checked = 0;
+      for (const char *name :
+           {"resident_Male", "resident_Female", "resident_Male_lod", "resident_Female_lod"})
+        for (int pose = 0; pose < 10; ++pose)
+          for (int pattern = 0; pattern < 3; ++pattern) {
+            CharacterStyle style;
+            style.pattern = pattern;
+            style.height = 1.53f;
+            style.shirt = {.25f, .6f, .3f, 1};
+            style.trousers = {.2f, .15f, .5f, 1};
+            style.skin = {.9f, .8f, .7f, 1};
+            auto previous = CharacterPose((pose + 9) % 10), current = CharacterPose(pose);
+            std::vector<Vertex> reference;
+            app.assets.appendCharacter(reference, name, {3, 12, -7}, .39f, previous, current, .63f,
+                                       .7f, .75f, style);
+            auto request = app.assets.characterSkin(name, 0, {3, 12, -7}, .39f, previous, current,
+                                                    .63f, .7f, .75f, style);
+            auto gpu = app.renderer->testSkinVertices({request}, request.count);
+            if (gpu.size() != reference.size())
+              throw std::runtime_error("GPU character count mismatch");
+            for (std::size_t n = 0; n < gpu.size(); ++n) {
+              std::array<float, 16> actual, expected;
+              std::memcpy(actual.data(), &gpu[n], sizeof(Vertex));
+              std::memcpy(expected.data(), &reference[n], sizeof(Vertex));
+              for (int k = 0; k < 16; ++k) {
+                if (!std::isfinite(actual[k]))
+                  throw std::runtime_error("Non-finite GPU skin output");
+                maximum = std::max(maximum, std::abs(actual[k] - expected[k]));
+              }
+            }
+            checked += gpu.size();
+          }
+      std::vector<SkinRequest> batch;
+      std::vector<Vertex> batchReference;
+      for (const char *name : {"resident_Male", "resident_Female_lod", "resident_Male_lod"}) {
+        auto first = std::uint32_t(batchReference.size());
+        CharacterStyle style;
+        style.pattern = int(batch.size());
+        Vec3 position{float(batch.size()) * 3, batch.size() == 2 ? 5997.f : 0.f, -2};
+        app.assets.appendCharacter(batchReference, name, position, .8f, CharacterPose::Walk,
+                                   CharacterPose::Climb, .3f, 1.7f, .8f, style);
+        batch.push_back(app.assets.characterSkin(name, first, position, .8f, CharacterPose::Walk,
+                                                 CharacterPose::Climb, .3f, 1.7f, .8f, style));
+      }
+      auto batchOutput = app.renderer->testSkinVertices(batch, batchReference.size());
+      for (std::size_t n = 0; n < batchReference.size(); ++n)
+        if (length(batchOutput[n].p - batchReference[n].p) >
+                (batchReference[n].p.y > 1000 ? .002f : .0001f) ||
+            length(batchOutput[n].normal - batchReference[n].normal) > .0001f)
+          throw std::runtime_error("Batched GPU skinning palette/output range failure");
+      bool rejected = false;
+      batch[1].first = 0;
+      try {
+        app.renderer->testSkinVertices(batch, batchReference.size());
+      } catch (const std::runtime_error &) {
+        rejected = true;
+      }
+      if (!rejected)
+        throw std::runtime_error("Overlapping GPU skin output was accepted");
+      app.renderer->setSkinRequests({});
+      std::cout << "GPU skin parity: " << checked << " vertices; maximum component error "
+                << maximum << "\n";
+      if (maximum > .0001f)
+        throw std::runtime_error("GPU skinning parity failure");
+    }
+    double last = glfwGetTime(), renderStart = last;
     if (demo)
       app.scrollOffset = demoScroll;
     while (!glfwWindowShouldClose(window) && (maxFrames <= 0 || frames < maxFrames)) {
       glfwPollEvents();
       double now = glfwGetTime();
-      float dt = std::clamp(float(now - last), .001f, .05f);
+      float dt = fixedStep > 0 ? fixedStep : std::clamp(float(now - last), .001f, .05f);
       last = now;
       app.frame(dt, !capture.empty() && maxFrames > 0 && frames == maxFrames - 1
                         ? capture
                         : std::filesystem::path{});
       ++frames;
     }
+    std::cout << "Render loop seconds: " << glfwGetTime() - renderStart << "\n";
+    std::cout << "CPU scene build seconds: " << app.sceneBuildSeconds << "\n";
     std::cout << "GPU floor instances: " << app.renderer->instanceCount() << "\n";
+    std::cout << "GPU skinned vertices: " << app.renderer->skinnedVertexCount() << "\n";
     std::cout << "Rendered " << frames << " frames\n";
   } catch (...) {
     glfwDestroyWindow(window);

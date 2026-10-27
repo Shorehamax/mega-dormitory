@@ -1,0 +1,43 @@
+#version 450
+layout(local_size_x=64) in;
+struct Source { float v[16]; uvec4 j0,j1; vec4 w0,w1,garment; };
+struct Bone { mat4 pose,normal; };
+struct Job { mat4 transform,rotation; vec4 shirt,trousers,skin; uvec4 range,options; };
+layout(std430,binding=0) readonly buffer Sources { Source sources[]; };
+layout(std430,binding=1) readonly buffer Bones { Bone bones[]; };
+layout(std430,binding=2) readonly buffer Jobs { Job jobs[]; };
+layout(std430,binding=3) writeonly buffer Output { float outputVertices[]; };
+layout(push_constant) uniform Push { uint jobIndex; } pc;
+void main() {
+ Job job=jobs[pc.jobIndex];uint index=gl_GlobalInvocationID.x;
+ if(index>=job.range.z)return;
+ Source src=sources[job.range.x+index];
+ vec3 p=vec3(src.v[0],src.v[1],src.v[2]), n=vec3(src.v[9],src.v[10],src.v[11]);
+ vec4 color=vec4(src.v[3],src.v[4],src.v[5],src.v[6]);float normalScale=src.v[15];
+ if(src.garment.x>=0) {
+  float cloth=src.garment.x,waist=src.garment.y,shoe=src.garment.z;
+  color=vec4(mix(job.trousers.rgb,job.shirt.rgb,waist),cloth);
+  if(job.options.x==1 && p.y>1 && p.y<1.45 && abs(p.x)<.035 && p.z>0)color=vec4(job.trousers.rgb,cloth);
+  if(job.options.x==2 && p.y>1.02 && p.y<1.16 && abs(p.x)<.18 && p.z>.08)color=vec4(job.shirt.rgb*.7,cloth);
+  color.rgb=mix(color.rgb,vec3(.055,.065,.075),shoe);normalScale=-1;
+ } else if(src.garment.w!=3)color.rgb*=job.skin.rgb;
+ if(src.garment.w>=2) {
+  vec3 skinned=vec3(0),normal=vec3(0);
+  for(int k=0;k<8;++k) {
+   float weight=k<4?src.w0[k]:src.w1[k-4];
+   if(weight>0) {
+    uint joint=k<4?src.j0[k]:src.j1[k-4];Bone bone=bones[job.range.w+joint];
+    skinned+=(bone.pose*vec4(p,1)).xyz*weight;
+    normal+=(bone.normal*vec4(n,0)).xyz*weight;
+   }
+  }
+  p=skinned;n=length(normal)>1e-6?normalize(normal):vec3(0);
+ }
+ p=(job.transform*vec4(p,1)).xyz;n=(job.rotation*vec4(n,0)).xyz;
+ uint at=(job.range.y+index)*16;
+ outputVertices[at]=p.x;outputVertices[at+1]=p.y;outputVertices[at+2]=p.z;
+ outputVertices[at+3]=color.r;outputVertices[at+4]=color.g;outputVertices[at+5]=color.b;outputVertices[at+6]=color.a;
+ outputVertices[at+7]=src.v[7];outputVertices[at+8]=src.v[8];
+ outputVertices[at+9]=n.x;outputVertices[at+10]=n.y;outputVertices[at+11]=n.z;
+ outputVertices[at+12]=src.v[12];outputVertices[at+13]=src.v[13];outputVertices[at+14]=src.v[14];outputVertices[at+15]=normalScale;
+}

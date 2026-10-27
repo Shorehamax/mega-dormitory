@@ -3,7 +3,9 @@
 #include <vulkan/vulkan.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+#include <cstddef>
 #include <filesystem>
+#include <map>
 #include <string>
 #include <vector>
 namespace mega {
@@ -33,6 +35,31 @@ struct Batch {
   std::uint32_t first = 0, count = 0;
   Rect clip{};
 };
+// std430 storage layouts shared with skin.comp. Vertex itself is 16 packed floats.
+struct alignas(16) GpuSkinSource {
+  Vertex vertex;
+  std::array<std::uint32_t, 8> joints{};
+  std::array<float, 8> weights{};
+  std::array<float, 4> garment{-1, 0, 0, 0};
+};
+struct alignas(16) GpuSkinBone {
+  Mat4 pose, normal;
+};
+struct alignas(16) GpuSkinJob {
+  Mat4 transform = identity(), rotation = identity();
+  Color shirt{}, trousers{}, skin{};
+  std::array<std::uint32_t, 4> range{}, options{};
+};
+static_assert(sizeof(Vertex) == 64 && offsetof(Vertex, color) == 12 &&
+              offsetof(Vertex, normalScale) == 60);
+static_assert(sizeof(GpuSkinSource) == 144 && offsetof(GpuSkinSource, garment) == 128);
+static_assert(sizeof(GpuSkinBone) == 128 && sizeof(GpuSkinJob) == 208);
+struct SkinRequest {
+  std::string mesh;
+  std::uint32_t first = 0, count = 0;
+  GpuSkinJob job;
+  std::vector<GpuSkinBone> bones;
+};
 class Renderer {
 public:
   GLFWwindow *window = nullptr;
@@ -47,6 +74,12 @@ public:
   void draw(const std::vector<Vertex> &world, const std::vector<Vertex> &ui,
             const std::vector<Batch> &, const Mat4 &camera, Vec3 eye,
             const std::filesystem::path &capture = {});
+  void addSkinMesh(const std::string &, const std::vector<GpuSkinSource> &);
+  void setSkinRequests(std::vector<SkinRequest> requests) { skinRequests = std::move(requests); }
+  std::size_t skinnedVertexCount() const;
+  std::size_t skinVertexBudget = 4000000;
+  bool canSkinVertices(std::size_t count) const;
+  std::vector<Vertex> testSkinVertices(std::vector<SkinRequest>, std::size_t count);
   void setInstances(std::vector<Instance> instances);
   void setEmergencyLights(std::vector<std::array<float, 8>> lights) {
     emergencyLights = std::move(lights);
@@ -57,6 +90,22 @@ public:
   void uploadMaterials(const std::array<std::vector<unsigned char>, 3> &textures, int size);
 
 private:
+  std::map<std::string, std::array<std::uint32_t, 3>> skinMeshes;
+  std::vector<GpuSkinSource> skinSources;
+  std::vector<SkinRequest> skinRequests;
+  std::vector<GpuSkinJob> skinJobs;
+  bool skinSourcesDirty = true;
+  VkDescriptorSetLayout skinDescriptorLayout{};
+  VkDescriptorPool skinPool{};
+  VkDescriptorSet skinDescriptor{};
+  VkPipelineLayout skinLayout{};
+  VkPipeline skinPipeline{};
+  VkBuffer skinSourceBuffer{}, skinBoneBuffer{}, skinJobBuffer{};
+  VkDeviceMemory skinSourceMemory{}, skinBoneMemory{}, skinJobMemory{};
+  std::size_t skinSourceBytes = 0, skinBoneBytes = 0, skinJobBytes = 0;
+  void setupSkinning();
+  void prepareSkins(std::size_t worldCount);
+  void dispatchSkins(bool readback = false);
   std::vector<std::array<float, 8>> emergencyLights;
   VkInstance instance{};
   VkSurfaceKHR surface{};

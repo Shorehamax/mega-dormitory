@@ -56,6 +56,10 @@ public:
   void appendSkinned(std::vector<Vertex> &out, const std::string &name,
                      const std::vector<Mat4> &bones, Vec3 position, float scale = 1, float yaw = 0,
                      const CharacterStyle *style = nullptr) const;
+  std::vector<GpuSkinSource> skinGeometry(const std::string &name) const;
+  SkinRequest characterSkin(const std::string &name, std::uint32_t first, Vec3 position, float yaw,
+                            CharacterPose previous, CharacterPose current, float blend, float phase,
+                            float locomotion, const CharacterStyle &) const;
   void appendCharacter(std::vector<Vertex> &out, const std::string &name, Vec3 position, float yaw,
                        CharacterPose previous, CharacterPose current, float blend, float phase,
                        float locomotion, const CharacterStyle &style) const;

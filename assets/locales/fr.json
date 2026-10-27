@@ -706,5 +706,9 @@
   "personal.error.kind": "Cet objet a un autre usage.",
   "personal.error.home": "Rejoignez votre lit d’abord. Utilisez Dormir / rentrer, puis choisissez cet objet.",
   "personal.error.food": "Portez une ration disponible pour utiliser la vaisselle ou le cuiseur.",
-  "import.error.destination": "Choisissez une autre destination native ; l’export Web est protégé."
+  "import.error.destination": "Choisissez une autre destination native ; l’export Web est protégé.",
+  "graphics.gpu_skinning": "Animation des personnages · GPU",
+  "graphics.cpu_skinning": "Animation des personnages · CPU",
+  "graphics.skinning_help": "Le GPU déforme en parallèle les corps et vêtements proches. Vulkan logiciel utilise le CPU. Seul le rendu change, pas les règles de simulation.",
+  "graphics.skinning_fallback": "La déformation des personnages dépasse la mémoire autorisée. Animation basculée sur le CPU."
 }

@@ -706,5 +706,9 @@
   "personal.error.kind": "This item has another use.",
   "personal.error.home": "Reach your own bed first. Use Sleep / return home, then choose this item.",
   "personal.error.food": "Carry an available food pack to use tableware or the rice cooker.",
-  "import.error.destination": "Choose a different native save destination; the browser export is protected."
+  "import.error.destination": "Choose a different native save destination; the browser export is protected.",
+  "graphics.gpu_skinning": "Character animation · GPU",
+  "graphics.cpu_skinning": "Character animation · CPU",
+  "graphics.skinning_help": "GPU skinning deforms nearby bodies and clothing in parallel. Software Vulkan uses the CPU path. This changes rendering, not simulation rules.",
+  "graphics.skinning_fallback": "GPU character storage exceeded this device’s limit. Switched to CPU animation."
 }

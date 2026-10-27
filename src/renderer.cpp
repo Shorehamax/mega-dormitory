@@ -27,6 +27,8 @@ std::uint32_t Renderer::memoryType(std::uint32_t bits, VkMemoryPropertyFlags fla
 }
 void Renderer::buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags,
                       VkBuffer &out, VkDeviceMemory &mem) {
+  out = VK_NULL_HANDLE;
+  mem = VK_NULL_HANDLE;
   VkBufferCreateInfo b{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
   b.size = size;
   b.usage = usage;
@@ -36,9 +38,41 @@ void Renderer::buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPrope
   vkGetBufferMemoryRequirements(device, out, &req);
   VkMemoryAllocateInfo a{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
   a.allocationSize = req.size;
-  a.memoryTypeIndex = memoryType(req.memoryTypeBits, flags);
-  check(vkAllocateMemory(device, &a, nullptr, &mem), "buffer memory");
-  check(vkBindBufferMemory(device, out, mem, 0), "bind buffer");
+  auto fallback = memoryType(req.memoryTypeBits, flags);
+  a.memoryTypeIndex = fallback;
+  // Keep skinning output in GPU-visible local memory when a coherent BAR/UMA
+  // allocation is available. Writing animated vertices to system RAM costs a
+  // PCIe round trip before both the shadow and scene passes read them again.
+  VkPhysicalDeviceMemoryProperties properties;
+  vkGetPhysicalDeviceMemoryProperties(physical, &properties);
+  if ((usage & (VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)) &&
+      (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))
+    for (std::uint32_t i = 0; i < properties.memoryTypeCount; ++i)
+      if ((req.memoryTypeBits & (1u << i)) && (properties.memoryTypes[i].propertyFlags &
+                                               (flags | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) ==
+                                                  (flags | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
+        a.memoryTypeIndex = i;
+        break;
+      }
+  auto result = vkAllocateMemory(device, &a, nullptr, &mem);
+  if (result != VK_SUCCESS && a.memoryTypeIndex != fallback) {
+    a.memoryTypeIndex = fallback;
+    result = vkAllocateMemory(device, &a, nullptr, &mem);
+  }
+  if (result != VK_SUCCESS) {
+    vkDestroyBuffer(device, out, nullptr);
+    out = VK_NULL_HANDLE;
+    mem = VK_NULL_HANDLE;
+    check(result, "buffer memory");
+  }
+  result = vkBindBufferMemory(device, out, mem, 0);
+  if (result != VK_SUCCESS) {
+    vkFreeMemory(device, mem, nullptr);
+    vkDestroyBuffer(device, out, nullptr);
+    mem = VK_NULL_HANDLE;
+    out = VK_NULL_HANDLE;
+    check(result, "bind buffer");
+  }
 }
 void Renderer::image(int w, int h, VkFormat format, VkImageUsageFlags usage, VkImage &im,
                      VkDeviceMemory &mem, VkImageView &view, VkImageAspectFlags aspect, int levels,
@@ -852,14 +886,24 @@ void Renderer::draw(const std::vector<Vertex> &world, const std::vector<Vertex> 
     if (vertexMemory)
       vkFreeMemory(device, vertexMemory, nullptr);
     vertexBytes = std::max<std::size_t>(bytes * 2, 1024 * 1024);
-    buffer(vertexBytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+    buffer(vertexBytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertices,
            vertexMemory);
   }
+  prepareSkins(world.size());
   if (bytes) {
     void *p;
     check(vkMapMemory(device, vertexMemory, 0, bytes, 0, &p), "map vertices");
-    std::memcpy(p, world.data(), world.size() * sizeof(Vertex));
+    std::size_t cursor = 0;
+    for (const auto &request : skinRequests) {
+      if (request.first > cursor)
+        std::memcpy(static_cast<char *>(p) + cursor * sizeof(Vertex), world.data() + cursor,
+                    (request.first - cursor) * sizeof(Vertex));
+      cursor = request.first + request.count;
+    }
+    if (cursor < world.size())
+      std::memcpy(static_cast<char *>(p) + cursor * sizeof(Vertex), world.data() + cursor,
+                  (world.size() - cursor) * sizeof(Vertex));
     std::memcpy(static_cast<char *>(p) + world.size() * sizeof(Vertex), ui.data(),
                 ui.size() * sizeof(Vertex));
     vkUnmapMemory(device, vertexMemory);
@@ -889,6 +933,7 @@ void Renderer::draw(const std::vector<Vertex> &world, const std::vector<Vertex> 
   std::memcpy(lightData, &lighting, sizeof(SceneLighting));
   vkUnmapMemory(device, lightMemory);
   begin();
+  dispatchSkins();
   VkClearValue shadowClear{};
   shadowClear.depthStencil = {1, 0};
   VkRenderPassBeginInfo shadowBegin{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
@@ -1135,6 +1180,20 @@ Renderer::~Renderer() {
     return;
   vkDeviceWaitIdle(device);
   destroySwap();
+  if (skinPipeline)
+    vkDestroyPipeline(device, skinPipeline, nullptr);
+  if (skinLayout)
+    vkDestroyPipelineLayout(device, skinLayout, nullptr);
+  if (skinPool)
+    vkDestroyDescriptorPool(device, skinPool, nullptr);
+  if (skinDescriptorLayout)
+    vkDestroyDescriptorSetLayout(device, skinDescriptorLayout, nullptr);
+  for (auto buffer : {skinSourceBuffer, skinBoneBuffer, skinJobBuffer})
+    if (buffer)
+      vkDestroyBuffer(device, buffer, nullptr);
+  for (auto memory : {skinSourceMemory, skinBoneMemory, skinJobMemory})
+    if (memory)
+      vkFreeMemory(device, memory, nullptr);
   if (vertices)
     vkDestroyBuffer(device, vertices, nullptr);
   if (vertexMemory)
