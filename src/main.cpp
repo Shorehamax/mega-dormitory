@@ -81,9 +81,14 @@ int main(int argc, char **argv) {
     std::size_t queued = 0;
     for (auto &f : w.facilities)
       queued += f.queue.size();
+    std::size_t delivered = 0;
+    for (const auto &order : w.orders)
+      delivered += order.state == mega::OrderState::Delivered;
     std::cout << "{\"population\":" << w.residents.size() << ",\"living\":" << w.living()
               << ",\"floors\":" << w.config.floors << ",\"facilities\":" << w.facilities.size()
-              << ",\"queued\":" << queued << ",\"simulated_seconds\":" << (w.time - initialTime)
+              << ",\"queued\":" << queued << ",\"resident_plans\":" << w.residentPlans.size()
+              << ",\"orders_placed\":" << w.orders.size() << ",\"orders_delivered\":" << delivered
+              << ",\"simulated_seconds\":" << (w.time - initialTime)
               << ",\"happiness\":" << w.happiness()
               << ",\"internal_money_cents\":" << w.internalMoney() << ",\"generation_seconds\":"
               << std::chrono::duration<double>(created - start).count()

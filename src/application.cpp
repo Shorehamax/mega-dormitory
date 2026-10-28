@@ -89,6 +89,7 @@ public:
   std::string floorWidth = "512", floorDepth = "512", lobbyWidth = "640", lobbyDepth = "640";
   float networkScroll = 0, helpScroll = 0;
   int customCategory = 0, buildKind = 1, cheatStat = 0;
+  bool householdOpen = false;
   std::string cheatValue = "100";
   bool savesOpen = false, savingSlots = false, savesWasPaused = false, savesEscapeHeld = false;
   int overwriteSlot = 0;
@@ -1025,6 +1026,51 @@ public:
       networkScroll = 0;
     }
     y += 44;
+    if (ui.button("householdPlan", {x, y, width, 36}, t("autonomy.title")))
+      householdOpen = !householdOpen;
+    y += 44;
+    if (householdOpen) {
+      Money reserve = w.householdReserve(selected);
+      y = ui.wrap(x, y, width, t("autonomy.reserve") + " " + money(reserve), 14, hex(0xa5cbb9)) +
+          10;
+      y = ui.wrap(x, y, width,
+                  t("autonomy.spendable") + " " +
+                      money(std::max<Money>(0, w.accounts[r.account].balance - reserve)),
+                  14, hex(0xa5bfc4)) +
+          10;
+      auto plan = w.residentPlans.find(selected);
+      if (plan != w.residentPlans.end()) {
+        y = ui.wrap(x, y, width, t(autonomyKey(plan->second.action)), 13, hex(0xc1cbb7)) + 12;
+        y = ui.wrap(
+                x, y, width,
+                t("autonomy.spent") + " " +
+                    money(plan->second.day == int(w.time / 86400) ? plan->second.spentToday : 0),
+                12, hex(0x8da5aa)) +
+            12;
+        if (plan->second.order != none) {
+          const auto &order = w.orders[plan->second.order];
+          y = ui.wrap(x, y, width,
+                      t(itemLabel(order.product)) + " · " +
+                          t(order.state == OrderState::Delivered   ? "order.delivered"
+                            : order.state == OrderState::Cancelled ? "autonomy.cancelled"
+                            : order.state == OrderState::Lost      ? "autonomy.parcel_lost"
+                                                                   : "autonomy.waiting"),
+                      13, hex(0xb9c6c4)) +
+              12;
+        }
+      }
+      if (selected == w.player || w.config.mode == Mode::Cheat) {
+        if (ui.button("householdAutomatic", {x, y, width, 34},
+                      t(r.automatic ? "autonomy.disable" : "autonomy.enable")))
+          act([&] {
+            r.automatic = !r.automatic;
+            if (r.automatic)
+              w.schedule(w.time + 1, EventKind::Decide, selected);
+          });
+        y += 42;
+      }
+      y = ui.wrap(x, y, width, t("autonomy.explain"), 12, hex(0x8da5aa)) + 20;
+    }
     for (Id item : r.items)
       if (!w.items[item].consumed && w.items[item].carrier == selected &&
           (w.items[item].kind == ItemKind::Food || w.items[item].kind == ItemKind::Medicine)) {
@@ -1114,7 +1160,7 @@ public:
       ui.text(x, y, t("talk.trust") + " " + std::to_string(int(w.trust(selected, nearby) * 100)),
               13, hex(0xa5bcae));
       y += 27;
-      for (int topic = 0; topic < 5; ++topic) {
+      for (int topic = 0; topic < 6; ++topic) {
         if (ui.button("talk" + std::to_string(topic), {x, y, width, 30},
                       t("talk.topic" + std::to_string(topic))))
           act([&] { notify(t(w.talk(selected, nearby, topic))); });
@@ -2892,14 +2938,13 @@ public:
     if (networkTab == 0) {
       y -= networkScroll;
       y = ui.wrap(x, y, width - 56, t("network.desc"), 16, hex(0xa4b7b9)) + 28;
-      std::array<ItemKind, 11> products = {
+      std::array<ItemKind, 12> products = {
           ItemKind::Food,  ItemKind::Phone,     ItemKind::Laptop,     ItemKind::Medicine,
           ItemKind::Tools, ItemKind::Handgun,   ItemKind::Ammunition, ItemKind::Extinguisher,
-          ItemKind::Fan,   ItemKind::Tableware, ItemKind::RiceCooker};
+          ItemKind::Fan,   ItemKind::Tableware, ItemKind::RiceCooker, ItemKind::Clothes};
       const char *names[] = {"food",  "phone",     "laptop",     "medicine",
                              "tools", "handgun",   "ammunition", "extinguisher",
-                             "fan",   "tableware", "ricecooker"};
-      Money prices[] = {800, 15000, 65000, 2000, 4500, 120000, 1500, 4500, 5000, 1000, 8000};
+                             "fan",   "tableware", "ricecooker", "clothes"};
       float card = (width - 80) / 3;
       for (int i = 0; i < int(products.size()); ++i) {
         float cx = x + (i % 3) * (card + 12), cy = y + (i / 3) * 182;
@@ -2909,7 +2954,7 @@ public:
         ui.text(cx + 64, cy + 24, t(std::string("item.") + names[i]), 18, hex(0xe2e6dc));
         ui.wrap(cx + 16, cy + 65, card - 32, t(std::string("item.desc.") + names[i]), 14,
                 hex(0x9bb0b3));
-        ui.text(cx + 16, cy + 128, money(prices[i]), 20, hex(0xa5cbb9));
+        ui.text(cx + 16, cy + 128, money(w.productPrice(products[i])), 20, hex(0xa5cbb9));
         if (ui.button("product" + std::to_string(i), {cx + card - 102, cy + 122, 86, 31},
                       t("action.buy"), true))
           act([&] {
@@ -4406,7 +4451,9 @@ int runApplication(int argc, char **argv) {
   try {
     Application app(window);
     int frames = 0, maxFrames = 0;
-    bool demo = false, computeTest = false, skinTest = false, animate = false;
+    bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false;
+    Id playCourier = none;
+    int playStage = 0, playHandoverFrame = 0;
     std::string panel, browserImport;
     float demoYaw = 0, demoPitch = 0, demoScroll = 0;
     bool demoLook = false;
@@ -4419,7 +4466,12 @@ int runApplication(int argc, char **argv) {
           throw std::runtime_error("Missing argument value");
         return std::string(argv[++i]);
       };
-      if (arg == "--demo")
+      if (arg == "--playtest-autonomy") {
+        playAutonomy = demo = animate = true;
+        panel = "autonomy";
+        app.config.population = 600;
+        app.config.floors = 20;
+      } else if (arg == "--demo")
         demo = true;
       else if (arg == "--animate")
         animate = true;
@@ -4474,6 +4526,14 @@ int runApplication(int argc, char **argv) {
       else if (arg == "--skin-budget")
         app.renderer->skinVertexBudget = std::stoull(value());
     }
+    if (playAutonomy) {
+      if (!browserImport.empty())
+        throw std::runtime_error("Playtests use an isolated generated world");
+      if (maxFrames == 0)
+        maxFrames = 1200;
+      if (fixedStep == 0)
+        fixedStep = 1.f / 30;
+    }
     if (!browserImport.empty()) {
       app.setWorld(World::importBrowser(browserImport));
       app.importOpen = app.importSummary = true;
@@ -4489,7 +4549,81 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "washbasin" || panel == "washing") {
+      if (panel == "autonomy") {
+        auto &w = *app.world;
+        w.config.mode = Mode::Cheat;
+        Id shop = none, vendor = none;
+        for (const auto &f : w.facilities)
+          if (f.floor == 0 && f.kind == FacilityKind::Shop) {
+            shop = f.id;
+            break;
+          }
+        for (const auto &r : w.residents) {
+          if (r.id > 1 && r.role == Role::Unemployed && vendor == none)
+            vendor = r.id;
+          if (r.role == Role::Courier && playCourier == none)
+            playCourier = r.id;
+        }
+        if (shop == none || vendor == none || playCourier == none)
+          throw std::runtime_error("Autonomy playtest needs a shop, a vendor and a courier");
+        w.setFacilityHours(w.facilities[shop].manager, shop, 0, 24, true);
+        for (auto [id, role] :
+             {std::pair{vendor, Role::Vendor}, std::pair{playCourier, Role::Courier}}) {
+          w.leaveQueue(id);
+          w.chooseJob(id, role, shop);
+          auto &worker = w.residents[id];
+          worker.routine.shiftStart = 0;
+          worker.routine.shiftHours = 24;
+          worker.routine.daysOff = 0;
+          worker.pos =
+              w.accessible(w.facilities[shop].pos + Vec3{id == vendor ? -1.6f : 2.5f, 0, -1.6f});
+          worker.route.clear();
+          ++worker.routeVersion;
+          worker.activity = Activity::Idle;
+          worker.task = TaskKind::None;
+          worker.hunger = worker.thirst = worker.bladder = .1f;
+          worker.energy = worker.hygiene = 1;
+          worker.needsAt = w.time;
+          worker.automatic = true;
+          if (role == Role::Vendor)
+            w.clockIn(id);
+        }
+        auto &resident = w.residents[w.player];
+        w.leaveQueue(w.player);
+        w.clockOut(w.player);
+        resident.role = Role::Unemployed;
+        resident.jobSite = resident.employer = none;
+        resident.pos = w.accessible(w.facilities[shop].pos + Vec3{0, 0, 8});
+        resident.route.clear();
+        ++resident.routeVersion;
+        resident.activity = Activity::Idle;
+        resident.task = TaskKind::None;
+        resident.hunger = .4f;
+        resident.thirst = resident.bladder = .1f;
+        resident.energy = resident.hygiene = 1;
+        resident.needsAt = w.time;
+        resident.automatic = false;
+        auto &plan = w.residentPlans[w.player];
+        plan.nextShopping = w.time;
+        plan.nextCareer = plan.nextBusiness = plan.nextListing = w.time + 3 * 86400;
+        w.crowd.clear();
+        w.travel(w.player, w.facilities[shop].pos + Vec3{0, 0, 3}, TaskKind::None, none);
+        app.setFirstPerson(false);
+        app.currentFloor = 0;
+        app.cameraFocus = resident.pos;
+        app.observerHeight = -.8f;
+        app.distance = 10;
+        app.pitch = .18f;
+        app.orbit = .6f;
+        app.householdOpen = true;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        if (demoScroll == 0)
+          demoScroll = 570;
+        std::cout << "PLAYTEST: walking to the shop; household funds="
+                  << w.accounts[resident.account].balance << "\n";
+      } else if (panel == "washbasin" || panel == "washing") {
         auto &w = *app.world;
         w.config.mode = Mode::Cheat;
         auto &r = w.residents[w.player];
@@ -4774,8 +4908,11 @@ int runApplication(int argc, char **argv) {
       app.playerYaw = demoYaw;
       app.playerPitch = demoPitch;
     }
-    if (demo && animate)
+    if (demo && animate) {
       app.paused = false;
+      if (playAutonomy)
+        app.speed = 6;
+    }
     if (computeTest) {
       std::vector<std::array<float, 4>> needs(100000);
       for (std::size_t i = 0; i < needs.size(); ++i)
@@ -4873,10 +5010,75 @@ int runApplication(int argc, char **argv) {
       double now = glfwGetTime();
       float dt = fixedStep > 0 ? fixedStep : std::clamp(float(now - last), .001f, .05f);
       last = now;
-      app.frame(dt, !capture.empty() && maxFrames > 0 && frames == maxFrames - 1
-                        ? capture
-                        : std::filesystem::path{});
+      std::filesystem::path frameCapture =
+          !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
+                                                                       : std::filesystem::path{};
+      if (playAutonomy) {
+        auto &w = *app.world;
+        if (playStage == 0 && w.residents[w.player].route.empty()) {
+          w.residents[w.player].automatic = true;
+          w.residentPlans[w.player].nextShopping = w.time;
+          w.schedule(w.time + .01, EventKind::Decide, w.player);
+          playStage = 1;
+          std::cout << "PLAYTEST: arrived on foot; enabled resident decisions\n";
+        }
+        for (const auto &order : w.orders)
+          if (order.buyer == w.player && playStage == 1) {
+            playStage = 2;
+            std::cout << "PLAYTEST: purchase " << order.id
+                      << " escrow=" << w.accounts[order.escrow].balance << "\n";
+            if (!capture.empty())
+              frameCapture = capture.parent_path() / (capture.stem().string() + "-ordered.ppm");
+          }
+        for (const auto &order : w.orders)
+          if (order.buyer == w.player && order.state == OrderState::Delivered && playStage == 2) {
+            playStage = 3;
+            playHandoverFrame = frames;
+            std::cout << "PLAYTEST: courier " << order.courier << " physically handed over item "
+                      << order.item << "; escrow=" << w.accounts[order.escrow].balance << "\n";
+            if (!capture.empty())
+              frameCapture = capture.parent_path() / (capture.stem().string() + "-handover.ppm");
+          }
+        Id focus = playStage == 2 ? playCourier : w.player;
+        if (playStage == 2)
+          for (const auto &o : w.orders)
+            if (o.buyer == w.player && o.courier != none && o.state != OrderState::Delivered) {
+              focus = o.courier;
+              break;
+            }
+        app.cameraFocus = w.position(focus);
+        app.currentFloor = std::clamp(int(app.cameraFocus.y / 3), 0, w.config.floors - 1);
+        if (playStage == 3 && frames >= playHandoverFrame + 60) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
+      app.frame(dt, frameCapture);
       ++frames;
+    }
+    if (playAutonomy) {
+      app.world->validate();
+      if (playStage != 3) {
+        for (const auto &o : app.world->orders)
+          if (o.buyer == app.world->player) {
+            std::cout << "PLAYTEST TRACE order=" << o.id << " state=" << int(o.state)
+                      << " courier=" << o.courier << "\n";
+            if (o.courier != none) {
+              const auto &r = app.world->residents[o.courier];
+              auto p = app.world->position(r.id);
+              std::cout << "PLAYTEST TRACE activity=" << int(r.activity) << " task=" << int(r.task)
+                        << " position=" << p.x << "," << p.y << "," << p.z
+                        << " route=" << r.route.size() << " hunger=" << r.hunger
+                        << " thirst=" << r.thirst << " carrying=" << r.carrying << "\n";
+            }
+          }
+        if (!capture.empty())
+          app.world->save(capture.string() + ".mdsave");
+        throw std::runtime_error("Autonomy playthrough did not complete a real delivery");
+      }
+      std::cout << "PLAYTEST PASS: walking, budgeted checkout, real courier delivery, live UI and "
+                   "conserved state\n";
     }
     std::cout << "Render loop seconds: " << glfwGetTime() - renderStart << "\n";
     std::cout << "CPU scene build seconds: " << app.sceneBuildSeconds << "\n";

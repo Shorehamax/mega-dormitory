@@ -120,7 +120,9 @@ enum class TaskKind {
   Emigrate,
   LiftWait,
   FireResponse,
-  Evacuate
+  Evacuate,
+  TradeMeet,
+  ShoppingTerminal
 };
 enum class CrimeKind { QueueCutting, Assault, ExcessiveForce, Murder, Theft };
 enum class ProjectState { Proposed, AwaitingConsent, Funded, Working, Completed, Disputed };
@@ -177,6 +179,32 @@ struct Appearance {
 struct HomeStyle {
   int frame = 0, linen = 1, blanket = 2, closet = 0;
   bool curtain = false, closetOpen = false;
+};
+enum class AutonomyAction {
+  Saving,
+  Essentials,
+  Ordered,
+  WaitingDelivery,
+  NeedConnection,
+  Trading,
+  JobSeeking,
+  JobAccepted,
+  Invested,
+  NoSupply,
+  SharedMeal,
+  TradeCancelled,
+  Received,
+  Cancelled,
+  ParcelLost
+};
+struct ResidentPlan {
+  double nextShopping = 0, nextCareer = 0, nextBusiness = 0, nextListing = 0;
+  double tradeDeadline = 0, lastCareer = -86400;
+  Money reserve = 0, spentToday = 0, tradePrice = 0;
+  int day = -1, tradeRetries = 0;
+  Id order = none, tradeItem = none, seller = none, lastBusiness = none;
+  ItemKind wanted = ItemKind::Food;
+  AutonomyAction action = AutonomyAction::Saving;
 };
 struct Resident {
   Id id = none, account = none, home = 0, employer = none, jobSite = none;
@@ -416,7 +444,7 @@ struct Shot {
 struct Relationship {
   Id a = none, b = none;
   float trust = 0;
-  double lastTalk = -3600;
+  double lastTalk = -3600, lastAid = -86400;
   int sharedInterest = 0;
 };
 struct Message {
@@ -564,6 +592,22 @@ public:
   void validatePhysics() const;
   std::vector<ParkingBay> parking;
   std::vector<Order> orders;
+  std::map<Id, ResidentPlan> residentPlans;
+  std::set<Id> itemOffers; // live resale advertisements; rebuilt from saved items
+  void rebuildItemOffers();
+  static Money productPrice(ItemKind);
+  Money deliveryPrice(Id buyer, Id shop) const;
+  Money householdReserve(Id resident) const;
+  bool autonomyDecision(Id resident);
+  void finishAutonomyTrade(Id resident);
+  void householdShopping(Id resident);
+  void careerDecision(Id resident);
+  void businessDecision(Id resident);
+  void orderTick();
+  void dispatchOrder(Id order);
+  bool routeDelivery(Id order, bool handover = true);
+  bool shareFood(Id donor, Id recipient);
+  void validateAutonomy() const;
   std::vector<Freight> freight;
   std::vector<LiftCar> lifts;
   std::vector<OfficeOrder> officeOrders;
@@ -841,5 +885,6 @@ public:
 std::string roleKey(Role);
 std::string activityKey(Activity);
 std::string facilityKey(FacilityKind);
+std::string autonomyKey(AutonomyAction);
 std::string vehicleKey(VehicleKind);
 } // namespace mega

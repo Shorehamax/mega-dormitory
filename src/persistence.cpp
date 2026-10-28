@@ -82,7 +82,13 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(OfficeOrder, id, facility, worke
                                                 brief, budget, remaining, total, workAt, due,
                                                 submitted, quality, submission, client, employer,
                                                 liveRequests, tickets, dispatched, outcomes)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Relationship, a, b, trust, lastTalk, sharedInterest)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Relationship, a, b, trust, lastTalk, sharedInterest,
+                                                lastAid)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ResidentPlan, nextShopping, nextCareer,
+                                                nextBusiness, nextListing, tradeDeadline,
+                                                lastCareer, reserve, spentToday, tradePrice, day,
+                                                tradeRetries, order, tradeItem, seller,
+                                                lastBusiness, wanted, action)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Message, from, to, time, text, read)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Vehicle, id, owner, dealer, driver, bay, kind, pos,
                                                 yaw, speed, condition, askingPrice, originalPrice,
@@ -155,6 +161,7 @@ void World::save(const std::filesystem::path &path) const {
             {"nextPhysicsAt", nextPhysicsAt},
             {"parking", parking},
             {"orders", orders},
+            {"residentPlans", residentPlans},
             {"freight", freight},
             {"lifts", lifts},
             {"officeOrders", officeOrders},
@@ -402,6 +409,7 @@ static World readSave(const std::filesystem::path &path) {
     if (!f.out && !w.activeFires.emplace(f.facility, f.id).second)
       throw std::runtime_error("Duplicate active fire");
   READ(items);
+  w.rebuildItemOffers();
   if (j.contains("personalUses"))
     j.at("personalUses").get_to(w.personalUses);
   READ(vehicles);
@@ -416,6 +424,8 @@ static World readSave(const std::filesystem::path &path) {
   w.nextPhysicsAt = j.value("nextPhysicsAt", -1.0);
   READ(parking);
   READ(orders);
+  if (j.contains("residentPlans"))
+    j.at("residentPlans").get_to(w.residentPlans);
   if (j.contains("freight"))
     j.at("freight").get_to(w.freight);
   if (j.contains("repairs"))

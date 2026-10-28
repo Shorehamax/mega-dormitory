@@ -13,7 +13,7 @@ std::string World::talk(Id speaker, Id listener, int topic) {
   auto &a = residents.at(speaker);
   auto &b = residents.at(listener);
   if (speaker == listener || !a.alive || !a.present || !b.alive || !b.present || topic < 0 ||
-      topic > 4 || !near(speaker, position(listener), 2.5f) || b.activity == Activity::Sleeping ||
+      topic > 5 || !near(speaker, position(listener), 2.5f) || b.activity == Activity::Sleeping ||
       b.activity == Activity::Fighting || a.activity == Activity::Fighting ||
       !lineOfSight(position(speaker) + Vec3{0, 1.4f, 0}, position(listener) + Vec3{0, 1.4f, 0}))
     throw std::runtime_error("Reach an awake resident who can hear you");
@@ -69,8 +69,16 @@ std::string World::talk(Id speaker, Id listener, int topic) {
       bond.trust = std::min(.1f, bond.trust + .12f);
     reply = "talk.apology_reply";
   }
+  if (topic == 5)
+    reply = shareFood(listener, speaker) ? "talk.meal_shared" : "talk.no_spare";
   log(reply, listener, speaker);
   return reply;
+}
+void World::rebuildItemOffers() {
+  itemOffers.clear();
+  for (const auto &item : items)
+    if (item.askingPrice > 0 && item.seller != none && !item.consumed)
+      itemOffers.insert(item.id);
 }
 void World::listItem(Id seller, Id id, Money price) {
   auto &r = residents.at(seller);
@@ -81,6 +89,10 @@ void World::listItem(Id seller, Id id, Money price) {
     throw std::runtime_error("Only an owned, unreserved, unworn item may be offered for sale");
   i.askingPrice = price;
   i.seller = price ? seller : none;
+  if (price)
+    itemOffers.insert(id);
+  else
+    itemOffers.erase(id);
   log("trade.listed", seller, id);
 }
 void World::buyItem(Id buyer, Id id) {
@@ -101,7 +113,48 @@ void World::buyItem(Id buyer, Id id) {
   i.pos = position(buyer);
   i.seller = none;
   i.askingPrice = 0;
+  itemOffers.erase(id);
   log("trade.completed", buyer, id);
+}
+bool World::shareFood(Id donor, Id recipient) {
+  auto &a = residents.at(donor);
+  auto &b = residents.at(recipient);
+  auto key = pairKey(donor, recipient);
+  auto bond = relationships.find(key);
+  if (donor == recipient || !a.alive || !a.present || !b.alive || !b.present ||
+      a.aggression > .6f || b.hunger < .55f || a.surrendered || a.activity == Activity::Fighting ||
+      b.activity == Activity::Fighting || bond == relationships.end() ||
+      bond->second.trust < .35f || time - bond->second.lastAid < 21600 ||
+      !near(donor, position(recipient), 2.5f) ||
+      !lineOfSight(position(donor) + Vec3{0, 1.3f, 0}, position(recipient) + Vec3{0, 1.3f, 0}))
+    return false;
+  std::vector<Id> meals;
+  for (Id item : a.items) {
+    const auto &i = items[item];
+    if (i.kind == ItemKind::Food && i.owner == a.account && i.carrier == donor && !i.consumed &&
+        i.reservedAt == none && i.stolenFrom == none && !itemInUse(item))
+      meals.push_back(item);
+  }
+  if (meals.size() < 2)
+    return false;
+  Id item = meals.back();
+  std::erase(a.items, item);
+  b.items.push_back(item);
+  auto &meal = items[item];
+  meal.owner = b.account;
+  meal.carrier = recipient;
+  meal.pos = position(recipient);
+  meal.askingPrice = 0;
+  meal.seller = none;
+  itemOffers.erase(item);
+  bond->second.lastAid = time;
+  bond->second.trust = std::min(1.f, bond->second.trust + .12f);
+  a.happiness = std::min(1.f, a.happiness + .025f);
+  b.happiness = std::min(1.f, b.happiness + .04f);
+  if (residentPlans.contains(donor))
+    residentPlans[donor].action = AutonomyAction::SharedMeal;
+  log("autonomy.meal_shared", donor, recipient);
+  return true;
 }
 void World::socialTick() {
   using Cell = std::tuple<int, int, int>;
@@ -139,6 +192,10 @@ void World::socialTick() {
               int topic = r.aggression > .7f && trust(r.id, other) < -.2f && random() < .1f ? 3 : 1;
               try {
                 talk(r.id, other, topic);
+                if (residents[other].hunger > .65f)
+                  shareFood(r.id, other);
+                if (r.hunger > .65f)
+                  shareFood(other, r.id);
                 spoke.insert(r.id);
                 spoke.insert(other);
                 done = true;

@@ -557,6 +557,13 @@ void World::decide(Id id) {
   if (r.activity != Activity::Idle && r.activity != Activity::Working &&
       r.activity != Activity::Sleeping)
     return;
+  if (r.health < 85)
+    for (Id item : r.items)
+      if (items[item].kind == ItemKind::Medicine && items[item].owner == r.account &&
+          items[item].carrier == id && !items[item].consumed && items[item].reservedAt == none) {
+        consumeItem(id, item);
+        break;
+      }
   if (r.hunger > .55f) {
     Id food = none, utensil = none;
     for (Id item : r.items)
@@ -681,6 +688,10 @@ void World::decide(Id id) {
       }
     }
   }
+  if (!workWindow && r.activity == Activity::Idle && r.route.empty() && r.hunger < .85f &&
+      r.thirst < .65f && r.bladder < .75f && r.hygiene >= .35f && r.energy > .3f &&
+      autonomyDecision(id))
+    return;
   if (r.role == Role::Warden && workWindow) {
     wardenRespond(id);
     if (r.task == TaskKind::Investigate || r.task == TaskKind::Escort ||
@@ -756,6 +767,14 @@ void World::decide(Id id) {
     }
   }
   if (workWindow && r.role == Role::Courier) {
+    if (r.carrying != none && items[r.carrying].order != none) {
+      auto &parcel = orders[items[r.carrying].order];
+      if (parcel.courier == id && parcel.state == OrderState::ToCustomer &&
+          residents[parcel.buyer].alive && residents[parcel.buyer].present) {
+        routeDelivery(parcel.id);
+        return;
+      }
+    }
     for (auto &shipment : freight)
       if (!shipment.waste && shipment.worker == id && shipment.state != FreightState::Delivered) {
         if (shipment.state == FreightState::Carrying)
@@ -783,7 +802,7 @@ void World::decide(Id id) {
     for (auto &o : orders)
       if (o.courier == id && o.state == OrderState::ToPickup) {
         if (operational(o.shop))
-          travel(id, facilities[o.shop].pos, TaskKind::DeliveryPickup, o.id);
+          travel(id, facilities[o.shop].pos + Vec3{1.6f, 0, 0}, TaskKind::DeliveryPickup, o.id);
         return;
       }
     Id localOrder = none;
@@ -792,7 +811,10 @@ void World::decide(Id id) {
       if (o.state == OrderState::Waiting) {
         Vec3 pickup = facilities[o.shop].pos;
         float d = length(position(id) - pickup);
-        if (std::abs(position(id).y - pickup.y) <= 60 && d < orderDistance) {
+        bool ownWorkplace = o.shop == r.jobSite;
+        bool localPickup = std::abs(position(id).y - pickup.y) <= 12 &&
+                           std::hypot(position(id).x - pickup.x, position(id).z - pickup.z) < 80;
+        if ((ownWorkplace || localPickup) && d < orderDistance) {
           localOrder = o.id;
           orderDistance = d;
         }
@@ -927,13 +949,15 @@ void World::dispatch(const Event &e) {
     return;
   }
   if (e.kind == EventKind::Arrive) {
+    auto arrivalTask = residents[e.id].task;
     if (residents[e.id].routeVersion == e.version && residents[e.id].alive &&
         residents[e.id].present)
       try {
         arrive(e.id);
       } catch (const std::runtime_error &error) {
         if (std::getenv("MEGA_TRACE"))
-          std::cerr << "Arrival " << e.id << ": " << error.what() << "\n";
+          std::cerr << "Arrival " << e.id << " (task " << int(arrivalTask) << "): " << error.what()
+                    << "\n";
         // A destination may close or change while the resident is travelling.
         residents[e.id].activity = Activity::Idle;
         log("action.blocked", e.id);
@@ -948,6 +972,7 @@ void World::dispatch(const Event &e) {
       if (p.newConstruction && p.state == ProjectState::Working)
         workProject(p.id, 60);
     personalUseTick();
+    orderTick();
     emergencyTick();
     refreshServices();
     medicalTick();
@@ -1101,7 +1126,11 @@ void World::dispatch(const Event &e) {
 void World::arrive(Id id) {
   auto &r = residents.at(id);
   float arrivalRadius = r.task == TaskKind::Service || r.task == TaskKind::Work ? .68f : .08f;
-  if (!r.route.empty() &&
+  bool closeHandover =
+      r.task == TaskKind::DeliveryPickup ? near(id, items[orders[r.target].item].pos)
+      : r.task == TaskKind::DeliveryDrop ? near(id, position(orders[r.target].buyer))
+                                         : false;
+  if (!closeHandover && !r.route.empty() &&
       (r.route.back().time > time + .01 ||
        (crowd.contains(id) && length(position(id) - r.route.back().p) > arrivalRadius))) {
     schedule(std::max(time + 12, r.route.back().time), EventKind::Arrive, id, none, r.routeVersion);
@@ -1123,6 +1152,19 @@ void World::arrive(Id id) {
       // The next decision chooses a service again after the queue has advanced.
     } else if (f.open)
       joinQueue(id, target);
+  } else if (task == TaskKind::TradeMeet)
+    finishAutonomyTrade(id);
+  else if (task == TaskKind::ShoppingTerminal) {
+    // Availability can change while walking. A busy computer is normal, not a failed task.
+    try {
+      useTerminal(id, target, 5);
+      residentPlans[id].nextShopping = time;
+      residentPlans[id].action = AutonomyAction::NeedConnection;
+      schedule(time + 1, EventKind::Decide, id);
+    } catch (const std::runtime_error &) {
+      residentPlans[id].nextShopping = time + 900;
+      residentPlans[id].action = AutonomyAction::NeedConnection;
+    }
   } else if (task == TaskKind::FireResponse)
     beginExtinguish(id, target);
   else if (task == TaskKind::MedicalReach)
@@ -1162,10 +1204,8 @@ void World::arrive(Id id) {
     pickup(target, id);
   else if (task == TaskKind::DeliveryDrop) {
     auto &o = orders[target];
-    if (near(id, position(o.buyer)) && residents[o.buyer].alive && residents[o.buyer].present)
-      deliver(target, id);
-    else if (residents[o.buyer].alive && residents[o.buyer].present)
-      travel(id, position(o.buyer), task, target);
+    if (residents[o.buyer].alive && residents[o.buyer].present)
+      routeDelivery(target);
     else {
       o.state = OrderState::Lost;
       log("delivery.recipient_missing", o.buyer);
@@ -1323,11 +1363,26 @@ void World::serve(Id fId) {
     r.activity = Activity::Using;
     if (f.kind == FacilityKind::Washbasin)
       reserveWashing(id, fId);
-    if (f.kind == FacilityKind::Laundry && r.outfit != none) {
-      items[r.outfit].reservedAt = fId;
-      items[r.outfit].carrier = none;
-      items[r.outfit].pos = f.pos;
-      r.outfit = none;
+    if (f.kind == FacilityKind::Laundry) {
+      std::vector<Id> garments;
+      if (r.outfit != none && items[r.outfit].owner == r.account && items[r.outfit].carrier == id &&
+          items[r.outfit].reservedAt == none)
+        garments.push_back(r.outfit);
+      for (Id item : r.items)
+        if (item != r.outfit && items[item].kind == ItemKind::Clothes &&
+            items[item].owner == r.account && items[item].carrier == id &&
+            items[item].reservedAt == none && !items[item].consumed &&
+            items[item].cleanliness < .95f && garments.size() < 4)
+          garments.push_back(item);
+      for (Id item : garments) {
+        items[item].reservedAt = fId;
+        items[item].carrier = none;
+        items[item].pos = f.pos;
+        items[item].askingPrice = 0;
+        items[item].seller = none;
+        if (r.outfit == item)
+          r.outfit = none;
+      }
     }
 
     double arrival = r.route.back().time;

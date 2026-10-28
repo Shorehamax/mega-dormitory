@@ -80,3 +80,7 @@ A feature is complete only when its rules, persistent state, visible actions, pl
 ## Latest scale and completion requirements
 
 Default each ordinary floor to **512 × 512 metres**, exceeding 500 × 500. The entrance floor starts larger, at **640 × 640 metres**. Expose independent width/depth settings for both in new-game creation. Floor dimensions belong to saved world state and may later increase through funded construction-company projects. Continue toward a finished game, rather than treating an isolated development checkpoint as the full requested release.
+
+## Current implementation priorities (27 October 2026)
+
+The user explicitly prioritizes gameplay features before further optimization. Work in this order: resident autonomy and relationships/provisioning/careers/investment; flexible construction and displacement workflows; vehicles and physical interactions; companies, jobs, schooling and inheritance; crime, investigations and disasters; then visual density, animation, character/clothing assets and sound. Play through the game while implementing these systems and repair problems revealed by gameplay. Keep performance work to correctness and necessary functional bounds until those feature priorities are addressed.

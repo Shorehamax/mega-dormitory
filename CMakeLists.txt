@@ -8,7 +8,7 @@ find_package(glfw3 3.3 REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(ZLIB REQUIRED)
 pkg_check_modules(ZSTD REQUIRED IMPORTED_TARGET libzstd)
-add_library(mega_world src/world.cpp src/economy.cpp src/society.cpp src/persistence.cpp src/vehicles.cpp src/routines.cpp src/customization.cpp src/movement.cpp src/construction.cpp src/medicine.cpp src/operations.cpp src/transport.cpp src/office.cpp src/combat.cpp src/governance.cpp src/repairs.cpp src/housing_work.cpp src/social.cpp src/administration.cpp src/companies.cpp src/emergencies.cpp src/browser_import.cpp src/personal_items.cpp src/airborne.cpp src/washing.cpp)
+add_library(mega_world src/world.cpp src/economy.cpp src/society.cpp src/persistence.cpp src/vehicles.cpp src/routines.cpp src/customization.cpp src/movement.cpp src/construction.cpp src/medicine.cpp src/operations.cpp src/transport.cpp src/office.cpp src/combat.cpp src/governance.cpp src/repairs.cpp src/housing_work.cpp src/social.cpp src/administration.cpp src/companies.cpp src/emergencies.cpp src/browser_import.cpp src/personal_items.cpp src/airborne.cpp src/washing.cpp src/autonomy.cpp)
 target_include_directories(mega_world PUBLIC include PRIVATE third_party)
 target_link_libraries(mega_world PRIVATE PkgConfig::ZSTD ZLIB::ZLIB)
 target_compile_options(mega_world PRIVATE -Wall -Wextra -Wpedantic)
@@ -67,7 +67,8 @@ option(MEGA_VULKAN_TESTS "Enable display-dependent Vulkan skinning integration c
 if(MEGA_VULKAN_TESTS)
   add_test(NAME vulkan_skinning COMMAND mega_dormitory --skin-test --frames 1 --width 1000 --height 720)
   add_test(NAME vulkan_skinning_software COMMAND mega_dormitory --software --skin-test --frames 1 --width 1000 --height 720)
-  set_tests_properties(vulkan_skinning vulkan_skinning_software PROPERTIES
+  add_test(NAME vulkan_autonomy_playthrough COMMAND mega_dormitory --playtest-autonomy --width 1000 --height 720)
+  set_tests_properties(vulkan_skinning vulkan_skinning_software vulkan_autonomy_playthrough PROPERTIES
     ENVIRONMENT "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation"
     FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 endif()
@@ -79,3 +80,7 @@ add_test(NAME persistent_body_physics COMMAND mega_physics_tests)
 add_executable(mega_washing_tests tests/washing_tests.cpp)
 target_link_libraries(mega_washing_tests PRIVATE mega_world)
 add_test(NAME communal_washing COMMAND mega_washing_tests)
+
+add_executable(mega_autonomy_tests tests/autonomy_tests.cpp)
+target_link_libraries(mega_autonomy_tests PRIVATE mega_world)
+add_test(NAME resident_autonomy COMMAND mega_autonomy_tests)

@@ -583,6 +583,7 @@ World World::importBrowser(const std::filesystem::path &path, Mode mode) {
     w.schedule(w.time + 60, EventKind::FacilityTick, 0);
     w.schedule(w.time + 3600, EventKind::Payroll, 0);
     w.log("import.completed");
+    w.rebuildItemOffers();
     w.validate();
     return w;
   } catch (const json::exception &) {

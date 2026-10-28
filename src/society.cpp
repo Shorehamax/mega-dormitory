@@ -385,6 +385,7 @@ void World::validate() const {
   validateEmergencies();
   validatePersonalUses();
   validatePhysics();
+  validateAutonomy();
   if (!std::isfinite(time) || time < 0 || accounts.size() < 2 || residents.size() < 2 ||
       residents.size() > 500000 || names.size() != residents.size() ||
       residentHomes.size() != residents.size() || player < 0 ||
@@ -525,8 +526,9 @@ void World::validate() const {
   if (!residentValid(dormOwner) || !accountValid(dormAccount))
     throw std::runtime_error("Invalid owner");
   for (const auto &r : residents) {
-    if (int(r.task) < 0 || int(r.task) > int(TaskKind::Evacuate) ||
-        ((r.task == TaskKind::Service || r.task == TaskKind::Work || r.task == TaskKind::Escort) &&
+    if (int(r.task) < 0 || int(r.task) > int(TaskKind::ShoppingTerminal) ||
+        ((r.task == TaskKind::Service || r.task == TaskKind::Work || r.task == TaskKind::Escort ||
+          r.task == TaskKind::ShoppingTerminal) &&
          !facilityValid(r.target)) ||
         ((r.task == TaskKind::DeliveryPickup || r.task == TaskKind::DeliveryDrop) &&
          (r.target < 0 || std::size_t(r.target) >= orders.size())) ||
@@ -545,6 +547,8 @@ void World::validate() const {
         (r.task == TaskKind::Investigate &&
          (r.target < 0 || std::size_t(r.target) >= incidents.size())))
       throw std::runtime_error("Invalid resident task");
+    if (r.task == TaskKind::TradeMeet && !residentValid(r.target))
+      throw std::runtime_error("Invalid trade destination");
     if ((r.jobSite != none && !facilityValid(r.jobSite)) ||
         (r.employer != none && !accountValid(r.employer)) ||
         (r.queuedAt != none && !facilityValid(r.queuedAt)) ||
@@ -648,8 +652,8 @@ void World::validate() const {
   for (auto &[key, b] : relationships)
     if (!residentValid(b.a) || !residentValid(b.b) || b.a >= b.b ||
         key != ((std::uint64_t(b.a) << 32) | std::uint32_t(b.b)) || !std::isfinite(b.trust) ||
-        b.trust < -1 || b.trust > 1 || !std::isfinite(b.lastTalk) || b.sharedInterest < 0 ||
-        b.sharedInterest > 7)
+        b.trust < -1 || b.trust > 1 || !std::isfinite(b.lastTalk) || !std::isfinite(b.lastAid) ||
+        b.lastAid > time || b.sharedInterest < 0 || b.sharedInterest > 7)
       throw std::runtime_error("Invalid relationship");
   for (std::size_t i = 0; i < housingWorks.size(); ++i) {
     const auto &p = housingWorks[i];
@@ -773,10 +777,12 @@ void World::validate() const {
         throw std::runtime_error("Invalid compensation recipient");
   }
   for (auto &o : orders)
-    if (!residentValid(o.buyer) || o.shop < 0 || std::size_t(o.shop) >= facilities.size() ||
-        o.item < 0 || std::size_t(o.item) >= items.size() || !accountValid(o.escrow) ||
-        o.price < 0 || o.deliveryFee < 0 || int(o.product) < 0 ||
-        int(o.product) > int(ItemKind::RiceCooker) || items[o.item].kind != o.product)
+    if (!residentValid(o.buyer) || (o.courier != none && !residentValid(o.courier)) ||
+        int(o.state) < 0 || int(o.state) > int(OrderState::Lost) || o.shop < 0 ||
+        std::size_t(o.shop) >= facilities.size() || o.item < 0 ||
+        std::size_t(o.item) >= items.size() || !accountValid(o.escrow) || o.price < 0 ||
+        o.deliveryFee < 0 || int(o.product) < 0 || int(o.product) > int(ItemKind::RiceCooker) ||
+        items[o.item].kind != o.product)
       throw std::runtime_error("Invalid order");
 }
 } // namespace mega

@@ -23,6 +23,13 @@ void World::useTerminal(Id id, Id fid, double minutes) {
     throw std::runtime_error("Computer unavailable");
   if (f.kind == FacilityKind::Office && r.employer != operatingAccount(fid))
     throw std::runtime_error("This is an employee computer");
+  int occupied = 0;
+  for (const auto &other : residents)
+    if (other.id != id && other.alive && other.present && other.terminal == fid &&
+        other.terminalUntil > time && near(other.id, f.pos, 3))
+      ++occupied;
+  if (occupied >= f.stations)
+    throw std::runtime_error("Computer unavailable");
   Money cost = f.kind == FacilityKind::Office ? 0 : Money(std::ceil(minutes)) * f.price;
   pay(r.account, operatingAccount(fid), cost, "computer-access");
   r.terminal = fid;
@@ -52,19 +59,11 @@ Id World::order(Id buyer, Id shop, ItemKind product) {
   if (product != ItemKind::Food && product != ItemKind::Phone && product != ItemKind::Laptop &&
       product != ItemKind::Medicine && product != ItemKind::Tools && product != ItemKind::Handgun &&
       product != ItemKind::Ammunition && product != ItemKind::Extinguisher &&
-      product != ItemKind::Fan && product != ItemKind::Tableware && product != ItemKind::RiceCooker)
+      product != ItemKind::Fan && product != ItemKind::Tableware &&
+      product != ItemKind::RiceCooker && product != ItemKind::Clothes)
     throw std::runtime_error("Product unavailable");
-  Money price = product == ItemKind::Handgun      ? 120000
-                : product == ItemKind::Ammunition ? 1500
-                : product == ItemKind::Food       ? 800
-                : product == ItemKind::Phone      ? 15000
-                : product == ItemKind::Laptop     ? 65000
-                : product == ItemKind::Medicine   ? 2000
-                : product == ItemKind::Fan        ? 5000
-                : product == ItemKind::Tableware  ? 1000
-                : product == ItemKind::RiceCooker ? 8000
-                                                  : 4500;
-  Money fee = 200 + Money(std::abs(position(buyer).y - f.pos.y)) * 2;
+  Money price = productPrice(product);
+  Money fee = deliveryPrice(buyer, shop);
   if (accounts[residents[buyer].account].balance < price + fee)
     throw std::runtime_error("Insufficient funds");
   Order o;
@@ -89,6 +88,7 @@ Id World::order(Id buyer, Id shop, ItemKind product) {
   items.push_back(item);
   orders.push_back(o);
   log("order.placed", buyer, o.id);
+  dispatchOrder(o.id);
   return o.id;
 }
 void World::assignDelivery(Id oid, Id courier) {
@@ -98,9 +98,14 @@ void World::assignDelivery(Id oid, Id courier) {
       r.carrying != none || r.task == TaskKind::DeliveryPickup ||
       r.activity == Activity::Fighting || r.activity == Activity::Jailed)
     throw std::runtime_error("Courier unavailable");
+  if (std::any_of(orders.begin(), orders.end(), [&](const Order &other) {
+        return other.id != oid && other.courier == courier &&
+               (other.state == OrderState::ToPickup || other.state == OrderState::ToCustomer);
+      }))
+    throw std::runtime_error("Courier already has a parcel assignment");
+  travel(courier, facilities[o.shop].pos + Vec3{1.6f, 0, 0}, TaskKind::DeliveryPickup, oid);
   o.courier = courier;
   o.state = OrderState::ToPickup;
-  travel(courier, facilities[o.shop].pos, TaskKind::DeliveryPickup, oid);
 }
 void World::pickup(Id oid, Id courier) {
   auto &o = orders.at(oid);
@@ -116,7 +121,7 @@ void World::pickup(Id oid, Id courier) {
   r.carrying = o.item;
   items[o.item].carrier = courier;
   o.state = OrderState::ToCustomer;
-  travel(courier, position(o.buyer), TaskKind::DeliveryDrop, oid);
+  routeDelivery(oid, false);
   log("delivery.picked_up", courier, o.buyer);
 }
 void World::deliver(Id oid, Id courier) {
@@ -127,7 +132,7 @@ void World::deliver(Id oid, Id courier) {
       items[o.item].carrier != courier || !r.alive || !buyer.alive || !buyer.present ||
       !near(courier, position(o.buyer)))
     throw std::runtime_error("Physical handover to the recipient is required");
-  pay(o.escrow, facilities[o.shop].owner, o.price, "product-sale");
+  pay(o.escrow, operatingAccount(o.shop), o.price, "product-sale");
   pay(o.escrow, r.account, o.deliveryFee, "delivery-pay");
   items[o.item].carrier = o.buyer;
   items[o.item].pos = position(o.buyer);
@@ -135,6 +140,9 @@ void World::deliver(Id oid, Id courier) {
   r.carrying = none;
   o.state = OrderState::Delivered;
   o.delivered = time;
+  if (auto plan = residentPlans.find(o.buyer);
+      plan != residentPlans.end() && plan->second.order == o.id)
+    plan->second.action = AutonomyAction::Received;
   r.activity = Activity::Idle;
   r.task = TaskKind::None;
   log("delivery.completed", courier, o.buyer);
@@ -143,10 +151,14 @@ void World::cancelOrder(Id oid, Id buyer) {
   auto &o = orders.at(oid);
   if (o.buyer != buyer || (o.state != OrderState::Waiting && o.state != OrderState::ToPickup))
     throw std::runtime_error("Order cannot be cancelled after pickup");
-  pay(o.escrow, residents[buyer].account, o.price + o.deliveryFee, "order-refund");
+  pay(o.escrow, residents[buyer].present ? residents[buyer].account : 0, o.price + o.deliveryFee,
+      "order-refund");
   ++facilities[o.shop].stock;
   items[o.item].consumed = true;
   o.state = OrderState::Cancelled;
+  if (auto plan = residentPlans.find(o.buyer);
+      plan != residentPlans.end() && plan->second.order == o.id)
+    plan->second.action = AutonomyAction::Cancelled;
   if (o.courier != none) {
     auto &r = residents[o.courier];
     r.pos = position(r.id);
