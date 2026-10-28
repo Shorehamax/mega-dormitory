@@ -7,6 +7,8 @@ Money World::expansionQuote(int floor, int width, int depth) const {
     throw std::runtime_error("Invalid floor expansion");
   auto current = layout(floor);
   int oldW = int(current.halfWidth() * 2), oldD = int(current.halfDepth() * 2);
+  if (!floorPlans[floor].deck)
+    throw std::runtime_error("structure.error.floor");
   if (width < oldW || depth < oldD || (width == oldW && depth == oldD))
     throw std::runtime_error("Expansion must increase the floor area");
   return (Money(width) * depth - Money(oldW) * oldD) * 3500;
@@ -19,6 +21,8 @@ Id World::commissionExpansion(Id actor, int floor, int width, int depth) {
   for (auto &p : expansions)
     if (p.floor == floor && !p.complete)
       throw std::runtime_error("This floor already has an expansion contract");
+  if (structuralFloorLocked(floor))
+    throw std::runtime_error("structure.error.busy");
   Money quote = expansionQuote(floor, width, depth);
   Id workshop = nearestAt({0, floor * 3.f, 0}, FacilityKind::Workshop);
   if (workshop == none)
@@ -45,7 +49,8 @@ Id World::commissionExpansion(Id actor, int floor, int width, int depth) {
 void World::assignExpansion(Id worker, Id id) {
   auto &r = residents.at(worker);
   auto &p = expansions.at(id);
-  if (!r.alive || !r.present || r.role != Role::Builder || p.worker != none || p.complete)
+  if (!r.alive || !r.present || r.role != Role::Builder || builderCommitted(worker) ||
+      p.worker != none || p.complete)
     throw std::runtime_error("Construction worker unavailable");
   for (auto &other : expansions)
     if (other.worker == worker && !other.complete)
@@ -91,7 +96,8 @@ void World::workExpansion(Id id, double seconds) {
   Money wage = std::min(accounts[p.contractor].balance, Money(seconds / 3600 * r.hourlyWage));
   pay(p.contractor, r.account, wage, "construction-wage");
   if (p.remaining == 0) {
-    floorPlans.at(p.floor) = {p.width, p.depth};
+    floorPlans.at(p.floor).width = p.width;
+    floorPlans.at(p.floor).depth = p.depth;
     p.complete = true;
     r.activity = Activity::Idle;
     invalidateGeometry(p.floor);
@@ -112,6 +118,8 @@ Id World::commissionFacility(Id owner, FacilityKind kind, int floor, Vec3 pos, i
     throw std::runtime_error("Invalid facility construction plan");
   if (!std::isfinite(pos.x) || !std::isfinite(pos.z))
     throw std::runtime_error("Invalid construction location");
+  if (!floorPlans[floor].deck || structuralFloorLocked(floor))
+    throw std::runtime_error("structure.error.floor");
   pos.y = floor * 3.f;
   // Occupied housing is never silently erased to make room for a new business.
   for (float x = -5; x <= 5; x += 1)

@@ -58,6 +58,8 @@ const std::vector<Obstacle> &World::floorObstacles(int floor) const {
     return it->second;
   auto &out = obstacles[floor];
   auto l = layout(floor);
+  if (!l.deck)
+    return out;
   float y = floor * 3.f;
   auto add = [&](Vec3 p, Vec3 size) { out.push_back({p - size * .5f, p + size * .5f}); };
   auto homes = floorHomes.find(floor);
@@ -114,6 +116,12 @@ const std::vector<Obstacle> &World::floorObstacles(int floor) const {
       for (int row = 0; row < 3; ++row)
         add({side * 6.f, .4f, z - row * 3}, {3, .8f, .7f});
   }
+  if (l.deck)
+    for (const auto &wall : interiorWalls)
+      if (wall.floor == floor && wall.active) {
+        auto segments = wallSegments(wall);
+        out.insert(out.end(), segments.begin(), segments.end());
+      }
   for (const auto &o : out)
     for (int z = int(std::floor(o.min.z - .4f)); z <= int(std::floor(o.max.z + .4f)); ++z)
       for (int x = int(std::floor(o.min.x - .4f)); x <= int(std::floor(o.max.x + .4f)); ++x)
@@ -440,7 +448,41 @@ void World::moveCrowd(double seconds) {
         b.version = r.routeVersion;
         b.next = 1;
       }
-      while (b.next < r.route.size() && length(r.route[b.next].p - b.pos) < .025f &&
+      // Landing entrants yield to bodies already travelling along the ladder.
+      // Retreat uses normal capsule motion; nobody is pushed through another body.
+      bool yielding = false;
+      Vec3 retreat{};
+      std::size_t entry = b.next;
+      if (entry < r.route.size() && entry > 1 && std::abs(r.route[entry].p.y - b.pos.y) > .1f &&
+          length(r.route[entry - 1].p - b.pos) < .4f)
+        --entry;
+      if (entry > 0 && entry < r.route.size() &&
+          std::abs(r.route[entry].p.y - r.route[entry - 1].p.y) < .1f &&
+          std::abs(b.pos.y - r.route[entry].p.y) < .1f) {
+        auto goal = r.route[entry].p;
+        auto l = layout(int(std::round(goal.y / 3)));
+        for (int ladder = 0; ladder < l.ladderCount(); ++ladder)
+          if (length(goal - l.ladder(ladder, goal.y)) < .05f)
+            for (Id other : nearbyResidents) {
+              if (other == id || !residents[other].alive || residents[other].route.empty())
+                continue;
+              auto p = position(other);
+              if (std::hypot(p.x - goal.x, p.z - goal.z) < .55f && std::abs(p.y - goal.y) < 2.2f) {
+                auto at = crowd.find(other);
+                bool along = at != crowd.end() && at->second.next < residents[other].route.size() &&
+                             std::abs(residents[other].route[at->second.next].p.y - p.y) > .1f;
+                bool exiting = std::abs(p.y - goal.y) < .15f && at != crowd.end() &&
+                               at->second.next < residents[other].route.size() &&
+                               length(residents[other].route[at->second.next].p - goal) > .5f;
+                if (along || exiting) {
+                  yielding = true;
+                  retreat = l.landing(ladder, goal.y);
+                  b.next = entry;
+                }
+              }
+            }
+      }
+      while (!yielding && b.next < r.route.size() && length(r.route[b.next].p - b.pos) < .025f &&
              (time >= r.route[b.next].time ||
               length(r.route[b.next].p - r.route[b.next - 1].p) > .01f))
         ++b.next;
@@ -448,7 +490,7 @@ void World::moveCrowd(double seconds) {
         r.pos = b.pos;
         continue;
       }
-      Vec3 d = r.route[b.next].p - b.pos;
+      Vec3 d = (yielding ? retreat : r.route[b.next].p) - b.pos;
       bool vertical = std::abs(d.y) > .1f;
       Vec3 delta = normalized(d) * std::min(length(d), dt * (vertical ? 3.f : walkingSpeed(id)));
       Vec3 next = moveCapsule(id, b.pos, delta);
@@ -538,6 +580,8 @@ void World::releaseLadder(Id id) {
     return;
   if (std::abs(r.pos.y - std::round(r.pos.y / 3) * 3) > .15f)
     throw std::runtime_error("Reach a floor landing before dismounting");
+  if (!layout(int(std::round(r.pos.y / 3))).deck)
+    throw std::runtime_error("structure.error.floor");
   r.ladderExit = true;
 }
 void World::climb(Id id, float direction, float seconds) {

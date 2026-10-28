@@ -825,6 +825,8 @@ void World::decide(Id id) {
     }
   }
   if (workWindow && r.role == Role::Builder) {
+    if (structuralDecision(id))
+      return;
     for (auto &p : housingWorks)
       if ((p.state == ProjectState::Funded || p.state == ProjectState::Working) &&
           (p.worker == id || (p.worker == none && std::abs(position(id).y - p.site.y) <= 60))) {
@@ -981,6 +983,7 @@ void World::dispatch(const Event &e) {
     officeTick();
     repairTick();
     housingWorkTick();
+    structuralTick();
     schedule(time + 60, EventKind::FacilityTick, 0);
     return;
   }
@@ -1101,6 +1104,11 @@ void World::dispatch(const Event &e) {
       if (std::any_of(projects.begin(), projects.end(), [&](const Project &p) {
             return p.worker == r.id && p.newConstruction && p.state == ProjectState::Working;
           }))
+        continue;
+      if (std::any_of(constructionTeams.begin(), constructionTeams.end(),
+                      [&](const ConstructionTeam &t) {
+                        return t.work != none && t.members.contains(r.id);
+                      }))
         continue;
       if (r.medicalDuty != none)
         continue;

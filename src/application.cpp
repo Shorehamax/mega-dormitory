@@ -109,6 +109,10 @@ public:
   std::string companyName;
   Id lethalConfirm = none;
   std::string buildX = "54", buildZ = "0", buildStations = "1";
+  bool structuralOpen = false, wallAlongX = true, wallDoor = true;
+  std::string wallLength = "8", relocationCounter = "50000";
+  Id selectedTeam = none;
+  std::map<Id, std::array<std::string, 3>> relocationInputs;
   std::map<Id, float> closetAnimation, characterHeading, walkBlend, liftDoorAnimation;
   struct PoseTransition {
     CharacterPose previous = CharacterPose::Idle, current = CharacterPose::Idle;
@@ -1878,11 +1882,212 @@ public:
     }
     return y;
   }
+  float structuresPanel(float x, float y, float width) {
+    auto &w = *world;
+    if (ui.button("structuralOpen", {x, y, width, 36}, t("structure.title"), structuralOpen))
+      structuralOpen = !structuralOpen;
+    y += 46;
+    if (!structuralOpen)
+      return y;
+    y = ui.wrap(x, y, width, t("structure.help"), 13, hex(0x9fb4b7)) + 15;
+    ui.text(x, y, t("structure.start"), 13, hex(0xb8c8c9));
+    y += 24;
+    ui.input("structureX", {x, y, width / 2 - 6, 32}, buildX, true);
+    ui.input("structureZ", {x + width / 2 + 6, y, width / 2 - 6, 32}, buildZ, true);
+    y += 42;
+    ui.text(x, y, t("structure.length"), 13, hex(0xb8c8c9));
+    y += 24;
+    ui.input("wallLength", {x, y, 90, 32}, wallLength, true);
+    if (ui.button("wallAxis", {x + 100, y, width - 100, 32}, wallAlongX ? "X →" : "Z →"))
+      wallAlongX = !wallAlongX;
+    y += 42;
+    if (ui.button("wallDoor", {x, y, width, 32}, t(wallDoor ? "structure.door" : "structure.solid"),
+                  wallDoor))
+      wallDoor = !wallDoor;
+    y += 42;
+    if (ui.button("wallPropose", {x, y, width, 34}, t("structure.partition")))
+      act([&] {
+        Vec3 a{std::stof(buildX), currentFloor * 3.f, std::stof(buildZ)};
+        Vec3 b = a + (wallAlongX ? Vec3{std::stof(wallLength), 0, 0}
+                                 : Vec3{0, 0, std::stof(wallLength)});
+        w.proposePartition(w.player, currentFloor, a, b, wallDoor);
+      });
+    y += 44;
+    if (currentFloor > 0) {
+      if (ui.button("floorChange", {x, y, width, 34},
+                    t(w.floorPlans[currentFloor].deck ? "structure.remove_floor"
+                                                      : "structure.restore_floor")))
+        act([&] {
+          w.proposeFloorChange(w.player, currentFloor, !w.floorPlans[currentFloor].deck);
+        });
+      y += 44;
+      y = ui.wrap(x, y, width, t("structure.clearance_help"), 13, hex(0xa9b8bb)) + 12;
+    }
+    for (const auto &wall : w.interiorWalls)
+      if (wall.active && wall.floor == currentFloor) {
+        if (ui.button("removeWall" + std::to_string(wall.id), {x, y, width, 32},
+                      t("structure.remove_wall") + " #" + std::to_string(wall.id + 1)))
+          act([&] { w.proposePartitionRemoval(w.player, wall.id); });
+        y += 40;
+      }
+    if (ui.button("becomeForeman", {x, y, width, 34}, t("structure.become_foreman")))
+      act([&] {
+        if (w.builderCommitted(w.player))
+          throw std::runtime_error("structure.error.busy");
+        Id shop = w.nearestAt(w.position(w.player), FacilityKind::Workshop);
+        if (shop == none)
+          throw std::runtime_error("structure.error.workshop");
+        w.chooseJob(w.player, Role::Builder, shop);
+        selectedTeam = w.createConstructionTeam(w.player, shop, w.player);
+      });
+    y += 46;
+    for (auto &team : w.constructionTeams) {
+      if (team.members.empty())
+        continue;
+      if (ui.button("crew" + std::to_string(team.id), {x, y, width, 32},
+                    t("structure.team") + " #" + std::to_string(team.id + 1) + " · " +
+                        std::to_string(team.members.size()),
+                    selectedTeam == team.id))
+        selectedTeam = team.id;
+      y += 40;
+      if (selectedTeam != team.id)
+        continue;
+      y = ui.wrap(x, y, width,
+                  t("structure.foreman") + " · " + w.displayName(team.foreman, locale.language), 14,
+                  hex(0xb9cfc4)) +
+          12;
+      if (ui.button("recruitCrew", {x, y, width, 32}, t("structure.recruit")))
+        act([&] {
+          for (Id candidate : w.facilities[team.workshop].employees)
+            if (candidate != team.foreman && w.residents[candidate].automatic &&
+                team.members.size() < 8)
+              try {
+                w.recruitConstructionWorker(w.player, team.id, candidate);
+              } catch (const std::runtime_error &) {
+              }
+        });
+      y += 40;
+      if (ui.button("joinCrew", {x, y, width, 32}, t("structure.join")))
+        act([&] {
+          if (w.builderCommitted(w.player))
+            throw std::runtime_error("structure.error.busy");
+          w.chooseJob(w.player, Role::Builder, team.workshop);
+          w.recruitConstructionWorker(w.player, team.id, w.player);
+        });
+      y += 40;
+      if (selected != team.foreman && team.members.contains(selected)) {
+        if (ui.button("appointCrew", {x, y, width, 32}, t("structure.appoint")))
+          act([&] { w.appointForeman(w.player, team.id, selected); });
+        y += 40;
+      }
+      if (selected != w.player && team.members.contains(selected)) {
+        if (ui.button("dismissCrew", {x, y, width, 32}, t("structure.dismiss")))
+          act([&] { w.removeConstructionWorker(w.player, team.id, selected); });
+        y += 40;
+      }
+      for (Id worker : team.members)
+        y = ui.wrap(x, y, width, w.displayName(worker, locale.language), 13, hex(0xa1b7bb)) + 8;
+      if (team.members.contains(w.player)) {
+        if (ui.button("leaveCrew", {x, y, width, 32}, t("structure.leave")))
+          act([&] { w.removeConstructionWorker(w.player, team.id, w.player); });
+        y += 40;
+      }
+    }
+    for (auto &job : w.structuralWorks) {
+      if (job.state == StructuralState::Completed || job.state == StructuralState::Cancelled ||
+          (job.floor != currentFloor && job.actor != w.player &&
+           (job.team == none || !w.constructionTeams[job.team].members.contains(w.player))))
+        continue;
+      const char *kind = job.kind == StructuralKind::Partition         ? "structure.partition"
+                         : job.kind == StructuralKind::RemovePartition ? "structure.remove_wall"
+                         : job.kind == StructuralKind::RemoveFloor     ? "structure.remove_floor"
+                                                                       : "structure.restore_floor";
+      y = ui.wrap(x, y, width, t(kind) + " #" + std::to_string(job.id + 1), 16, hex(0xe0bc76)) + 10;
+      ui.text(x, y,
+              money(job.budget) + " · " +
+                  std::to_string(int(100 * (1 - job.remaining / job.total))) + "%",
+              13, hex(0xa5cbb9));
+      y += 28;
+      if (!job.blocked.empty())
+        y = ui.wrap(x, y, width, t(job.blocked), 13, hex(0xd9a081)) + 10;
+      if (job.state == StructuralState::Proposed && job.actor == w.player) {
+        if (job.kind == StructuralKind::RemoveFloor) {
+          if (ui.button("prepareClearance" + std::to_string(job.id), {x, y, width, 32},
+                        t("structure.prepare_clearance")))
+            act([&] { w.planFloorClearance(w.player, job.id); });
+          y += 40;
+        }
+        if (ui.button("fundStructure" + std::to_string(job.id), {x, y, width, 32}, t("build.fund")))
+          act([&] { w.fundStructuralWork(w.player, job.id); });
+        y += 40;
+      }
+      if (job.state != StructuralState::Proposed && job.team == none && selectedTeam != none) {
+        if (ui.button("assignStructure" + std::to_string(job.id), {x, y, width, 32},
+                      t("structure.hire")))
+          act([&] { w.assignStructuralTeam(w.player, job.id, selectedTeam); });
+        y += 40;
+      }
+      if (job.team != none && w.constructionTeams[job.team].members.contains(w.player)) {
+        y = ui.wrap(x, y, width, t(job.supplied ? "build.materials_ready" : "build.materials_wait"),
+                    13, hex(0x9fb4b7)) +
+            12;
+        if (ui.button("walkStructure" + std::to_string(job.id), {x, y, width, 32},
+                      t("action.walk")))
+          act([&] {
+            w.travel(w.player, w.structuralDestination(w.player, job.id), TaskKind::None, none);
+            paused = false;
+          });
+        y += 40;
+        if (ui.button("startStructure" + std::to_string(job.id), {x, y, width, 32},
+                      t("build.start")))
+          act([&] {
+            w.beginStructuralWork(w.player, job.id);
+            paused = false;
+          });
+        y += 40;
+      }
+      if (job.actor == w.player) {
+        if (ui.button("cancelStructure" + std::to_string(job.id), {x, y, width, 32},
+                      t("structure.cancel")))
+          act([&] { w.cancelStructuralWork(w.player, job.id); });
+        y += 44;
+      }
+    }
+    for (const auto &job : w.structuralWorks)
+      if (job.state == StructuralState::Cancelled && job.material != none &&
+          !w.items[job.material].consumed && w.items[job.material].reservedAt == none &&
+          (job.actor == w.player || w.residents[w.player].jobSite == job.workshop)) {
+        y = ui.wrap(x, y, width, t("structure.salvage") + " #" + std::to_string(job.id + 1), 14,
+                    hex(0xd4b975)) +
+            12;
+        const auto &item = w.items[job.material];
+        Vec3 goal =
+            item.carrier == w.player ? w.facilities[job.workshop].pos + Vec3{1.6f, 0, 0} : item.pos;
+        if (ui.button("salvageWalk" + std::to_string(job.id), {x, y, width, 32}, t("action.walk")))
+          act([&] {
+            w.travel(w.player, goal, TaskKind::None, none);
+            paused = false;
+          });
+        y += 40;
+        if (ui.button("salvageAction" + std::to_string(job.id), {x, y, width, 32},
+                      t(item.carrier == w.player ? "structure.return_materials"
+                                                 : "structure.collect_materials")))
+          act([&] {
+            if (item.carrier == w.player)
+              w.returnStructuralSalvage(w.player, job.id);
+            else
+              w.collectStructuralSalvage(w.player, job.id);
+          });
+        y += 40;
+      }
+    return y + 12;
+  }
   float managementPanel(float x, float y, float width) {
     auto &w = *world;
     ui.text(x, y, t("manage.title"), 22, hex(0xe4e8e0));
     y += 45;
     if (w.config.layoutVersion > 1) {
+      y = structuresPanel(x, y, width);
       ui.text(x, y, t("build.new_facility"), 18, hex(0xa5cbb9));
       y += 32;
       if (ui.button("buildKindPrev", {x, y, 32, 34}, "←"))
@@ -1961,7 +2166,51 @@ public:
               act([&] { w.consentHomeRemoval(w.player, job.id); });
             y += 40;
           }
+          if (home.tenant == w.player || home.owner == w.residents[w.player].account) {
+            if (ui.button("refuseRelocation" + std::to_string(job.id), {x, y, width, 32},
+                          t("structure.refuse")))
+              act([&] { w.replyHomeRemoval(w.player, job.id, false); });
+            y += 40;
+            ui.input("counterRelocation" + std::to_string(job.id), {x, y, width, 32},
+                     relocationCounter, true);
+            y += 40;
+            if (ui.button("sendCounter" + std::to_string(job.id), {x, y, width, 32},
+                          t("structure.counter")))
+              act([&] { w.counterHomeRemoval(w.player, job.id, std::stoll(relocationCounter)); });
+            y += 40;
+          }
+          for (auto [who, demand] : job.demands)
+            y = ui.wrap(x, y, width,
+                        w.displayName(who, locale.language) + " · " + t("structure.counter") + " " +
+                            money(demand),
+                        13, hex(0xe0bc76)) +
+                10;
           if (job.actor == w.player) {
+            auto [input, fresh] = relocationInputs.try_emplace(job.id);
+            if (fresh)
+              input->second = {std::to_string(job.offer),
+                               std::to_string(job.ownerOffer < 0 ? home.price : job.ownerOffer),
+                               std::to_string(job.replacement + 1)};
+            const char *labels[] = {"housing.relocation_offer", "structure.buyout",
+                                    "structure.replacement"};
+            for (int field = 0; field < 3; ++field) {
+              ui.text(x, y, t(labels[field]), 13, hex(0xaabec0));
+              y += 24;
+              ui.input("relocationField" + std::to_string(job.id) + "-" + std::to_string(field),
+                       {x, y, width, 32}, input->second[field], true);
+              y += 40;
+            }
+            if (ui.button("reviseRelocation" + std::to_string(job.id), {x, y, width, 32},
+                          t("structure.revise")))
+              act([&] {
+                w.reviseHomeRemoval(w.player, job.id, std::stoll(input->second[0]),
+                                    std::stoll(input->second[1]), std::stoi(input->second[2]) - 1);
+              });
+            y += 40;
+            if (ui.button("cancelRelocation" + std::to_string(job.id), {x, y, width, 32},
+                          t("structure.withdraw")))
+              act([&] { w.cancelHomeRemoval(w.player, job.id); });
+            y += 40;
             if (ui.button("fundRemoval" + std::to_string(job.id), {x, y, width, 32},
                           t("build.fund")))
               act([&] { w.fundHomeRemoval(w.player, job.id); });
@@ -3281,6 +3530,23 @@ public:
       float y = floor * 3.f, hw = l.halfWidth(), hd = l.halfDepth(), sw = l.shaftWidth(),
             sd = l.shaftDepth();
       Color slab = hex(0x39494e), steel = hex(0x63757c);
+      if (!l.deck) {
+        for (int side : {-1, 1})
+          for (int end : {-1, 1})
+            add({side * (hw - .2f), y + 1.5f, end * (hd - .2f)}, {.4f, 3, .4f}, steel);
+        for (int i = 0; i < l.ladderCount(); ++i) {
+          auto p = l.ladder(i, y);
+          for (float dx : {-.48f, .48f})
+            add(p + Vec3{dx, 1.5f, 0}, {.08f, 3, .08f}, steel);
+          for (float h = .25f; h < 3; h += .3f)
+            add(p + Vec3{0, h, 0}, {1, .05f, .05f}, steel);
+        }
+        continue;
+      }
+      for (const auto &wall : world->interiorWalls)
+        if (wall.active && wall.floor == floor)
+          for (const auto &part : world->wallSegments(wall))
+            add((part.min + part.max) * .5f, part.max - part.min, hex(0x64787a));
       for (int side : {-1, 1}) {
         add({side * (hw + sw) / 2, y - .09f, 0}, {hw - sw, .18f, hd * 2}, slab);
         add({side * (sw + .05f), y + .6f, 0}, {.06f, .06f, sd * 2}, steel);
@@ -3359,6 +3625,19 @@ public:
       std::size_t slabStart = v.size();
       auto l = world ? world->layout(f) : Layout{};
       float hw = l.halfWidth(), hd = l.halfDepth(), sw = l.shaftWidth(), sd = l.shaftDepth();
+      if (!l.deck) {
+        for (int side : {-1, 1})
+          for (int end : {-1, 1})
+            box(v, {side * (hw - .2f), y + 1.5f, end * (hd - .2f)}, {.4f, 3, .4f}, steel);
+        for (int i = 0; i < l.ladderCount(); ++i) {
+          auto p = l.ladder(i, y);
+          for (float dx : {-.48f, .48f})
+            box(v, p + Vec3{dx, 1.5f, 0}, {.08f, 3, .08f}, steel);
+          for (float h = .25f; h < 3; h += .3f)
+            box(v, p + Vec3{0, h, 0}, {1, .05f, .05f}, steel);
+        }
+        continue;
+      }
       for (int side : {-1, 1})
         box(v, {side * (hw + sw) / 2, y - .09f, 0}, {hw - sw, .18f, hd * 2}, floor);
       if (f == 0)
@@ -3384,6 +3663,11 @@ public:
         vertex.color = {.22f, .29f, .34f, 1};
         vertex.normalScale = .08f;
       }
+      if (world)
+        for (const auto &wall : world->interiorWalls)
+          if (wall.active && wall.floor == f)
+            for (const auto &part : world->wallSegments(wall))
+              box(v, (part.min + part.max) * .5f, part.max - part.min, hex(0x64787a));
       for (int side : {-1, 1}) {
         for (float z = -l.shaftDepth(); z <= l.shaftDepth(); z += 4) {
           cylinder(v, {side * (l.shaftWidth() + .05f), y, z},
@@ -3556,6 +3840,17 @@ public:
             box(v, desk + Vec3{0, 1.16f, -.11f}, {.44f, .28f, .02f}, hex(0x80b4bc));
           }
         }
+      }
+    for (const auto &job : w.structuralWorks)
+      if (job.floor == currentFloor && job.state != StructuralState::Completed &&
+          job.state != StructuralState::Cancelled) {
+        if (job.wall != none) {
+          const auto &wall = w.interiorWalls[job.wall];
+          cylinder(v, wall.a + Vec3{0, .05f, 0}, wall.b + Vec3{0, .05f, 0}, .04f, hex(0xddba6a), 5);
+          for (auto p : {wall.a, wall.b})
+            cylinder(v, p, p + Vec3{0, 2.7f, 0}, .035f, hex(0xddba6a), 5);
+        }
+        box(v, job.site + Vec3{0, .45f, -.8f}, {.9f, .9f, .08f}, hex(0xd4ad63));
       }
     if (currentFloor == 0 && w.config.layoutVersion > 1) {
       float front = w.layout(0).halfDepth();
@@ -4451,8 +4746,10 @@ int runApplication(int argc, char **argv) {
   try {
     Application app(window);
     int frames = 0, maxFrames = 0;
-    bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false;
-    Id playCourier = none;
+    bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false,
+         playConstruction = false;
+    Id playCourier = none, constructionJob = none;
+    int constructionStage = 0, constructionFinishedFrame = 0;
     int playStage = 0, playHandoverFrame = 0;
     std::string panel, browserImport;
     float demoYaw = 0, demoPitch = 0, demoScroll = 0;
@@ -4471,6 +4768,13 @@ int runApplication(int argc, char **argv) {
         panel = "autonomy";
         app.config.population = 600;
         app.config.floors = 20;
+      } else if (arg == "--playtest-construction") {
+        playConstruction = demo = animate = true;
+        panel = "construction";
+        app.config.population = 600;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
       } else if (arg == "--demo")
         demo = true;
       else if (arg == "--animate")
@@ -4526,11 +4830,11 @@ int runApplication(int argc, char **argv) {
       else if (arg == "--skin-budget")
         app.renderer->skinVertexBudget = std::stoull(value());
     }
-    if (playAutonomy) {
+    if (playAutonomy || playConstruction) {
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
       if (maxFrames == 0)
-        maxFrames = 1200;
+        maxFrames = playConstruction ? 1800 : 1200;
       if (fixedStep == 0)
         fixedStep = 1.f / 30;
     }
@@ -4549,7 +4853,55 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "autonomy") {
+      if (panel == "construction") {
+        auto &w = *app.world;
+        constructionJob = w.proposePartition(w.player, 0, {70, 0, 160}, {78, 0, 160}, true);
+        auto &job = w.structuralWorks[constructionJob];
+        if (w.accounts[job.payer].balance < job.budget)
+          w.pay(0, job.payer, job.budget - w.accounts[job.payer].balance,
+                "playtest-starting-capital");
+        for (Id worker : {2, 3}) {
+          auto &r = w.residents[worker];
+          w.leaveQueue(worker);
+          w.clockOut(worker);
+          r.pos = w.position(worker);
+          r.route.clear();
+          ++r.routeVersion;
+          r.activity = Activity::Idle;
+          r.task = TaskKind::None;
+          r.age = std::max(18, r.age);
+          w.chooseJob(worker, Role::Builder, job.workshop);
+          r.routine.shiftStart = 0;
+          r.routine.shiftHours = 24;
+          r.routine.daysOff = 0;
+          r.automatic = true;
+          r.hunger = r.thirst = r.bladder = .1f;
+          r.hygiene = r.energy = 1;
+          r.needsAt = w.time;
+          w.schedule(w.time + 1, EventKind::Decide, worker);
+        }
+        Id team = w.createConstructionTeam(2, job.workshop, 2);
+        w.recruitConstructionWorker(2, team, 3);
+        w.fundStructuralWork(w.player, constructionJob);
+        w.assignStructuralTeam(w.player, constructionJob, team);
+        app.buildX = "70";
+        app.buildZ = "160";
+        app.selectedTeam = team;
+        app.structuralOpen = true;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 4;
+        app.setFirstPerson(false);
+        app.selected = 2;
+        app.currentFloor = 0;
+        app.cameraFocus = w.position(2);
+        app.observerHeight = -.5f;
+        app.distance = 11;
+        app.pitch = .28f;
+        app.orbit = .6f;
+        std::cout << "CONSTRUCTION PLAYTEST: funded partition; two hired builders start at their "
+                     "actual homes\n";
+      } else if (panel == "autonomy") {
         auto &w = *app.world;
         w.config.mode = Mode::Cheat;
         Id shop = none, vendor = none;
@@ -4910,7 +5262,7 @@ int runApplication(int argc, char **argv) {
     }
     if (demo && animate) {
       app.paused = false;
-      if (playAutonomy)
+      if (playAutonomy || playConstruction)
         app.speed = 6;
     }
     if (computeTest) {
@@ -5013,6 +5365,36 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playConstruction) {
+        auto &w = *app.world;
+        const auto &job = w.structuralWorks[constructionJob];
+        if (job.material != none && constructionStage == 0) {
+          constructionStage = 1;
+          std::cout << "CONSTRUCTION PLAYTEST: foreman physically collected materials "
+                    << job.material << "\n";
+        }
+        if (job.supplied && constructionStage == 1) {
+          constructionStage = 2;
+          std::cout << "CONSTRUCTION PLAYTEST: materials delivered; crew assembling partition\n";
+          if (!capture.empty())
+            frameCapture = capture.parent_path() / (capture.stem().string() + "-working.ppm");
+        }
+        if (job.state == StructuralState::Completed && constructionStage == 2) {
+          constructionStage = 3;
+          constructionFinishedFrame = frames;
+          std::cout << "CONSTRUCTION PLAYTEST: partition completed; checking door, wall and budget "
+                       "settlement\n";
+          if (!capture.empty())
+            frameCapture = capture.parent_path() / (capture.stem().string() + "-completed.ppm");
+        }
+        app.cameraFocus = constructionStage >= 2 ? job.site : w.position(2);
+        app.currentFloor = std::clamp(int(app.cameraFocus.y / 3), 0, w.config.floors - 1);
+        if (constructionStage == 3 && frames >= constructionFinishedFrame + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playAutonomy) {
         auto &w = *app.world;
         if (playStage == 0 && w.residents[w.player].route.empty()) {
@@ -5079,6 +5461,20 @@ int runApplication(int argc, char **argv) {
       }
       std::cout << "PLAYTEST PASS: walking, budgeted checkout, real courier delivery, live UI and "
                    "conserved state\n";
+    }
+    if (playConstruction) {
+      auto &w = *app.world;
+      w.validate();
+      const auto &job = w.structuralWorks[constructionJob];
+      if (constructionStage != 3 || !w.interiorWalls[job.wall].active ||
+          !w.clearPosition({74, 0, 160}) || w.clearPosition({71, 0, 160}) ||
+          w.accounts[job.escrow].balance != 0) {
+        if (!capture.empty())
+          w.save(capture.string() + ".mdsave");
+        throw std::runtime_error("Construction playthrough did not complete physical work");
+      }
+      std::cout << "CONSTRUCTION PLAYTEST PASS: real walking, material collection/delivery, paid "
+                   "crew work, rendered partition and walkable doorway\n";
     }
     std::cout << "Render loop seconds: " << glfwGetTime() - renderStart << "\n";
     std::cout << "CPU scene build seconds: " << app.sceneBuildSeconds << "\n";

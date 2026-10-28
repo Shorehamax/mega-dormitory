@@ -396,6 +396,7 @@ void World::validate() const {
   for (auto &f : floorPlans)
     if (f.width < 96 || f.width > 2048 || f.depth < 72 || f.depth > 2048)
       throw std::runtime_error("Invalid floor dimensions");
+  validateStructures();
   for (const auto &r : residents)
     if (!std::isfinite(r.fitness) || r.fitness < 0 || r.fitness > 100)
       throw std::runtime_error("Invalid resident fitness");
@@ -665,13 +666,24 @@ void World::validate() const {
          (p.home < 0 || std::size_t(p.home) >= housing.size())) ||
         (p.replacement != none &&
          (p.replacement < 0 || std::size_t(p.replacement) >= housing.size())) ||
-        (p.state != ProjectState::AwaitingConsent && !accountValid(p.escrow)) || p.budget <= 0 ||
-        p.offer < 0 || int(p.kind) < 0 || int(p.kind) > int(HousingWorkKind::AddFloor) ||
-        p.floor < 0 || p.floor >= config.floors || !std::isfinite(p.remaining) ||
-        !std::isfinite(p.total) || !std::isfinite(p.workedAt) || p.remaining < 0 || p.total <= 0 ||
-        p.remaining > p.total || !std::isfinite(p.site.x) || !std::isfinite(p.site.y) ||
-        !std::isfinite(p.site.z))
+        (p.state != ProjectState::AwaitingConsent && !p.cancelled && !accountValid(p.escrow)) ||
+        p.budget <= 0 || p.offer < 0 || int(p.kind) < 0 ||
+        int(p.kind) > int(HousingWorkKind::AddFloor) || p.floor < 0 || p.floor >= config.floors ||
+        !std::isfinite(p.remaining) || !std::isfinite(p.total) || !std::isfinite(p.workedAt) ||
+        p.remaining < 0 || p.total <= 0 || p.remaining > p.total || !std::isfinite(p.site.x) ||
+        !std::isfinite(p.site.y) || !std::isfinite(p.site.z))
       throw std::runtime_error("Invalid housing construction contract");
+    if (p.ownerOffer < -1 || p.ownerOffer > 1000000000 ||
+        (p.offeredOwner != none && !accountValid(p.offeredOwner)) ||
+        (p.offeredTenant != none && !residentValid(p.offeredTenant)) ||
+        (p.cancelled && p.state != ProjectState::Completed))
+      throw std::runtime_error("Invalid relocation offer");
+    for (auto [who, demand] : p.demands)
+      if (!residentValid(who) || demand < 0 || demand > 1000000000)
+        throw std::runtime_error("Invalid relocation demand");
+    for (Id who : p.refused)
+      if (!residentValid(who) || p.consented.contains(who))
+        throw std::runtime_error("Invalid relocation refusal");
     for (Id who : p.consented)
       if (!residentValid(who))
         throw std::runtime_error("Invalid relocation consent");

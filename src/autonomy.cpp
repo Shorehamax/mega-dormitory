@@ -284,6 +284,7 @@ void World::careerDecision(Id id) {
   auto &p = residentPlans[id];
   // Physical contracts need a completed handover before choosing unrelated work.
   bool committed =
+      builderCommitted(id) ||
       std::any_of(projects.begin(), projects.end(),
                   [&](const Project &job) {
                     return job.worker == id && job.state == ProjectState::Working;

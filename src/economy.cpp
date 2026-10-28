@@ -449,8 +449,8 @@ void World::fundProject(Id id, Id owner) {
 void World::assignBuilder(Id id, Id worker) {
   auto &p = projects.at(id);
   auto &r = residents.at(worker);
-  if (p.state != ProjectState::Funded || p.worker != none || r.role != Role::Builder || !r.alive ||
-      !r.present)
+  if (p.state != ProjectState::Funded || p.worker != none || r.role != Role::Builder ||
+      builderCommitted(worker) || !r.alive || !r.present)
     throw std::runtime_error("Builder unavailable");
   if (r.carrying != none)
     throw std::runtime_error("Put down the current parcel before accepting construction");

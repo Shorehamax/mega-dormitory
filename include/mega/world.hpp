@@ -144,6 +144,32 @@ struct Config {
 };
 struct FloorPlan {
   int width = 512, depth = 512;
+  bool deck = true;
+};
+struct InteriorWall {
+  Id id = none, owner = none;
+  int floor = 0;
+  Vec3 a{}, b{};
+  bool door = true, active = false;
+};
+enum class StructuralKind { Partition, RemovePartition, RemoveFloor, RestoreFloor };
+enum class StructuralState { Proposed, Funded, Working, Completed, Cancelled };
+struct StructuralWork {
+  Id id = none, actor = none, payer = none, workshop = none, escrow = none, team = none,
+     wall = none, material = none, hauler = none;
+  int floor = 0;
+  StructuralKind kind = StructuralKind::Partition;
+  StructuralState state = StructuralState::Proposed;
+  Vec3 site{};
+  Money budget = 0, spent = 0;
+  double remaining = 0, total = 0, workedAt = -1;
+  bool supplied = false;
+  std::map<Id, double> attendance;
+  std::string blocked;
+};
+struct ConstructionTeam {
+  Id id = none, workshop = none, foreman = none, work = none;
+  std::set<Id> members;
 };
 struct Expansion {
   Id id = none, owner = none, contractor = none, worker = none, escrow = none;
@@ -483,7 +509,11 @@ struct HousingWork {
   int floor = 0, width = 512, depth = 512;
   Vec3 site{};
   double remaining = 7200, total = 7200, workedAt = -1;
-  bool supplied = false, forced = false;
+  bool supplied = false, forced = false, cancelled = false;
+  Money ownerOffer = -1;
+  Id offeredOwner = none, offeredTenant = none;
+  std::map<Id, Money> demands;
+  std::set<Id> refused;
   std::set<Id> consented;
 };
 struct Governance {
@@ -669,10 +699,41 @@ public:
   std::map<int, std::vector<Id>> floorFacilities;
   std::vector<FloorPlan> floorPlans;
   std::vector<Expansion> expansions;
+  std::vector<InteriorWall> interiorWalls;
+  std::vector<StructuralWork> structuralWorks;
+  std::vector<ConstructionTeam> constructionTeams;
+  Id proposePartition(Id actor, int floor, Vec3 a, Vec3 b, bool door);
+  Id proposePartitionRemoval(Id actor, Id wall);
+  Id proposeFloorChange(Id actor, int floor, bool restore);
+  void fundStructuralWork(Id actor, Id work);
+  void planFloorClearance(Id actor, Id work);
+  void collectStructuralSalvage(Id worker, Id work);
+  void returnStructuralSalvage(Id worker, Id work);
+  void cancelStructuralWork(Id actor, Id work);
+  Id createConstructionTeam(Id actor, Id workshop, Id foreman);
+  void recruitConstructionWorker(Id actor, Id team, Id worker);
+  void removeConstructionWorker(Id actor, Id team, Id worker);
+  void appointForeman(Id actor, Id team, Id worker);
+  void assignStructuralTeam(Id actor, Id work, Id team);
+  bool structuralDecision(Id worker);
+  void structuralTick();
+  void beginStructuralWork(Id worker, Id work);
+  Vec3 structuralDestination(Id worker, Id work) const;
+  std::vector<Obstacle> wallSegments(const InteriorWall &) const;
+  bool builderCommitted(Id worker) const;
+  void validateStructures() const;
+  void checkPartition(Id wall);
+  bool floorCleared(int floor, Id except = none) const;
+  bool structuralFloorLocked(int floor) const;
+  void reviseHomeRemoval(Id actor, Id work, Money tenantOffer, Money ownerOffer,
+                         Id replacement = none);
+  void replyHomeRemoval(Id resident, Id work, bool accept);
+  void counterHomeRemoval(Id resident, Id work, Money demand);
+  void cancelHomeRemoval(Id actor, Id work);
   Layout layout(int floor = 1) const {
     if (floor >= 0 && std::size_t(floor) < floorPlans.size())
       return Layout{config.layoutVersion, float(floorPlans[floor].width),
-                    float(floorPlans[floor].depth)};
+                    float(floorPlans[floor].depth), floorPlans[floor].deck};
     return Layout{config.layoutVersion, float(floor == 0 ? config.lobbyWidth : config.floorWidth),
                   float(floor == 0 ? config.lobbyDepth : config.floorDepth)};
   }

@@ -11,7 +11,14 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Config, floors, population, seed
                                                 supplies, wardensPerThousand, layoutVersion,
                                                 floorWidth, floorDepth, lobbyWidth, lobbyDepth,
                                                 accidentRate)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FloorPlan, width, depth)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(FloorPlan, width, depth, deck)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(InteriorWall, id, owner, floor, a, b, door, active)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(StructuralWork, id, actor, payer, workshop, escrow,
+                                                team, wall, material, hauler, floor, kind, state,
+                                                site, budget, spent, remaining, total, workedAt,
+                                                supplied, attendance, blocked)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ConstructionTeam, id, workshop, foreman, work,
+                                                members)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Expansion, id, owner, contractor, worker, escrow, floor, width,
                                    depth, budget, paid, remaining, totalWork, complete, site,
                                    workAt)
@@ -106,7 +113,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(HousingWork, id, actor, payer, c
                                                 worker, home, escrow, material, replacement, kind,
                                                 state, budget, offer, floor, width, depth, site,
                                                 remaining, total, workedAt, supplied, forced,
-                                                consented)
+                                                consented, cancelled, ownerOffer, demands, refused,
+                                                offeredOwner, offeredTenant)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Governance, askingPrice, successor, retiring,
                                                 reviewedDay)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(VideoJob, id, worker, client, employer, escrow, timeline, score,
@@ -130,6 +138,9 @@ void World::save(const std::filesystem::path &path) const {
   json j = {{"schema", 1},
             {"config", config},
             {"floorPlans", floorPlans},
+            {"interiorWalls", interiorWalls},
+            {"structuralWorks", structuralWorks},
+            {"constructionTeams", constructionTeams},
             {"expansions", expansions},
             {"time", time},
             {"rng", rng},
@@ -424,6 +435,12 @@ static World readSave(const std::filesystem::path &path) {
   w.nextPhysicsAt = j.value("nextPhysicsAt", -1.0);
   READ(parking);
   READ(orders);
+  if (j.contains("interiorWalls"))
+    j.at("interiorWalls").get_to(w.interiorWalls);
+  if (j.contains("structuralWorks"))
+    j.at("structuralWorks").get_to(w.structuralWorks);
+  if (j.contains("constructionTeams"))
+    j.at("constructionTeams").get_to(w.constructionTeams);
   if (j.contains("residentPlans"))
     j.at("residentPlans").get_to(w.residentPlans);
   if (j.contains("freight"))

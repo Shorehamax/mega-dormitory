@@ -23,6 +23,8 @@ static HousingWork contract(World &w, Id actor, int floor) {
 }
 Id World::commissionBed(Id actor, int floor, Vec3 pos) {
   auto p = contract(*this, actor, floor);
+  if (!floorPlans[floor].deck || structuralFloorLocked(floor))
+    throw std::runtime_error("structure.error.floor");
   pos.y = floor * 3.f;
   if (!std::isfinite(pos.x) || !std::isfinite(pos.z))
     throw std::runtime_error("Invalid bed position");
@@ -68,6 +70,9 @@ Id World::proposeHomeRemoval(Id actor, Id home, Money compensation) {
   p.site = homePosition(home);
   p.budget = 80000;
   p.offer = compensation;
+  p.ownerOffer = h.price;
+  p.offeredOwner = h.owner;
+  p.offeredTenant = h.tenant;
   p.remaining = p.total = 3600;
   p.supplied = true;
   p.state = ProjectState::AwaitingConsent;
@@ -80,6 +85,7 @@ Id World::proposeHomeRemoval(Id actor, Id home, Money compensation) {
     if (r.account == h.owner && (r.id == actor || (r.id != player && r.automatic)))
       p.consented.insert(r.id);
   housingWorks.push_back(p);
+  reviseHomeRemoval(actor, p.id, compensation, h.price);
   return p.id;
 }
 void World::consentHomeRemoval(Id resident, Id id) {
@@ -90,6 +96,7 @@ void World::consentHomeRemoval(Id resident, Id id) {
       (h.tenant != resident && h.owner != r.account))
     throw std::runtime_error("No outstanding relocation consent");
   p.consented.insert(resident);
+  p.refused.erase(resident);
 }
 void World::fundHomeRemoval(Id actor, Id id, bool force) {
   auto &p = housingWorks.at(id);
@@ -97,17 +104,29 @@ void World::fundHomeRemoval(Id actor, Id id, bool force) {
   if (actor != p.actor || p.state != ProjectState::AwaitingConsent || !h.active ||
       !residents.at(actor).alive || !residents[actor].present)
     throw std::runtime_error("Invalid housing removal contract");
+  if ((p.offeredOwner != none && (p.offeredOwner != h.owner || p.offeredTenant != h.tenant)) ||
+      structuralFloorLocked(h.floor))
+    throw std::runtime_error("structure.error.changed");
   for (const auto &r : residents)
     if (r.account == h.owner && r.alive && r.present && !p.consented.contains(r.id))
       throw std::runtime_error("Property owner has not accepted the buyout");
-  Id tenant = h.tenant, replacement = none;
+  Id tenant = h.tenant, replacement = p.replacement;
+  if (replacement != none &&
+      (replacement < 0 || std::size_t(replacement) >= housing.size() || replacement == p.home ||
+       !housing[replacement].active || housing[replacement].tenant != none ||
+       std::any_of(
+           housingWorks.begin(), housingWorks.end(),
+           [&](const HousingWork &q) {
+             return q.home == replacement && q.state != ProjectState::Completed;
+           })))
+    throw std::runtime_error("structure.error.replacement");
   if (tenant != none && residents[tenant].alive && residents[tenant].present) {
     if (!p.consented.contains(tenant)) {
       if (!force || !near(actor, position(tenant), 2.5f) || !residents[tenant].surrendered)
         throw std::runtime_error(
             "Tenant has not accepted relocation; force requires physical confrontation");
     }
-    float best = 1e20f;
+    float best = replacement == none ? 1e20f : -1.f;
     for (Id i = 0; i < Id(housing.size()); ++i)
       if (i != p.home && housing[i].active && housing[i].tenant == none &&
           std::none_of(housingWorks.begin(), housingWorks.end(), [&](const HousingWork &q) {
@@ -122,7 +141,9 @@ void World::fundHomeRemoval(Id actor, Id id, bool force) {
     if (replacement == none)
       throw std::runtime_error("Secure another vacant bed before removing an occupied home");
   }
-  Money buyout = h.owner == p.payer ? 0 : h.price;
+  if (tenant != none && p.offer < h.arrears)
+    throw std::runtime_error("structure.error.arrears");
+  Money buyout = h.owner == p.payer ? 0 : (p.ownerOffer < 0 ? h.price : p.ownerOffer);
   Money total = p.budget + buyout + (tenant == none ? 0 : p.offer) +
                 (replacement == none ? 0 : housing[replacement].rent);
   if (accounts[p.payer].balance < total)
@@ -130,8 +151,11 @@ void World::fundHomeRemoval(Id actor, Id id, bool force) {
   p.escrow = account("Housing removal escrow");
   pay(p.payer, p.escrow, total, "relocation-funding");
   pay(p.escrow, h.owner, buyout, "property-buyout");
-  if (tenant != none)
-    pay(p.escrow, residents[tenant].account, p.offer, "tenant-relocation-compensation");
+  if (tenant != none) {
+    Money debt = std::min(h.arrears, p.offer);
+    pay(p.escrow, h.owner, debt, "relocation-rent-arrears");
+    pay(p.escrow, residents[tenant].account, p.offer - debt, "tenant-relocation-compensation");
+  }
   if (replacement != none) {
     auto &next = housing[replacement];
     pay(p.escrow, next.owner, next.rent, "replacement-bed-rent");
@@ -153,10 +177,84 @@ void World::fundHomeRemoval(Id actor, Id id, bool force) {
   }
   h.owner = p.payer;
   h.tenant = none;
+  h.arrears = 0;
+  h.paidUntil = 0;
   h.listed = false;
   p.replacement = replacement;
   p.forced = force;
   p.state = ProjectState::Funded;
+}
+
+void World::replyHomeRemoval(Id resident, Id id, bool accept) {
+  auto &p = housingWorks.at(id);
+  const auto &h = housing.at(p.home);
+  const auto &r = residents.at(resident);
+  if (p.kind != HousingWorkKind::RemoveBed || p.state != ProjectState::AwaitingConsent ||
+      !r.alive || !r.present || (h.tenant != resident && h.owner != r.account))
+    throw std::runtime_error("structure.error.permission");
+  if (accept) {
+    p.consented.insert(resident);
+    p.refused.erase(resident);
+  } else {
+    p.consented.erase(resident);
+    p.refused.insert(resident);
+  }
+}
+void World::counterHomeRemoval(Id resident, Id id, Money demand) {
+  if (demand < 0 || demand > 1000000000)
+    throw std::runtime_error("structure.error.offer");
+  replyHomeRemoval(resident, id, false);
+  housingWorks[id].demands[resident] = demand;
+}
+void World::reviseHomeRemoval(Id actor, Id id, Money tenantOffer, Money ownerOffer,
+                              Id replacement) {
+  auto &p = housingWorks.at(id);
+  auto &h = housing.at(p.home);
+  if (actor != p.actor || !residents.at(actor).alive || !residents[actor].present ||
+      p.kind != HousingWorkKind::RemoveBed || p.state != ProjectState::AwaitingConsent ||
+      tenantOffer < 0 || tenantOffer > 1000000000 || ownerOffer < 0 || ownerOffer > 1000000000 ||
+      (replacement != none && (replacement < 0 || std::size_t(replacement) >= housing.size() ||
+                               !housing[replacement].active ||
+                               housing[replacement].tenant != none || replacement == p.home)))
+    throw std::runtime_error("structure.error.offer");
+  if (p.offeredOwner != h.owner || p.offeredTenant != h.tenant)
+    p.demands.clear();
+  p.offer = tenantOffer;
+  p.ownerOffer = ownerOffer;
+  p.offeredOwner = h.owner;
+  p.offeredTenant = h.tenant;
+  p.replacement = replacement;
+  p.consented.clear();
+  p.refused.clear();
+  for (const auto &r : residents) {
+    if (!r.alive || !r.present || (r.id != h.tenant && r.account != h.owner))
+      continue;
+    Money tenantDemand = h.rent * 7 + 10000 + Money(r.aggression * 20000);
+    Money ownerDemand = h.price;
+    if (p.demands.contains(r.id)) {
+      if (r.account == h.owner)
+        ownerDemand = std::max(ownerDemand, p.demands[r.id]);
+      else
+        tenantDemand = std::max(tenantDemand, p.demands[r.id]);
+    }
+    bool enough = (r.id != h.tenant || p.offer >= tenantDemand) &&
+                  (r.account != h.owner || p.ownerOffer >= ownerDemand);
+    if (r.id == actor || (r.automatic && r.id != player && enough))
+      p.consented.insert(r.id);
+    else if (r.id != player && r.automatic) {
+      p.refused.insert(r.id);
+      p.demands[r.id] = r.account == h.owner ? ownerDemand : tenantDemand;
+    }
+  }
+}
+void World::cancelHomeRemoval(Id actor, Id id) {
+  auto &p = housingWorks.at(id);
+  if (actor != p.actor || p.kind != HousingWorkKind::RemoveBed ||
+      p.state != ProjectState::AwaitingConsent || !residents.at(actor).alive ||
+      !residents[actor].present)
+    throw std::runtime_error("structure.error.permission");
+  p.cancelled = true;
+  p.state = ProjectState::Completed;
 }
 Id World::commissionFloor(Id actor, int width, int depth) {
   if (actor != dormOwner && config.mode != Mode::Cheat)
@@ -167,6 +265,8 @@ Id World::commissionFloor(Id actor, int width, int depth) {
   for (auto &p : housingWorks)
     if (p.kind == HousingWorkKind::AddFloor && p.state != ProjectState::Completed)
       throw std::runtime_error("Finish the existing structural extension first");
+  if (!floorPlans.back().deck)
+    throw std::runtime_error("structure.error.floor");
   auto p = contract(*this, actor, config.floors - 1);
   p.kind = HousingWorkKind::AddFloor;
   p.width = width;
@@ -194,8 +294,8 @@ Vec3 World::housingWorkDestination(Id id) const {
 void World::assignHousingWork(Id worker, Id id) {
   auto &p = housingWorks.at(id);
   auto &r = residents.at(worker);
-  if (!r.alive || !r.present || r.role != Role::Builder || r.carrying != none || p.worker != none ||
-      p.state != ProjectState::Funded)
+  if (!r.alive || !r.present || r.role != Role::Builder || builderCommitted(worker) ||
+      r.carrying != none || p.worker != none || p.state != ProjectState::Funded)
     throw std::runtime_error("Builder cannot accept this housing contract");
   for (auto &other : housingWorks)
     if (other.worker == worker && other.state == ProjectState::Working)

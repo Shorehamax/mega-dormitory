@@ -6,6 +6,7 @@ namespace mega {
 struct Layout {
   int version = 2;
   float width = 512, depth = 512;
+  bool deck = true;
   float halfWidth() const { return version == 1 ? 21.f : width / 2; }
   float halfDepth() const { return version == 1 ? 17.f : depth / 2; }
   float shaftWidth() const { return version == 1 ? 3.8f : 6.f; }
@@ -35,6 +36,8 @@ struct Layout {
     return p;
   }
   bool supported(Vec3 p) const {
+    if (!deck)
+      return false;
     if (std::abs(p.x) >= halfWidth() || std::abs(p.z) >= halfDepth())
       return false;
     if (p.y < .1f)
