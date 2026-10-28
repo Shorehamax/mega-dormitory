@@ -3,10 +3,19 @@
 #include <vector>
 namespace mega {
 // Metres. One source of truth for meshes, navigation and physical collision.
+struct DeckCut {
+  float x0 = 0, x1 = 0, z0 = 0, z1 = 0;
+};
+struct Slab {
+  Vec3 center{}, size{};
+};
 struct Layout {
+  Layout(int v = 2, float w = 512, float d = 512, bool slab = true)
+      : version(v), width(w), depth(d), deck(slab) {}
   int version = 2;
   float width = 512, depth = 512;
   bool deck = true;
+  std::vector<DeckCut> cuts;
   float halfWidth() const { return version == 1 ? 21.f : width / 2; }
   float halfDepth() const { return version == 1 ? 17.f : depth / 2; }
   float shaftWidth() const { return version == 1 ? 3.8f : 6.f; }
@@ -40,6 +49,9 @@ struct Layout {
       return false;
     if (std::abs(p.x) >= halfWidth() || std::abs(p.z) >= halfDepth())
       return false;
+    for (const auto &cut : cuts)
+      if (p.x > cut.x0 && p.x < cut.x1 && p.z > cut.z0 && p.z < cut.z1)
+        return false;
     if (p.y < .1f)
       return true;
     if (std::abs(p.x) < shaftWidth() && std::abs(p.z) < shaftDepth())
@@ -51,6 +63,51 @@ struct Layout {
           return false;
       }
     return true;
+  }
+  std::vector<Slab> slabs(int floor) const {
+    if (!deck)
+      return {};
+    std::vector<DeckCut> pieces;
+    float hw = halfWidth(), hd = halfDepth(), sw = shaftWidth(), sd = shaftDepth();
+    pieces.push_back({-hw, -sw, -hd, hd});
+    pieces.push_back({sw, hw, -hd, hd});
+    if (floor == 0)
+      pieces.push_back({-sw, sw, -hd, hd});
+    else if (version == 1) {
+      pieces.push_back({-sw, sw, -hd, -sd});
+      pieces.push_back({-sw, sw, sd, hd});
+    } else
+      for (int sign : {-1, 1}) {
+        auto add = [&](float x0, float x1, float z0, float z1) {
+          pieces.push_back({x0, x1, sign > 0 ? z0 : -z1, sign > 0 ? z1 : -z0});
+        };
+        add(-sw, sw, sd, 30.3f);
+        add(-sw, sw, 31.7f, hd);
+        add(-sw, -1.9f, 30.3f, 31.7f);
+        add(1.9f, sw, 30.3f, 31.7f);
+        add(-.5f, .5f, 30.3f, 31.7f);
+      }
+    for (const auto &cut : cuts) {
+      std::vector<DeckCut> next;
+      for (auto r : pieces) {
+        float a = std::max(r.x0, cut.x0), b = std::min(r.x1, cut.x1), c = std::max(r.z0, cut.z0),
+              d = std::min(r.z1, cut.z1);
+        if (a >= b || c >= d) {
+          next.push_back(r);
+          continue;
+        }
+        for (auto q : {DeckCut{r.x0, a, r.z0, r.z1}, DeckCut{b, r.x1, r.z0, r.z1},
+                       DeckCut{a, b, r.z0, c}, DeckCut{a, b, d, r.z1}})
+          if (q.x1 - q.x0 > .0001f && q.z1 - q.z0 > .0001f)
+            next.push_back(q);
+      }
+      pieces = std::move(next);
+    }
+    std::vector<Slab> out;
+    for (auto r : pieces)
+      out.push_back({{(r.x0 + r.x1) / 2, floor * 3.f - .09f, (r.z0 + r.z1) / 2},
+                     {r.x1 - r.x0, .18f, r.z1 - r.z0}});
+    return out;
   }
   Vec3 facility(int floor, int slot) const {
     if (version == 1)

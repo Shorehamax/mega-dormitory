@@ -334,6 +334,20 @@ World World::generate(const Config &cfg) {
   w.setupCompanies();
   w.generateMedical();
   w.generateLifts();
+  w.generateRoads();
+  if (cfg.layoutVersion > 1)
+    for (const auto &f : w.facilities)
+      if (f.kind == FacilityKind::Workshop) {
+        int shift = 0;
+        for (auto &r : w.residents)
+          if (r.id > 1 && r.role == Role::Unemployed && std::abs(r.home - f.floor) < 12) {
+            w.chooseJob(r.id, Role::TowDriver, f.id);
+            r.routine.shiftStart = 6 + shift * 8;
+            r.routine.sleepStart = std::fmod(r.routine.shiftStart + 14, 24.);
+            if (++shift == 3)
+              break;
+          }
+      }
   for (auto &r : w.residents)
     if (r.role == Role::Warden)
       for (ItemKind kind : {ItemKind::Handgun, ItemKind::Ammunition}) {
@@ -824,6 +838,10 @@ void World::decide(Id id) {
       return;
     }
   }
+  if (workWindow && vehicleWorkDecision(id))
+    return;
+  if (chooseVehicleTrip(id))
+    return;
   if (workWindow && r.role == Role::Builder) {
     if (structuralDecision(id))
       return;
@@ -934,6 +952,11 @@ void World::advance(double seconds, std::size_t budget) {
     time = target;
 }
 void World::dispatch(const Event &e) {
+  if (e.kind == EventKind::VehicleTick) {
+    if (nextVehicleAt >= 0 && std::abs(e.time - nextVehicleAt) < .001)
+      vehicleTick();
+    return;
+  }
   if (e.kind == EventKind::PhysicsTick) {
     if (e.time == nextPhysicsAt)
       physicsTick();
@@ -984,6 +1007,9 @@ void World::dispatch(const Event &e) {
     repairTick();
     housingWorkTick();
     structuralTick();
+    vehicleServicesTick();
+    freightVehicleTick();
+    ensureVehicleTick();
     schedule(time + 60, EventKind::FacilityTick, 0);
     return;
   }
@@ -1118,6 +1144,11 @@ void World::dispatch(const Event &e) {
         continue;
       if (std::any_of(repairs.begin(), repairs.end(),
                       [&](const Repair &p) { return p.worker == r.id && !p.complete; }))
+        continue;
+      if (std::any_of(vehicleJobs.begin(), vehicleJobs.end(), [&](const VehicleJob &j) {
+            return j.worker == r.id && j.state != VehicleJobState::Complete &&
+                   j.state != VehicleJobState::Cancelled;
+          }))
         continue;
       bool working = r.activity == Activity::Working;
       clockOut(r.id);
@@ -1464,10 +1495,10 @@ std::string World::displayName(Id id, const std::string &lang) const {
 }
 std::string roleKey(Role r) {
   static const char *k[] = {
-      "role.unemployed", "role.courier",    "role.warden",  "role.builder", "role.video",
-      "role.programmer", "role.medic",      "role.pilot",   "role.admin",   "role.repair",
-      "role.cleaner",    "role.vendor",     "role.teacher", "role.chef",    "role.lifeguard",
-      "role.attendant",  "role.firefighter"};
+      "role.unemployed", "role.courier",     "role.warden",    "role.builder", "role.video",
+      "role.programmer", "role.medic",       "role.pilot",     "role.admin",   "role.repair",
+      "role.cleaner",    "role.vendor",      "role.teacher",   "role.chef",    "role.lifeguard",
+      "role.attendant",  "role.firefighter", "role.tow_driver"};
   return k[int(r)];
 }
 std::string activityKey(Activity a) {
@@ -1479,15 +1510,17 @@ std::string activityKey(Activity a) {
   return k[int(a)];
 }
 std::string facilityKey(FacilityKind f) {
-  static const char *k[] = {
-      "facility.food",         "facility.water",     "facility.toilet",     "facility.shop",
-      "facility.office",       "facility.infirmary", "facility.jail",       "facility.terminal",
-      "facility.workshop",     "facility.garbage",   "facility.lift",       "facility.crematorium",
-      "facility.school",       "facility.laundry",   "facility.shower",     "facility.leisure",
-      "facility.pool",         "facility.arcade",    "facility.playground", "facility.cinema",
-      "facility.garden",       "facility.gym",       "facility.library",    "facility.cafe",
-      "facility.dealership",   "facility.parking",   "facility.reception",  "facility.morgue",
-      "facility.fire_station", "facility.washbasin"};
+  static const char *k[] = {"facility.food",       "facility.water",        "facility.toilet",
+                            "facility.shop",       "facility.office",       "facility.infirmary",
+                            "facility.jail",       "facility.terminal",     "facility.workshop",
+                            "facility.garbage",    "facility.lift",         "facility.crematorium",
+                            "facility.school",     "facility.laundry",      "facility.shower",
+                            "facility.leisure",    "facility.pool",         "facility.arcade",
+                            "facility.playground", "facility.cinema",       "facility.garden",
+                            "facility.gym",        "facility.library",      "facility.cafe",
+                            "facility.dealership", "facility.parking",      "facility.reception",
+                            "facility.morgue",     "facility.fire_station", "facility.washbasin",
+                            "facility.ramp",       "facility.freight_lift"};
   return k[int(f)];
 }
 } // namespace mega

@@ -37,8 +37,9 @@ Body World::stepBody(Id id, Vec3 desired, float seconds, bool jump) {
     body.velocity = state.velocity;
   } else {
     int f = int(std::round(body.position.y / 3));
-    body.grounded = f >= 0 && f < config.floors && std::abs(body.position.y - f * 3.f) < .025f &&
-                    layout(f).supported(body.position);
+    body.grounded =
+        f >= 0 && f < config.floors &&
+        std::abs(supportHeight(body.position, body.position.y + .02f) - body.position.y) < .025f;
   }
   if (jump && body.grounded)
     body.velocity.y = 4.5f;

@@ -13,7 +13,7 @@ for source in (root / 'src').glob('*.cpp'):
     for match in re.finditer(r'\b(?:t|log)\("([^"\n]+)"\s*[,)]', source.read_text()):
         if match[1] not in tables['en']:
             errors.append(f'{source.name}: missing {match[1]}')
-    for key in re.findall(r'"((?:autonomy|structure)\.[a-z_.]+)"', source.read_text()):
+    for key in re.findall(r'"((?:autonomy|structure|traffic)\.[a-z0-9_.]+)"', source.read_text()):
         if key not in tables['en']:
             errors.append(f'{source.name}: missing {key}')
 for error in sorted(set(errors)):

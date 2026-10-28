@@ -120,6 +120,8 @@ Id World::commissionFacility(Id owner, FacilityKind kind, int floor, Vec3 pos, i
     throw std::runtime_error("Invalid construction location");
   if (!floorPlans[floor].deck || structuralFloorLocked(floor))
     throw std::runtime_error("structure.error.floor");
+  if (kind == FacilityKind::Parking && stations > 2)
+    throw std::runtime_error("traffic.error.parking_plan");
   pos.y = floor * 3.f;
   // Occupied housing is never silently erased to make room for a new business.
   for (float x = -5; x <= 5; x += 1)
@@ -151,11 +153,12 @@ Id World::commissionFacility(Id owner, FacilityKind kind, int floor, Vec3 pos, i
   f.stations = stations;
   f.stock = 200;
   f.askingPrice = 0;
-  f.price = (kind == FacilityKind::Food || kind == FacilityKind::Cafe) ? 450
-            : kind == FacilityKind::Water                              ? 30
-            : kind == FacilityKind::Toilet                             ? 15
-            : kind == FacilityKind::Shop                               ? 800
-                                                                       : 100;
+  f.price = kind == FacilityKind::Parking                                ? 1800
+            : (kind == FacilityKind::Food || kind == FacilityKind::Cafe) ? 450
+            : kind == FacilityKind::Water                                ? 30
+            : kind == FacilityKind::Toilet                               ? 15
+            : kind == FacilityKind::Shop                                 ? 800
+                                                                         : 100;
   f.duration = kind == FacilityKind::Food     ? 210
                : kind == FacilityKind::Water  ? 40
                : kind == FacilityKind::Toilet ? 270

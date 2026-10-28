@@ -65,6 +65,8 @@ static World small() {
     f.openHours = 24;
   }
   w.crowd.clear();
+  for (const auto &road : w.roads)
+    w.activateRoad(road.id, false);
   return w;
 }
 static void place(World &w, Id id, Vec3 p) {

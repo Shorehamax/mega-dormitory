@@ -111,6 +111,8 @@ public:
   std::string buildX = "54", buildZ = "0", buildStations = "1";
   bool structuralOpen = false, wallAlongX = true, wallDoor = true;
   std::string wallLength = "8", relocationCounter = "50000";
+  std::string roadEndFloor = "2", roadLength = "24", driveX = "80", driveZ = "110",
+              driveFloor = "2";
   Id selectedTeam = none;
   std::map<Id, std::array<std::string, 3>> relocationInputs;
   std::map<Id, float> closetAnimation, characterHeading, walkBlend, liftDoorAnimation;
@@ -599,6 +601,11 @@ public:
     auto airborne = w.looseBodies.find(selected);
     bool knocked = airborne != w.looseBodies.end() && airborne->second.pusher != none;
     bool canControl = selected == w.player || w.config.mode == Mode::Cheat;
+    w.vehicleController = firstPerson && canControl && !phone && !helpOpen && !drawerOpen &&
+                                  !paused && controlled.vehicle != none &&
+                                  (movingInput || !w.vehicleJourneys.contains(controlled.vehicle))
+                              ? controlled.vehicle
+                              : none;
     w.physicsController =
         firstPerson && canControl && !phone && !helpOpen && !drawerOpen && !ui.typing() &&
                 !controlled.surrendered && !knocked &&
@@ -707,7 +714,7 @@ public:
           Id best = none;
           float d = 3;
           for (const auto &f : w.facilities) {
-            float candidate = length(f.pos - w.position(selected));
+            float candidate = length(facilityApproach(f) - w.position(selected));
             if (f.open && candidate < d) {
               d = candidate;
               best = f.id;
@@ -727,7 +734,8 @@ public:
             drawerOpen = true;
             mouseLocked = false;
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-          } else if (f.kind == FacilityKind::Dealership || f.kind == FacilityKind::Parking) {
+          } else if (f.kind == FacilityKind::Dealership || f.kind == FacilityKind::Parking ||
+                     f.kind == FacilityKind::Ramp || f.kind == FacilityKind::FreightLift) {
             networkTab = 4;
             networkScroll = 0;
             phone = true;
@@ -751,7 +759,8 @@ public:
                          float(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS);
         float steer = float(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) -
                       float(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS);
-        act([&] { w.driveVehicle(selected, throttle, steer, std::min(dt, .05f)); });
+        if (throttle != 0 || steer != 0 || !w.vehicleJourneys.contains(r.vehicle))
+          act([&] { w.driveVehicle(selected, throttle, steer, std::min(dt, .05f)); });
         playerYaw = w.vehicles[r.vehicle].yaw;
       } else if (!paused && r.activity != Activity::Jailed && r.activity != Activity::Escorted &&
                  r.activity != Activity::Restrained && !r.surrendered && r.lift == none &&
@@ -1320,13 +1329,31 @@ public:
   void openNetwork() {
     if (!world)
       return;
-    if (world->hasDevice(selected)) {
+    if (world->hasDevice(selected) || world->residents[selected].vehicle != none) {
+      if (!world->hasDevice(selected))
+        networkTab = 4; // Local vehicle controls do not require a personal internet device.
       phone = true;
       mouseLocked = false;
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
       ui.blur();
     } else
       notify(t("network.offline"));
+  }
+  Vec3 facilityApproach(const Facility &f) const {
+    if (f.kind == FacilityKind::Elevator)
+      return world->liftDoor(currentFloor);
+    if (f.kind == FacilityKind::Ramp || f.kind == FacilityKind::FreightLift) {
+      for (const auto &road : world->roads)
+        if (road.facility == f.id) {
+          int floor = currentFloor == road.to ? road.to : road.from;
+          return {road.pos.x + road.width / 2 + 1.3f, floor * 3.f,
+                  road.pos.z + (road.kind == RoadKind::Ramp ? (floor == road.to ? road.length : 0.f)
+                                                            : -road.length / 2 - 1.f)};
+        }
+    }
+    if (f.kind == FacilityKind::Dealership)
+      return f.pos + Vec3{1.5f, 0, -2.f};
+    return f.pos;
   }
   float facilityPanel(float x, float y, float width) {
     auto &w = *world;
@@ -1335,7 +1362,8 @@ public:
     std::vector<Id> ordered;
     for (auto &f : w.facilities)
       if (std::abs(f.floor - currentFloor) <= 5 ||
-          (f.kind == FacilityKind::Elevator &&
+          ((f.kind == FacilityKind::Elevator || f.kind == FacilityKind::Ramp ||
+            f.kind == FacilityKind::FreightLift) &&
            std::find(f.stops.begin(), f.stops.end(), currentFloor) != f.stops.end()))
         ordered.push_back(f.id);
     std::stable_sort(ordered.begin(), ordered.end(), [&](Id a, Id b) {
@@ -1354,15 +1382,17 @@ public:
         if (ui.button("visit" + std::to_string(f.id), {x + width - 110, y + 62, 98, 30},
                       t("action.walk")))
           act([&] {
-            if (f.kind == FacilityKind::Elevator) {
-              w.travel(w.player, w.liftDoor(currentFloor), TaskKind::None, none);
+            if (f.kind == FacilityKind::Elevator || f.kind == FacilityKind::Dealership ||
+                f.kind == FacilityKind::Ramp || f.kind == FacilityKind::FreightLift) {
+              w.travel(w.player, facilityApproach(f), TaskKind::None, none);
             } else if (f.kind == FacilityKind::Terminal || f.kind == FacilityKind::Office ||
                        f.kind == FacilityKind::Shop || f.kind == FacilityKind::Jail ||
                        f.kind == FacilityKind::Workshop || f.kind == FacilityKind::Dealership ||
-                       f.kind == FacilityKind::Parking || f.kind == FacilityKind::Reception ||
+                       f.kind == FacilityKind::Parking || f.kind == FacilityKind::Ramp ||
+                       f.kind == FacilityKind::FreightLift || f.kind == FacilityKind::Reception ||
                        f.kind == FacilityKind::Morgue || f.kind == FacilityKind::Crematorium ||
                        f.kind == FacilityKind::FireStation)
-              w.travel(w.player, f.pos, TaskKind::Work, f.id);
+              w.travel(w.player, facilityApproach(f), TaskKind::Work, f.id);
             else
               w.travel(w.player, f.pos, TaskKind::Service, f.id);
             paused = false;
@@ -1647,18 +1677,19 @@ public:
     for (auto role :
          {Role::Courier, Role::Warden, Role::Builder, Role::VideoEditor, Role::Programmer,
           Role::Administrator, Role::Chef, Role::Medic, Role::Vendor, Role::Lifeguard,
-          Role::Cleaner, Role::Pilot, Role::Repairer, Role::Firefighter}) {
-      auto kind = role == Role::Firefighter                           ? FacilityKind::FireStation
-                  : role == Role::Cleaner                             ? FacilityKind::Morgue
-                  : role == Role::Pilot                               ? FacilityKind::Infirmary
-                  : role == Role::Chef                                ? FacilityKind::Food
-                  : role == Role::Medic                               ? FacilityKind::Infirmary
-                  : role == Role::Vendor                              ? FacilityKind::Shop
-                  : role == Role::Lifeguard                           ? FacilityKind::Pool
-                  : role == Role::Courier                             ? FacilityKind::Shop
-                  : role == Role::Warden                              ? FacilityKind::Jail
-                  : (role == Role::Builder || role == Role::Repairer) ? FacilityKind::Workshop
-                                                                      : FacilityKind::Office;
+          Role::Cleaner, Role::Pilot, Role::Repairer, Role::Firefighter, Role::TowDriver}) {
+      auto kind = role == Role::Firefighter ? FacilityKind::FireStation
+                  : role == Role::Cleaner   ? FacilityKind::Morgue
+                  : role == Role::Pilot     ? FacilityKind::Infirmary
+                  : role == Role::Chef      ? FacilityKind::Food
+                  : role == Role::Medic     ? FacilityKind::Infirmary
+                  : role == Role::Vendor    ? FacilityKind::Shop
+                  : role == Role::Lifeguard ? FacilityKind::Pool
+                  : role == Role::Courier   ? FacilityKind::Shop
+                  : role == Role::Warden    ? FacilityKind::Jail
+                  : (role == Role::Builder || role == Role::Repairer || role == Role::TowDriver)
+                      ? FacilityKind::Workshop
+                      : FacilityKind::Office;
       Id fid = w.nearest(w.player, kind);
       ui.text(x, y, t(roleKey(role)), 16, hex(0xd6dfdb));
       if (fid != none &&
@@ -1913,6 +1944,30 @@ public:
         w.proposePartition(w.player, currentFloor, a, b, wallDoor);
       });
     y += 44;
+    ui.text(x, y, t("traffic.build"), 16, hex(0xb9cfc4));
+    y += 30;
+    ui.text(x, y, t("traffic.end_floor"), 13, hex(0x9fb4b7));
+    y += 24;
+    ui.input("roadEndFloor", {x, y, width / 2 - 6, 32}, roadEndFloor, true);
+    ui.input("roadLength", {x + width / 2 + 6, y, width / 2 - 6, 32}, roadLength, true);
+    y += 42;
+    for (auto kind : {RoadKind::Ramp, RoadKind::FreightLift}) {
+      if (ui.button("roadBuild" + std::to_string(int(kind)), {x, y, width, 32},
+                    t(kind == RoadKind::Ramp ? "facility.ramp" : "facility.freight_lift")))
+        act([&] {
+          w.proposeRoad(w.player, kind, currentFloor, std::stoi(roadEndFloor) - 1,
+                        {std::stof(buildX), currentFloor * 3.f, std::stof(buildZ)},
+                        std::stof(roadLength));
+        });
+      y += 40;
+    }
+    for (const auto &road : w.roads)
+      if (road.active && (road.from == currentFloor || road.to == currentFloor)) {
+        if (ui.button("roadRemove" + std::to_string(road.id), {x, y, width, 32},
+                      t("traffic.remove") + " #" + std::to_string(road.id + 1)))
+          act([&] { w.proposeRoadRemoval(w.player, road.id); });
+        y += 40;
+      }
     if (currentFloor > 0) {
       if (ui.button("floorChange", {x, y, width, 34},
                     t(w.floorPlans[currentFloor].deck ? "structure.remove_floor"
@@ -1998,7 +2053,9 @@ public:
           (job.floor != currentFloor && job.actor != w.player &&
            (job.team == none || !w.constructionTeams[job.team].members.contains(w.player))))
         continue;
-      const char *kind = job.kind == StructuralKind::Partition         ? "structure.partition"
+      const char *kind = job.kind == StructuralKind::Transport         ? "traffic.build"
+                         : job.kind == StructuralKind::RemoveTransport ? "traffic.remove"
+                         : job.kind == StructuralKind::Partition       ? "structure.partition"
                          : job.kind == StructuralKind::RemovePartition ? "structure.remove_wall"
                          : job.kind == StructuralKind::RemoveFloor     ? "structure.remove_floor"
                                                                        : "structure.restore_floor";
@@ -2742,6 +2799,17 @@ public:
     // Survival essentials stay visible; finances, jobs and world controls live in the drawer.
     float hudBottom = h - (drawerOpen && tab == 6 ? 62.f : 0.f);
     ui.fill({20, hudBottom - 135, 408, 112}, hex(0x10141a, .87f), 8);
+    if (r.vehicle != none) {
+      const auto &vehicle = w.vehicles[r.vehicle];
+      float vehicleY = (!firstPerson && !drawerOpen && !phone) ? 128.f : 84.f;
+      ui.fill({20, vehicleY, 272, 69}, hex(0x111a22), 8);
+      ui.text(36, vehicleY + 13,
+              t("traffic.fuel") + " " + std::to_string(int(vehicle.fuel)) + " L · " +
+                  t("traffic.condition") + " " + std::to_string(int(vehicle.condition * 100)) + "%",
+              13, hex(0xa5cbb9));
+      ui.text(36, vehicleY + 40, std::to_string(int(std::abs(vehicle.speed) * 3.6f)) + " km/h", 13,
+              hex(0xdce5df));
+    }
     meter(36, hudBottom - 121, 176, t("life.health"), r.health / 100, hex(0xc6dfd0));
     meter(232, hudBottom - 121, 176, t("life.energy"), r.energy, hex(0xc0d2e5));
     meter(36, hudBottom - 72, 176, t("life.hunger"), r.hunger,
@@ -2826,13 +2894,17 @@ public:
     auto &r = w.residents[selected];
     y = ui.wrap(x, y, width, t("vehicle.intro"), 16, hex(0xa4b7b9)) + 20;
     for (auto &v : w.vehicles)
-      if (v.askingPrice > 0 || v.owner == r.account) {
+      if (v.askingPrice > 0 || v.owner == r.account ||
+          (v.towTruck && r.role == Role::TowDriver && r.employer == v.owner)) {
         std::string id = std::to_string(v.id);
-        bool owned = v.owner == r.account;
+        bool owned = v.owner == r.account ||
+                     (v.towTruck && r.role == Role::TowDriver && r.employer == v.owner);
         ui.fill({x, y, width, 145}, hex(0x202730), 8);
         ui.text(x + 16, y + 12, t(vehicleKey(v.kind)), 22, hex(0xe1e6df));
-        ui.text(x + 16, y + 46, owned ? t("vehicle.owned") : money(v.askingPrice), 17,
-                hex(0xa5cbb9));
+        ui.text(x + 16, y + 46,
+                owned ? t(v.towTruck && v.owner != r.account ? "traffic.fleet" : "vehicle.owned")
+                      : money(v.askingPrice),
+                17, hex(0xa5cbb9));
         ui.text(x + 16, y + 74,
                 v.bay == none ? t("vehicle.no_parking")
                               : t("parking.bay") + " #" + std::to_string(v.bay + 1),
@@ -2841,7 +2913,8 @@ public:
         if (ui.button("locateVehicle" + id, {bx, y + 105, 160, 30},
                       t(owned ? "vehicle.walk" : "vehicle.dealer")))
           act([&] {
-            w.travel(selected, owned ? v.pos : w.facilities[v.dealer].pos, TaskKind::None, none);
+            w.travel(selected, owned ? v.pos : w.facilities[v.dealer].pos + Vec3{1.5f, 0, -2.f},
+                     TaskKind::None, none);
             phone = false;
             paused = false;
             currentFloor = 0;
@@ -2863,13 +2936,115 @@ public:
               paused = false;
             });
           bx += 179;
-          if (v.bay == none &&
+          if (v.bay == none && v.owner == r.account &&
               ui.button("sellVehicle" + id, {bx, y + 105, 150, 30}, t("vehicle.sell")))
             act([&] {
               w.sellVehicle(selected, v.id, w.nearest(selected, FacilityKind::Dealership));
             });
         }
         y += 157;
+        if (owned) {
+          ui.text(x, y,
+                  t("traffic.condition") + " " + std::to_string(int(v.condition * 100)) + "% · " +
+                      t("traffic.fuel") + " " + std::to_string(int(v.fuel)) + " L",
+                  14, hex(0xa5cbb9));
+          y += 30;
+          Id shop = w.nearestAt(v.pos, FacilityKind::Workshop);
+          if (shop != none) {
+            if (v.kind != VehicleKind::Bicycle &&
+                ui.button("fuelVehicle" + id, {x, y, width / 3 - 6, 32}, t("traffic.refuel")))
+              act([&] {
+                w.refuelVehicle(
+                    selected, v.id, shop,
+                    std::min(5.f, (v.kind == VehicleKind::Scooter ? 8.f : 40.f) - v.fuel));
+              });
+            if (ui.button("repairVehicle" + id, {x + width / 3, y, width / 3 - 6, 32},
+                          t("traffic.repair")))
+              act([&] { w.requestVehicleJob(selected, v.id, shop, false); });
+            if (ui.button("towVehicle" + id, {x + width * 2 / 3, y, width / 3 - 6, 32},
+                          t("traffic.tow")))
+              act([&] { w.requestVehicleJob(selected, v.id, shop, true); });
+            y += 42;
+            if (v.kind == VehicleKind::DeliveryVan && !v.towTruck &&
+                (w.facilities[shop].owner == r.account || w.facilities[shop].manager == selected)) {
+              if (ui.button("convertTowTruck" + id, {x, y, width, 32}, t("traffic.convert")))
+                act([&] { w.convertServiceTruck(selected, v.id, shop); });
+              y += 40;
+            }
+          }
+          if (r.vehicle == v.id) {
+            ui.text(x, y, t("traffic.destination"), 13, hex(0xb8c8c9));
+            y += 24;
+            ui.input("driveX", {x, y, width / 3 - 6, 32}, driveX, true);
+            ui.input("driveZ", {x + width / 3, y, width / 3 - 6, 32}, driveZ, true);
+            ui.input("driveFloor", {x + width * 2 / 3, y, width / 3 - 6, 32}, driveFloor, true);
+            y += 42;
+            if (ui.button("autodrive" + id, {x, y, width / 2 - 6, 32}, t("traffic.autodrive")))
+              act([&] {
+                w.driveTo(selected,
+                          {std::stof(driveX), (std::stoi(driveFloor) - 1) * 3.f, std::stof(driveZ)},
+                          true);
+                paused = false;
+              });
+            if (ui.button("cancelDrive" + id, {x + width / 2, y, width / 2 - 6, 32},
+                          t("traffic.stop")))
+              act([&] { w.cancelDrive(selected); });
+            y += 42;
+            for (const auto &road : w.roads)
+              if (road.active && road.kind == RoadKind::FreightLift &&
+                  std::hypot(v.pos.x - road.pos.x, v.pos.z - road.pos.z) < 25) {
+                if (ui.button("freightCall" + id + "-" + std::to_string(road.id), {x, y, width, 32},
+                              t("traffic.call_lift") + " #" + std::to_string(road.id + 1)))
+                  act([&] {
+                    int here = int(std::round(v.pos.y / 3));
+                    w.requestVehicleLift(selected, road.id,
+                                         here == road.from ? road.to : road.from);
+                    paused = false;
+                  });
+                y += 40;
+              }
+          }
+        }
+      }
+    for (const auto &j : w.vehicleJobs)
+      if (j.customer == selected || j.worker == selected ||
+          (j.worker == none && j.workshop == r.jobSite &&
+           r.role == (j.tow ? Role::TowDriver : Role::Repairer) &&
+           j.state != VehicleJobState::Complete && j.state != VehicleJobState::Cancelled)) {
+        static const char *jobKeys[] = {"traffic.job0", "traffic.job1", "traffic.job2",
+                                        "traffic.job3", "traffic.job4", "traffic.job5"};
+        y = ui.wrap(x, y, width,
+                    t(j.tow ? "traffic.tow" : "traffic.repair") + " #" + std::to_string(j.id + 1) +
+                        " · " + t(jobKeys[int(j.state)]),
+                    14, hex(0xd6ba7f)) +
+            12;
+        if (j.state != VehicleJobState::Complete && j.state != VehicleJobState::Cancelled) {
+          if (j.customer == selected && ui.button("cancelVehicleJob" + std::to_string(j.id),
+                                                  {x, y, width, 32}, t("traffic.cancel_job")))
+            act([&] { w.cancelVehicleJob(selected, j.id); });
+          y += 40;
+          if (j.worker == none && ui.button("takeVehicleJob" + std::to_string(j.id),
+                                            {x, y, width, 32}, t("action.accept")))
+            act([&] { w.assignVehicleJob(selected, j.id); });
+          y += 40;
+          if (j.worker == selected && ui.button("attendVehicleJob" + std::to_string(j.id),
+                                                {x, y, width, 32}, t("build.start")))
+            act([&] {
+              w.vehicleWorkDecision(selected);
+              paused = false;
+            });
+          y += 40;
+        }
+      }
+    for (const auto &f : w.facilities)
+      if (f.kind == FacilityKind::Workshop && (f.owner == r.account || f.manager == selected)) {
+        ui.text(x, y, t("traffic.pump_stock") + " " + std::to_string(int(f.fuelStock)) + " L", 14,
+                hex(0xa5cbb9));
+        y += 28;
+        if (ui.button("stockFuel" + std::to_string(f.id), {x, y, width, 32},
+                      t("traffic.import_fuel")))
+          act([&] { w.stockFuel(selected, f.id, 100); });
+        y += 40;
       }
     y += 16;
     ui.text(x, y, t("parking.title"), 24, hex(0xa5cbb9));
@@ -3547,25 +3722,11 @@ public:
         if (wall.active && wall.floor == floor)
           for (const auto &part : world->wallSegments(wall))
             add((part.min + part.max) * .5f, part.max - part.min, hex(0x64787a));
-      for (int side : {-1, 1}) {
-        add({side * (hw + sw) / 2, y - .09f, 0}, {hw - sw, .18f, hd * 2}, slab);
-        add({side * (sw + .05f), y + .6f, 0}, {.06f, .06f, sd * 2}, steel);
-        add({side * (sw + .05f), y + 1, 0}, {.06f, .06f, sd * 2}, steel);
-      }
-      if (floor == 0)
-        add({0, y - .09f, 0}, {sw * 2, .18f, hd * 2}, slab);
-      else
-        for (int sign : {-1, 1}) {
-          if (l.version == 1)
-            add({0, y - .09f, sign * (hd + sd) / 2}, {sw * 2, .18f, hd - sd}, slab);
-          else {
-            add({0, y - .09f, sign * (sd + 30.3f) / 2}, {sw * 2, .18f, 30.3f - sd}, slab);
-            add({0, y - .09f, sign * (hd + 31.7f) / 2}, {sw * 2, .18f, hd - 31.7f}, slab);
-            for (int side : {-1, 1})
-              add({side * (sw + 1.9f) / 2, y - .09f, sign * 31.f}, {sw - 1.9f, .18f, 1.4f}, slab);
-            add({0, y - .09f, sign * 31.f}, {1, .18f, 1.4f}, slab);
-          }
-        }
+      for (const auto &piece : l.slabs(floor))
+        add(piece.center, piece.size, slab);
+      for (int side : {-1, 1})
+        for (float h : {.6f, 1.f})
+          add({side * (sw + .05f), y + h, 0}, {.06f, .06f, sd * 2}, steel);
       for (int a : {-1, 1})
         for (int b : {-1, 1})
           add({a * (hw - .2f), y + 1.5f, b * (hd - .2f)}, {.4f, 3, .4f}, steel);
@@ -3593,7 +3754,7 @@ public:
       if (facilities != world->floorFacilities.end())
         for (Id id : facilities->second) {
           const auto &f = world->facilities[id];
-          if (!f.demolished)
+          if (!f.demolished && f.kind != FacilityKind::Ramp && f.kind != FacilityKind::FreightLift)
             add(f.pos + Vec3{0, .6f, 0}, {1.9f, 1.2f, 1.3f}, hex(0x8c9488));
         }
     }
@@ -3638,23 +3799,8 @@ public:
         }
         continue;
       }
-      for (int side : {-1, 1})
-        box(v, {side * (hw + sw) / 2, y - .09f, 0}, {hw - sw, .18f, hd * 2}, floor);
-      if (f == 0)
-        box(v, {0, y - .09f, 0}, {sw * 2, .18f, hd * 2}, floor);
-      else
-        for (int sign : {-1, 1}) {
-          if (l.version == 1)
-            box(v, {0, y - .09f, sign * (hd + sd) / 2}, {sw * 2, .18f, hd - sd}, floor);
-          else {
-            box(v, {0, y - .09f, sign * (sd + 30.3f) / 2}, {sw * 2, .18f, 30.3f - sd}, floor);
-            box(v, {0, y - .09f, sign * (hd + 31.7f) / 2}, {sw * 2, .18f, hd - 31.7f}, floor);
-            for (int side : {-1, 1})
-              box(v, {side * (sw + 1.9f) / 2, y - .09f, sign * 31.f}, {sw - 1.9f, .18f, 1.4f},
-                  floor);
-            box(v, {0, y - .09f, sign * 31.f}, {1.f, .18f, 1.4f}, floor);
-          }
-        }
+      for (const auto &piece : l.slabs(f))
+        box(v, piece.center, piece.size, floor);
       for (std::size_t i = slabStart; i < v.size(); ++i) {
         auto &vertex = v[i];
         vertex.material = assets.meshes.at("concrete_floor_02").vertices.front().material;
@@ -3762,7 +3908,8 @@ public:
       return;
     auto &w = *world;
     for (auto &f : w.facilities)
-      if (!f.demolished && f.floor >= first && f.floor < last) {
+      if (!f.demolished && f.floor >= first && f.floor < last && f.kind != FacilityKind::Ramp &&
+          f.kind != FacilityKind::FreightLift) {
         Color c = hex(f.kind == FacilityKind::Food        ? 0x9f8255
                       : f.kind == FacilityKind::Water     ? 0x557d8c
                       : f.kind == FacilityKind::Infirmary ? 0x859e8c
@@ -3862,7 +4009,8 @@ public:
         }
       for (auto &f : w.facilities)
         if (!f.demolished && f.floor == 0 && f.kind != FacilityKind::Parking &&
-            f.kind != FacilityKind::Dealership) {
+            f.kind != FacilityKind::Dealership && f.kind != FacilityKind::Ramp &&
+            f.kind != FacilityKind::FreightLift) {
           Color trim = f.kind == FacilityKind::Infirmary   ? hex(0x7ea89a)
                        : f.kind == FacilityKind::Reception ? hex(0xc6a76d)
                                                            : hex(0x65818a);
@@ -3969,6 +4117,54 @@ public:
         sphere(v, at, {.04f + t * .10f, .04f, .04f + t * .10f}, hex(0xcde3df), 3, 4);
       }
     }
+    for (const auto &road : w.roads)
+      if (road.active && road.from * 3.f < ceilingCut && road.to * 3.f > floorY - 12 &&
+          road.from * 3.f < floorY + 15) {
+        for (int floor : {road.from, road.to}) {
+          if (std::abs(floor * 3.f - floorY) > 12 || floor * 3.f >= ceilingCut)
+            continue;
+          Vec3 terminal{road.pos.x + road.width / 2 + 1.3f, floor * 3.f,
+                        road.pos.z + (road.kind == RoadKind::Ramp
+                                          ? (floor == road.to ? road.length : 0.f)
+                                          : -road.length / 2 - 1.f)};
+          box(v, terminal + Vec3{0, .6f, 0}, {.35f, 1.2f, .3f}, hex(0x263e46));
+          box(v, terminal + Vec3{0, 1.18f, -.16f}, {.28f, .24f, .02f}, hex(0x8bd1be));
+        }
+        if (road.kind == RoadKind::Ramp) {
+          Vec3 a = road.pos + Vec3{-road.width / 2, .01f, 0},
+               b = road.pos + Vec3{road.width / 2, .01f, 0},
+               c = road.pos + Vec3{road.width / 2, 3.01f, road.length},
+               d = road.pos + Vec3{-road.width / 2, 3.01f, road.length};
+          Vec3 n = normalized(cross(d - a, b - a));
+          for (auto p : {a, d, b, b, d, c})
+            v.push_back({p, hex(0x657179), 0, 0, n});
+          for (int side : {-1, 1}) {
+            auto low = road.pos + Vec3{side * (road.width / 2 + .1f), 1, 0},
+                 high = low + Vec3{0, 3, road.length};
+            cylinder(v, low, high, .06f, hex(0xd6b873), 6);
+            for (float z = 0; z <= road.length; z += 3)
+              cylinder(v, road.pos + Vec3{side * (road.width / 2 + .1f), z / road.length * 3, z},
+                       road.pos + Vec3{side * (road.width / 2 + .1f), z / road.length * 3 + 1, z},
+                       .05f, rail, 5);
+          }
+        } else {
+          float h = w.freightHeight(road.id);
+          box(v, {road.pos.x, h - .12f, road.pos.z}, {road.width, .24f, road.length},
+              hex(0xb29b62));
+          for (int side : {-1, 1})
+            for (int end : {-1, 1})
+              cylinder(v,
+                       {road.pos.x + side * (road.width / 2 + .15f), road.from * 3.f,
+                        road.pos.z + end * road.length / 2},
+                       {road.pos.x + side * (road.width / 2 + .15f), road.to * 3.f + 3,
+                        road.pos.z + end * road.length / 2},
+                       .12f, steel, 7);
+          for (int side : {-1, 1})
+            cylinder(v, {road.pos.x + side * road.width / 2, h + .9f, road.pos.z - road.length / 2},
+                     {road.pos.x + side * road.width / 2, h + .9f, road.pos.z + road.length / 2},
+                     .06f, hex(0xe6bf6d), 6);
+        }
+      }
     for (const auto &car : w.vehicles)
       if (std::abs(car.pos.y - floorY) < 7 && car.pos.y < ceilingCut) {
         std::vector<Vertex> mesh;
@@ -3987,6 +4183,10 @@ public:
           float scale = 3.5f / (bounds.maximum.z - bounds.minimum.z);
           assets.append(mesh, asset, {0, 0, 0}, scale, 0, paint);
         }
+        if (car.towTruck) {
+          cylinder(mesh, {0, .9f, 1}, {0, 2.3f, 1.8f}, .12f, hex(0xd4ad65), 8);
+          cylinder(mesh, {0, 2.3f, 1.8f}, {0, 2.3f, 3.2f}, .1f, hex(0xd4ad65), 8);
+        }
         Color trim = palette(car.look.secondary);
         if (car.look.accessory == 1) {
           box(mesh, {0, small ? 1.05f : 1.7f, .4f}, {small ? .6f : 1.3f, .12f, small ? .7f : 1.8f},
@@ -4000,12 +4200,16 @@ public:
 
         for (auto &vertex : mesh) {
           auto p = vertex.p;
-          vertex.p = {car.pos.x + p.x * std::cos(car.yaw) + p.z * std::sin(car.yaw),
+          p = {p.x, p.y * std::cos(car.pitch) - p.z * std::sin(car.pitch),
+               p.y * std::sin(car.pitch) + p.z * std::cos(car.pitch)};
+          vertex.p = {car.pos.x + p.x * std::cos(car.yaw) - p.z * std::sin(car.yaw),
                       car.pos.y + p.y,
-                      car.pos.z - p.x * std::sin(car.yaw) + p.z * std::cos(car.yaw)};
+                      car.pos.z + p.x * std::sin(car.yaw) + p.z * std::cos(car.yaw)};
           auto n = vertex.normal;
-          vertex.normal = {n.x * std::cos(car.yaw) + n.z * std::sin(car.yaw), n.y,
-                           -n.x * std::sin(car.yaw) + n.z * std::cos(car.yaw)};
+          n = {n.x, n.y * std::cos(car.pitch) - n.z * std::sin(car.pitch),
+               n.y * std::sin(car.pitch) + n.z * std::cos(car.pitch)};
+          vertex.normal = {n.x * std::cos(car.yaw) - n.z * std::sin(car.yaw), n.y,
+                           n.x * std::sin(car.yaw) + n.z * std::cos(car.yaw)};
           v.push_back(vertex);
         }
       }
@@ -4747,8 +4951,10 @@ int runApplication(int argc, char **argv) {
     Application app(window);
     int frames = 0, maxFrames = 0;
     bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false,
-         playConstruction = false;
+         playConstruction = false, playVehicles = false;
     Id playCourier = none, constructionJob = none;
+    int vehicleStage = 0, vehicleFinishFrame = 0;
+    bool rampCaptured = false, liftCaptured = false;
     int constructionStage = 0, constructionFinishedFrame = 0;
     int playStage = 0, playHandoverFrame = 0;
     std::string panel, browserImport;
@@ -4771,6 +4977,13 @@ int runApplication(int argc, char **argv) {
       } else if (arg == "--playtest-construction") {
         playConstruction = demo = animate = true;
         panel = "construction";
+        app.config.population = 600;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-vehicles") {
+        playVehicles = demo = animate = true;
+        panel = "traffic";
         app.config.population = 600;
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
@@ -4830,11 +5043,12 @@ int runApplication(int argc, char **argv) {
       else if (arg == "--skin-budget")
         app.renderer->skinVertexBudget = std::stoull(value());
     }
-    if (playAutonomy || playConstruction) {
+    if (playAutonomy || playConstruction || playVehicles) {
+      std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
       if (maxFrames == 0)
-        maxFrames = playConstruction ? 1800 : 1200;
+        maxFrames = playVehicles ? 7200 : playConstruction ? 1800 : 1200;
       if (fixedStep == 0)
         fixedStep = 1.f / 30;
     }
@@ -4853,7 +5067,33 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "construction") {
+      if (panel == "traffic") {
+        auto &w = *app.world;
+        auto &r = w.residents[w.player];
+        w.pay(0, r.account, 5000000, "playtest-starting-capital");
+        r.automatic = false;
+        w.leaveQueue(r.id);
+        w.clockOut(r.id);
+        r.pos = w.position(r.id);
+        r.route.clear();
+        ++r.routeVersion;
+        r.activity = Activity::Idle;
+        r.task = TaskKind::None;
+        r.hunger = r.thirst = r.bladder = .1f;
+        r.hygiene = r.energy = 1;
+        r.needsAt = w.time;
+        auto dealer = w.vehicles[2].dealer;
+        w.travel(r.id, w.facilities[dealer].pos + Vec3{1.5f, 0, -2.f}, TaskKind::None, none);
+        app.setFirstPerson(false);
+        app.drawerOpen = false;
+        app.phone = false;
+        app.currentFloor = r.home;
+        app.cameraFocus = r.pos;
+        app.distance = 13;
+        app.pitch = .3f;
+        app.observerHeight = 0;
+        std::cout << "VEHICLE PLAYTEST: walking from actual home to buy a car at the dealership\n";
+      } else if (panel == "construction") {
         auto &w = *app.world;
         constructionJob = w.proposePartition(w.player, 0, {70, 0, 160}, {78, 0, 160}, true);
         auto &job = w.structuralWorks[constructionJob];
@@ -5262,7 +5502,7 @@ int runApplication(int argc, char **argv) {
     }
     if (demo && animate) {
       app.paused = false;
-      if (playAutonomy || playConstruction)
+      if (playAutonomy || playConstruction || playVehicles)
         app.speed = 6;
     }
     if (computeTest) {
@@ -5365,6 +5605,56 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playVehicles) {
+        auto &w = *app.world;
+        auto &r = w.residents[w.player];
+        auto &car = w.vehicles[2];
+        if (vehicleStage == 0 && r.route.empty() &&
+            w.near(r.id, w.facilities[car.dealer].pos, 3.f) && w.operational(car.dealer)) {
+          w.buyVehicle(r.id, car.id);
+          w.travel(r.id, car.pos + Vec3{1.5f, 0, 0}, TaskKind::None, none);
+          vehicleStage = 1;
+          std::cout << "VEHICLE PLAYTEST: purchased at the counter; walking to the actual car\n";
+        } else if (vehicleStage == 1 && r.route.empty() && w.near(r.id, car.pos, 2.5f)) {
+          w.enterVehicle(r.id, car.id);
+          w.driveTo(r.id, {80, 3, 116}, false);
+          vehicleStage = 2;
+          std::cout << "VEHICLE PLAYTEST: driving to the upper floor through the paid ramp\n";
+        }
+        if (vehicleStage == 2) {
+          if (car.pos.y > .8f && car.pos.y < 2.5f && !rampCaptured) {
+            rampCaptured = true;
+            if (!capture.empty())
+              frameCapture = capture.parent_path() / (capture.stem().string() + "-ramp.ppm");
+          }
+          if (!w.vehicleJourneys.contains(car.id) && length(car.pos - Vec3{80, 3, 116}) < 2) {
+            w.driveTo(r.id, {110, 30, 64}, true);
+            vehicleStage = 3;
+            std::cout << "VEHICLE PLAYTEST: ramp completed; returning to the cargo-lift landing\n";
+          }
+        }
+        if (vehicleStage == 3) {
+          if (car.freightLift != none && w.roads[car.freightLift].moving && car.pos.y > 9 &&
+              car.pos.y < 22 && !liftCaptured) {
+            liftCaptured = true;
+            if (!capture.empty())
+              frameCapture = capture.parent_path() / (capture.stem().string() + "-freight.ppm");
+          }
+          if (r.vehicle == none && length(car.pos - Vec3{110, 30, 64}) < 2) {
+            vehicleStage = 4;
+            vehicleFinishFrame = frames;
+            std::cout << "VEHICLE PLAYTEST: freight ride completed and driver exited beside the "
+                         "stopped car\n";
+          }
+        }
+        app.cameraFocus = vehicleStage < 2 ? w.position(r.id) : car.pos;
+        app.currentFloor = std::clamp(int(app.cameraFocus.y / 3), 0, w.config.floors - 1);
+        if (vehicleStage == 4 && frames >= vehicleFinishFrame + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playConstruction) {
         auto &w = *app.world;
         const auto &job = w.structuralWorks[constructionJob];
@@ -5461,6 +5751,17 @@ int runApplication(int argc, char **argv) {
       }
       std::cout << "PLAYTEST PASS: walking, budgeted checkout, real courier delivery, live UI and "
                    "conserved state\n";
+    }
+    if (playVehicles) {
+      auto &w = *app.world;
+      w.validate();
+      if (vehicleStage != 4 || !rampCaptured || !liftCaptured) {
+        if (!capture.empty())
+          w.save(capture.string() + ".mdsave");
+        throw std::runtime_error("Vehicle playthrough did not complete real road/lift travel");
+      }
+      std::cout << "VEHICLE PLAYTEST PASS: real walking, purchase, ramp traversal, fuel/tolls, "
+                   "cargo boarding/motion/unloading and safe exit\n";
     }
     if (playConstruction) {
       auto &w = *app.world;

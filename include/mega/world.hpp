@@ -59,7 +59,9 @@ enum class FacilityKind {
   Reception,
   Morgue,
   FireStation,
-  Washbasin
+  Washbasin,
+  Ramp,
+  FreightLift
 };
 enum class Role {
   Unemployed,
@@ -78,7 +80,8 @@ enum class Role {
   Chef,
   Lifeguard,
   Attendant,
-  Firefighter
+  Firefighter,
+  TowDriver
 };
 enum class ItemKind {
   Phone,
@@ -152,11 +155,18 @@ struct InteriorWall {
   Vec3 a{}, b{};
   bool door = true, active = false;
 };
-enum class StructuralKind { Partition, RemovePartition, RemoveFloor, RestoreFloor };
+enum class StructuralKind {
+  Partition,
+  RemovePartition,
+  RemoveFloor,
+  RestoreFloor,
+  Transport,
+  RemoveTransport
+};
 enum class StructuralState { Proposed, Funded, Working, Completed, Cancelled };
 struct StructuralWork {
   Id id = none, actor = none, payer = none, workshop = none, escrow = none, team = none,
-     wall = none, material = none, hauler = none;
+     wall = none, material = none, hauler = none, transport = none;
   int floor = 0;
   StructuralKind kind = StructuralKind::Partition;
   StructuralState state = StructuralState::Proposed;
@@ -339,6 +349,8 @@ struct Facility {
   Money wageOffer = 1200;
   float condition = 1;
   int waste = 0;
+  float fuelStock = 0;
+  Money fuelPrice = 160;
 };
 struct Item {
   Id id = none, owner = none, carrier = none;
@@ -360,8 +372,56 @@ struct Vehicle {
   VehicleKind kind = VehicleKind::Bicycle;
   Vec3 pos{};
   float yaw = 0, speed = 0, condition = 1;
+  float fuel = 0, verticalSpeed = 0, pitch = 0;
+  bool airborne = false, towTruck = false;
+  Id freightLift = none, road = none, towing = none, towedBy = none;
+  Vec3 garage{};
+  double updatedAt = 0, nextImpact = 0;
   Money askingPrice = 0, originalPrice = 0;
   Appearance look;
+};
+enum class RoadKind { Ramp, FreightLift };
+struct VehicleLiftCall {
+  Id vehicle = none, driver = none;
+  int from = 0, to = 0;
+  double called = 0;
+};
+struct RoadLink {
+  Id id = none, facility = none;
+  RoadKind kind = RoadKind::Ramp;
+  int from = 0, to = 1;
+  Vec3 pos{};
+  float width = 4.2f, length = 24, loadLimit = 12000;
+  bool active = false, moving = false;
+  float height = 0, startHeight = 0, targetHeight = 0;
+  double departAt = 0, arriveAt = 0, doorsUntil = 0;
+  Id occupant = none;
+  std::vector<VehicleLiftCall> calls;
+};
+struct DrivePoint {
+  Vec3 pos{};
+  Id link = none;
+  int destination = -1;
+};
+struct VehicleJourney {
+  Id vehicle = none, driver = none;
+  std::vector<DrivePoint> path;
+  std::size_t next = 0;
+  Vec3 goal{};
+  double blockedAt = -1;
+  bool autoExit = true, reversing = false;
+  Id parkingDestination = none;
+};
+enum class VehicleJobState { Waiting, ToVehicle, Working, Returning, Complete, Cancelled };
+struct VehicleJob {
+  Id id = none, customer = none, vehicle = none, workshop = none, worker = none, truck = none,
+     escrow = none;
+  bool tow = false, parts = false, retrofit = false;
+  Id payer = none;
+  VehicleJobState state = VehicleJobState::Waiting;
+  Money budget = 0;
+  double remaining = 1800, workedAt = -1;
+  float startingCondition = 1;
 };
 struct ParkingBay {
   Id id = none, facility = none, vehicle = none;
@@ -535,7 +595,16 @@ struct News {
   std::string key;
   Id subject = none, other = none;
 };
-enum class EventKind { Decide, Arrive, FinishService, Payroll, Release, FacilityTick, PhysicsTick };
+enum class EventKind {
+  Decide,
+  Arrive,
+  FinishService,
+  Payroll,
+  Release,
+  FacilityTick,
+  PhysicsTick,
+  VehicleTick
+};
 struct Event {
   double time = 0;
   std::uint64_t seq = 0;
@@ -608,6 +677,11 @@ private:
 
 public:
   std::vector<Vehicle> vehicles;
+  std::vector<RoadLink> roads;
+  std::map<Id, VehicleJourney> vehicleJourneys;
+  std::vector<VehicleJob> vehicleJobs;
+  double nextVehicleAt = -1;
+  Id vehicleController = none;
   std::vector<Ambulance> ambulances;
   std::vector<Remains> remains;
   std::map<Id, LooseBody> looseBodies, airborneRemains;
@@ -730,13 +804,36 @@ public:
   void replyHomeRemoval(Id resident, Id work, bool accept);
   void counterHomeRemoval(Id resident, Id work, Money demand);
   void cancelHomeRemoval(Id actor, Id work);
-  Layout layout(int floor = 1) const {
-    if (floor >= 0 && std::size_t(floor) < floorPlans.size())
-      return Layout{config.layoutVersion, float(floorPlans[floor].width),
-                    float(floorPlans[floor].depth), floorPlans[floor].deck};
-    return Layout{config.layoutVersion, float(floor == 0 ? config.lobbyWidth : config.floorWidth),
-                  float(floor == 0 ? config.lobbyDepth : config.floorDepth)};
-  }
+  Layout layout(int floor = 1) const;
+  Id proposeRoad(Id actor, RoadKind kind, int from, int to, Vec3 pos, float length = 24);
+  Id proposeRoadRemoval(Id actor, Id road);
+  void activateRoad(Id road, bool active);
+  void checkRoadSite(Id road) const;
+  void generateRoads();
+  float freightHeight(Id road) const;
+  void requestVehicleLift(Id driver, Id road, int destination);
+  void freightVehicleTick();
+  float supportHeight(Vec3 p, float ceiling) const;
+  float vehicleWidth(Id vehicle) const;
+  float vehicleLength(Id vehicle) const;
+  float vehicleMass(Id vehicle) const;
+  bool vehicleContact(Id vehicle, Vec3 pos, float yaw, Id other) const;
+  bool vehicleFits(Id vehicle, Vec3 pos, float yaw, bool people = true, Id ignore = none) const;
+  std::vector<DrivePoint> planVehicleRoute(Id driver, Id vehicle, Vec3 goal) const;
+  void driveTo(Id driver, Vec3 destination, bool autoExit = true);
+  void cancelDrive(Id driver);
+  void vehicleTick();
+  void ensureVehicleTick();
+  void vehicleServicesTick();
+  bool vehicleWorkDecision(Id worker);
+  bool chooseVehicleTrip(Id resident);
+  void stockFuel(Id actor, Id workshop, float litres);
+  void refuelVehicle(Id actor, Id vehicle, Id workshop, float litres);
+  Id requestVehicleJob(Id customer, Id vehicle, Id workshop, bool tow);
+  void cancelVehicleJob(Id customer, Id job);
+  void assignVehicleJob(Id worker, Id job);
+  Id convertServiceTruck(Id actor, Id vehicle, Id workshop);
+  void validateVehicles() const;
   Money expansionQuote(int floor, int width, int depth) const;
   Id commissionExpansion(Id actor, int floor, int width, int depth);
   void assignExpansion(Id worker, Id expansion);
@@ -746,6 +843,8 @@ public:
     Vec3 pos{};
     std::uint64_t version = 0;
     std::size_t next = 1;
+    Vec3 detour{};
+    float detourTime = 0;
   };
   std::map<Id, CrowdBody> crowd;
   mutable std::map<int, std::vector<Obstacle>> obstacles;
@@ -758,7 +857,7 @@ public:
   const std::vector<Obstacle> &floorObstacles(int) const;
   bool clearPosition(Vec3, float radius = .29f) const;
   Vec3 accessible(Vec3) const;
-  std::vector<Vec3> floorPath(Vec3, Vec3, bool avoidHazards = true) const;
+  std::vector<Vec3> floorPath(Vec3, Vec3, bool avoidHazards = true, Id vehicle = none) const;
   void routeTo(Id, Vec3);
   float walkingSpeed(Id, bool running = false) const;
   void exercise(Id, double seconds, float intensity);
@@ -927,6 +1026,7 @@ public:
   void consumeItem(Id, Id item);
   void sleepAtHome(Id);
   void generateVehicles();
+  void generateParkingBays(Id facility);
   void buyVehicle(Id resident, Id vehicle);
   void sellVehicle(Id resident, Id vehicle, Id dealer);
   void enterVehicle(Id resident, Id vehicle);

@@ -174,6 +174,12 @@ void World::apprehend(Id warden, Id suspect) {
         return !c.resolved && c.offender == suspect && c.kind != CrimeKind::QueueCutting;
       }))
     throw std::runtime_error("Cannot apprehend this resident");
+  if (s.vehicle != none) {
+    auto &vehicle = vehicles[s.vehicle];
+    if (std::abs(vehicle.speed) > .2f || vehicle.airborne || vehicle.freightLift != none)
+      throw std::runtime_error("traffic.error.exit");
+    exitVehicle(suspect);
+  }
   Id jail = nearest(warden, FacilityKind::Jail);
   if (jail == none)
     throw std::runtime_error("No operational jail");
@@ -397,6 +403,7 @@ void World::validate() const {
     if (f.width < 96 || f.width > 2048 || f.depth < 72 || f.depth > 2048)
       throw std::runtime_error("Invalid floor dimensions");
   validateStructures();
+  validateVehicles();
   for (const auto &r : residents)
     if (!std::isfinite(r.fitness) || r.fitness < 0 || r.fitness > 100)
       throw std::runtime_error("Invalid resident fitness");
@@ -434,7 +441,7 @@ void World::validate() const {
         !std::isfinite(r.health) || !std::isfinite(r.pos.x) || !std::isfinite(r.pos.y) ||
         !std::isfinite(r.pos.z) || int(r.activity) < 0 ||
         int(r.activity) > int(Activity::Departed) || int(r.role) < 0 ||
-        int(r.role) > int(Role::Firefighter))
+        int(r.role) > int(Role::TowDriver))
       throw std::runtime_error("Invalid resident");
     if (r.ladder < -1 || r.ladder >= layout().ladderCount() || r.ladderTarget < -1 ||
         r.ladderTarget >= config.floors || std::abs(r.ladderDirection) > 1)
@@ -466,7 +473,7 @@ void World::validate() const {
     auto &f = facilities[i];
     if (f.id != Id(i) || !accountValid(f.owner) || f.floor < 0 || f.floor >= config.floors ||
         f.stations < 1 || f.stock < 0 || f.price < 0 || !std::isfinite(f.duration) ||
-        f.duration <= 0 || int(f.kind) < 0 || int(f.kind) > int(FacilityKind::Washbasin) ||
+        f.duration <= 0 || int(f.kind) < 0 || int(f.kind) > int(FacilityKind::FreightLift) ||
         f.serving.size() > std::size_t(f.stations))
       throw std::runtime_error("Invalid facility");
     if (!std::isfinite(f.condition) || f.condition < 0 || f.condition > 1 || f.wageOffer < 0 ||
@@ -474,7 +481,7 @@ void World::validate() const {
       throw std::runtime_error("Invalid business operations");
     if (!std::isfinite(f.opensAt) || f.opensAt < 0 || f.opensAt >= 24 ||
         !std::isfinite(f.openHours) || f.openHours < 0 || f.openHours > 24 || f.staffNeeded < 0 ||
-        f.staffNeeded > 64 || int(f.staffRole) < 0 || int(f.staffRole) > int(Role::Firefighter))
+        f.staffNeeded > 64 || int(f.staffRole) < 0 || int(f.staffRole) > int(Role::TowDriver))
       throw std::runtime_error("Invalid facility staffing/hours");
     std::set<Id> staff;
     for (Id id : f.employees)
@@ -756,7 +763,9 @@ void World::validate() const {
         !std::isfinite(v.yaw) || !std::isfinite(v.condition) || v.condition < 0 ||
         v.condition > 1 || v.askingPrice < 0 || v.originalPrice < 0 ||
         (v.driver != none && (!residentValid(v.driver) || residents[v.driver].vehicle != v.id ||
-                              residents[v.driver].account != v.owner)) ||
+                              (residents[v.driver].account != v.owner &&
+                               !(v.towTruck && residents[v.driver].role == Role::TowDriver &&
+                                 residents[v.driver].employer == v.owner)))) ||
         (v.bay != none && (!bayValid(v.bay) || parking[v.bay].vehicle != v.id)) ||
         (v.dealer != none &&
          (!facilityValid(v.dealer) || facilities[v.dealer].kind != FacilityKind::Dealership)))

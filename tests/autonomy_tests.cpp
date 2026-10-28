@@ -34,6 +34,8 @@ static World small() {
   c.mode = Mode::Cheat;
   c.accidentRate = 0;
   auto w = World::generate(c);
+  for (const auto &road : w.roads)
+    w.activateRoad(road.id, false);
   while (!w.events.empty())
     w.events.pop();
   w.time = 10 * 3600;

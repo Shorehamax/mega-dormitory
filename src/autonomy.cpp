@@ -335,6 +335,7 @@ void World::careerDecision(Id id) {
       if (f.kind == FacilityKind::Workshop) {
         roles.push_back(Role::Builder);
         roles.push_back(Role::Repairer);
+        roles.push_back(Role::TowDriver);
       }
       if (f.kind == FacilityKind::Office) {
         roles.push_back(Role::Programmer);

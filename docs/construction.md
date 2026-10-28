@@ -18,7 +18,7 @@ Funded structural work can recruit an available automatic workshop crew. Its hau
 
 Completion pays earned wages and the remaining agreed contract price to the workshop operator. Cancellation refunds only unspent escrow and releases the crew. Paid materials remain real owned crates. A builder can collect a cancelled crate and return it to the original operating workshop for a funded ¥800 buyback and four returned stock units. Collection and return require reaching both locations; neither payment nor stock can be credited twice.
 
-Cooperative crews currently execute partitions and floor-slab work. Existing bed, facility, footprint-expansion and repair contracts retain their established individual-worker workflows.
+Cooperative crews currently execute partitions, floor-slab work and road infrastructure (see `traffic.md`). Existing bed, facility, footprint-expansion and repair contracts retain their established individual-worker workflows.
 
 ## Intermediate floors
 

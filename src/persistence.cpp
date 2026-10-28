@@ -16,7 +16,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(InteriorWall, id, owner, floor, 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(StructuralWork, id, actor, payer, workshop, escrow,
                                                 team, wall, material, hauler, floor, kind, state,
                                                 site, budget, spent, remaining, total, workedAt,
-                                                supplied, attendance, blocked)
+                                                supplied, attendance, blocked, transport)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ConstructionTeam, id, workshop, foreman, work,
                                                 members)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Expansion, id, owner, contractor, worker, escrow, floor, width,
@@ -56,7 +56,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Facility, id, owner, manager, ki
                                                 subscribers, askingPrice, staffRole, staffNeeded,
                                                 opensAt, openHours, publicAccess, employees,
                                                 autoRestock, hiring, wageOffer, condition, waste,
-                                                demolished)
+                                                demolished, fuelStock, fuelPrice)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Item, id, owner, carrier, kind, pos, consumed,
                                                 order, cleanliness, durability, reservedAt, look,
                                                 stolenFrom, quantity, askingPrice, seller)
@@ -99,7 +99,20 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ResidentPlan, nextShopping, next
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Message, from, to, time, text, read)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Vehicle, id, owner, dealer, driver, bay, kind, pos,
                                                 yaw, speed, condition, askingPrice, originalPrice,
-                                                look)
+                                                look, fuel, verticalSpeed, pitch, airborne,
+                                                towTruck, freightLift, road, towing, towedBy,
+                                                updatedAt, nextImpact, garage)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(VehicleLiftCall, vehicle, driver, from, to, called)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(RoadLink, id, facility, kind, from, to, pos, width,
+                                                length, loadLimit, active, moving, height,
+                                                startHeight, targetHeight, departAt, arriveAt,
+                                                doorsUntil, occupant, calls)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(DrivePoint, pos, link, destination)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(VehicleJourney, vehicle, driver, path, next, goal,
+                                                blockedAt, autoExit, reversing, parkingDestination)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(VehicleJob, id, customer, vehicle, workshop, worker,
+                                                truck, escrow, tow, parts, state, budget, remaining,
+                                                workedAt, startingCondition, retrofit, payer)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParkingBay, id, facility, vehicle, pos, width, dailyPrice,
                                    paidUntil)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Incident, id, offender, victim, warden, kind, pos, time,
@@ -165,6 +178,10 @@ void World::save(const std::filesystem::path &path) const {
             {"items", items},
             {"personalUses", personalUses},
             {"vehicles", vehicles},
+            {"roads", roads},
+            {"vehicleJourneys", vehicleJourneys},
+            {"vehicleJobs", vehicleJobs},
+            {"nextVehicleAt", nextVehicleAt},
             {"ambulances", ambulances},
             {"remains", remains},
             {"looseBodies", looseBodies},
@@ -424,6 +441,18 @@ static World readSave(const std::filesystem::path &path) {
   if (j.contains("personalUses"))
     j.at("personalUses").get_to(w.personalUses);
   READ(vehicles);
+  for (std::size_t i = 0; i < w.vehicles.size(); ++i)
+    if (!j.at("vehicles")[i].contains("fuel"))
+      w.vehicles[i].fuel = w.vehicles[i].kind == VehicleKind::Bicycle   ? 0
+                           : w.vehicles[i].kind == VehicleKind::Scooter ? 8
+                                                                        : 40;
+  if (j.contains("roads"))
+    j.at("roads").get_to(w.roads);
+  if (j.contains("vehicleJourneys"))
+    j.at("vehicleJourneys").get_to(w.vehicleJourneys);
+  if (j.contains("vehicleJobs"))
+    j.at("vehicleJobs").get_to(w.vehicleJobs);
+  w.nextVehicleAt = j.value("nextVehicleAt", -1.0);
   if (j.contains("ambulances"))
     j.at("ambulances").get_to(w.ambulances);
   if (j.contains("remains"))
@@ -471,7 +500,7 @@ static World readSave(const std::filesystem::path &path) {
 #undef READ
   for (auto &e : j.at("events").get<std::vector<Event>>()) {
     if (!std::isfinite(e.time) || e.time < w.time || e.seq >= w.sequence || int(e.kind) < 0 ||
-        int(e.kind) > int(EventKind::PhysicsTick))
+        int(e.kind) > int(EventKind::VehicleTick))
       throw std::runtime_error("Invalid saved event");
     bool service = e.kind == EventKind::FinishService;
     if (e.id < 0 || std::size_t(e.id) >= (service ? w.facilities.size() : w.residents.size()) ||

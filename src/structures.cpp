@@ -225,6 +225,9 @@ Id World::proposePartitionRemoval(Id actor, Id id) {
   return p.id;
 }
 bool World::floorCleared(int floor, Id except) const {
+  for (const auto &road : roads)
+    if (road.active && floor >= road.from && floor <= road.to)
+      return false;
   for (const auto &h : housing)
     if (h.floor == floor && h.active)
       return false;
@@ -302,6 +305,9 @@ void World::planFloorClearance(Id actor, Id id) {
       p.state != StructuralState::Proposed)
     throw std::runtime_error("structure.error.permission");
   // Preflight the whole batch before creating any claims or contracts.
+  for (const auto &road : roads)
+    if (road.active && p.floor >= road.from && p.floor <= road.to)
+      throw std::runtime_error("structure.error.clearance");
   for (const auto &f : facilities)
     if (f.floor == p.floor && !f.demolished &&
         (leasedWorkspaces.contains(f.id) || activeFires.contains(f.id)))
@@ -362,6 +368,10 @@ void World::fundStructuralWork(Id actor, Id id) {
   manager(*this, actor);
   if (p.kind == StructuralKind::Partition)
     checkPartition(p.wall);
+  if (p.kind == StructuralKind::Transport)
+    checkRoadSite(p.transport);
+  if (p.transport != none && facilities[roads[p.transport].facility].owner != p.payer)
+    throw std::runtime_error("structure.error.permission");
   if ((p.kind == StructuralKind::RemoveFloor || p.kind == StructuralKind::RestoreFloor) &&
       !floorCleared(p.floor, p.id))
     throw std::runtime_error("structure.error.clearance");
@@ -370,9 +380,16 @@ void World::fundStructuralWork(Id actor, Id id) {
   p.escrow = account("Structural construction escrow");
   pay(p.payer, p.escrow, p.budget, "structural-work-funding");
   p.state = StructuralState::Funded;
+  if (p.transport != none)
+    for (int f = roads[p.transport].from; f <= roads[p.transport].to; ++f)
+      invalidateGeometry(f);
   p.blocked.clear();
 }
 bool World::builderCommitted(Id id) const {
+  for (const auto &job : vehicleJobs)
+    if (job.worker == id && job.state != VehicleJobState::Complete &&
+        job.state != VehicleJobState::Cancelled)
+      return true;
   for (const auto &t : constructionTeams)
     if (t.members.contains(id) && t.work != none && live(structuralWorks[t.work]))
       return true;
@@ -536,7 +553,12 @@ void World::cancelStructuralWork(Id actor, Id id) {
   auto &p = structuralWorks.at(id);
   if (actor != p.actor || !adult(*this, actor) || !live(p))
     throw std::runtime_error("structure.error.permission");
+  if (p.kind == StructuralKind::Transport && p.transport != none && !roads[p.transport].active)
+    facilities[roads[p.transport].facility].demolished = true;
   p.state = StructuralState::Cancelled;
+  if (p.transport != none)
+    for (int f = roads[p.transport].from; f <= roads[p.transport].to; ++f)
+      invalidateGeometry(f);
   if (p.material != none) {
     auto &item = items[p.material];
     if (item.carrier != none) {
@@ -737,7 +759,11 @@ void World::structuralTick() {
         interiorWalls[p.wall].active = true;
       } else if (p.kind == StructuralKind::RemovePartition)
         interiorWalls[p.wall].active = false;
-      else {
+      else if (p.kind == StructuralKind::Transport || p.kind == StructuralKind::RemoveTransport) {
+        if (facilities[roads[p.transport].facility].owner != p.payer)
+          throw std::runtime_error("structure.error.permission");
+        activateRoad(p.transport, p.kind == StructuralKind::Transport);
+      } else {
         if (!floorCleared(p.floor, p.id))
           throw std::runtime_error("structure.error.clearance");
         floorPlans[p.floor].deck = p.kind == StructuralKind::RestoreFloor;
@@ -820,7 +846,7 @@ void World::validateStructures() const {
     if (p.id != Id(i) || !ref(p.actor, residents.size()) || !ref(p.payer, accounts.size()) ||
         !ref(p.workshop, facilities.size()) ||
         facilities[p.workshop].kind != FacilityKind::Workshop || int(p.kind) < 0 ||
-        int(p.kind) > int(StructuralKind::RestoreFloor) || int(p.state) < 0 ||
+        int(p.kind) > int(StructuralKind::RemoveTransport) || int(p.state) < 0 ||
         int(p.state) > int(StructuralState::Cancelled) || p.floor < 0 || p.floor >= config.floors ||
         !std::isfinite(p.total) || p.total <= 0 || !std::isfinite(p.remaining) || p.workedAt < -1 ||
         p.workedAt > time || p.remaining < 0 || p.remaining > p.total ||
@@ -835,6 +861,9 @@ void World::validateStructures() const {
         ((p.state == StructuralState::Proposed || p.state == StructuralState::Funded) &&
          p.team != none) ||
         (p.wall != none && !ref(p.wall, interiorWalls.size())) ||
+        (p.transport != none && !ref(p.transport, roads.size())) ||
+        ((p.kind == StructuralKind::Transport || p.kind == StructuralKind::RemoveTransport) &&
+         p.transport == none) ||
         ((p.kind == StructuralKind::Partition || p.kind == StructuralKind::RemovePartition) &&
          p.wall == none) ||
         (p.material != none && !ref(p.material, items.size())) ||

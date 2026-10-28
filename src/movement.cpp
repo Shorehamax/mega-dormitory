@@ -99,7 +99,7 @@ const std::vector<Obstacle> &World::floorObstacles(int floor) const {
   if (fit != floorFacilities.end())
     for (Id id : fit->second) {
       auto &f = facilities[id];
-      if (!f.demolished) {
+      if (!f.demolished && f.kind != FacilityKind::Ramp && f.kind != FacilityKind::FreightLift) {
         add(f.pos + Vec3{0, .6f, 0}, {1.9f, 1.2f, 1.3f});
         if (f.kind == FacilityKind::Washbasin)
           for (int station = 0; station < std::min(16, f.stations); ++station)
@@ -116,6 +116,35 @@ const std::vector<Obstacle> &World::floorObstacles(int floor) const {
       for (int row = 0; row < 3; ++row)
         add({side * 6.f, .4f, z - row * 3}, {3, .8f, .7f});
   }
+  for (const auto &road : roads)
+    if (!road.active && floor >= road.from && floor <= road.to &&
+        std::any_of(structuralWorks.begin(), structuralWorks.end(), [&](const StructuralWork &p) {
+          return p.transport == road.id &&
+                 (p.state == StructuralState::Funded || p.state == StructuralState::Working);
+        })) {
+      float z = road.kind == RoadKind::Ramp ? road.pos.z + road.length / 2 : road.pos.z;
+      add({road.pos.x, floor * 3.f + 1, z}, {road.width + .3f, 2, road.length + .3f});
+    }
+  for (const auto &road : roads)
+    if (road.active && floor >= road.from && floor <= road.to) {
+      if (road.kind == RoadKind::Ramp) {
+        for (float z = 0; z < road.length; z += 1)
+          for (int side : {-1, 1}) {
+            Vec3 p =
+                road.pos + Vec3{side * (road.width / 2 + .1f), z / road.length * 3 + .55f, z + .5f};
+            add(p, {.12f, 1.1f, 1.05f});
+          }
+      } else {
+        float y = floor * 3.f;
+        for (int side : {-1, 1})
+          add({road.pos.x + side * (road.width / 2 + .1f), y + .6f, road.pos.z},
+              {.15f, 1.2f, road.length});
+        if (road.moving || std::abs(freightHeight(road.id) - y) > .15f)
+          for (int side : {-1, 1})
+            add({road.pos.x, y + .65f, road.pos.z + side * (road.length / 2 + .1f)},
+                {road.width, 1.3f, .15f});
+      }
+    }
   if (l.deck)
     for (const auto &wall : interiorWalls)
       if (wall.floor == floor && wall.active) {
@@ -159,13 +188,19 @@ Vec3 World::accessible(Vec3 p) const {
     }
   throw std::runtime_error("Destination has no accessible standing space");
 }
-std::vector<Vec3> World::floorPath(Vec3 from, Vec3 to, bool avoidHazards) const {
+std::vector<Vec3> World::floorPath(Vec3 from, Vec3 to, bool avoidHazards, Id vehicle) const {
   int floor = std::clamp(int(std::round(to.y / 3)), 0, config.floors - 1);
   from = accessible(from);
   to = accessible(to);
   float allowedDanger = avoidHazards ? dangerAt(from) + .025f : 10.f;
   auto safe = [&](Vec3 p) {
-    return clearPosition(p) && (!avoidHazards || dangerAt(p) <= allowedDanger);
+    if (!clearPosition(p) || (avoidHazards && dangerAt(p) > allowedDanger))
+      return false;
+    if (vehicle != none)
+      for (float yaw : {0.f, .7853982f, 1.5707963f, 2.3561945f})
+        if (!vehicleFits(vehicle, p, yaw, false))
+          return false;
+    return true;
   };
   auto clearLine = [&](Vec3 a, Vec3 b) {
     int steps = std::max(1, int(std::ceil(length(b - a) / .35f)));
@@ -374,10 +409,11 @@ Vec3 World::moveCapsule(Id id, Vec3 p, Vec3 delta, bool people) const {
     for (const auto &v : vehicles)
       if (v.driver != id && std::abs(q.y - v.pos.y) < 1.7f) {
         Vec3 d = q - v.pos;
-        float x = d.x * std::cos(v.yaw) - d.z * std::sin(v.yaw),
-              z = d.x * std::sin(v.yaw) + d.z * std::cos(v.yaw);
-        bool small = v.kind <= VehicleKind::Scooter;
-        if (std::abs(x) < (small ? .45f : 1.2f) && std::abs(z) < (small ? 1.05f : 2.1f))
+        float x = d.x * std::cos(v.yaw) + d.z * std::sin(v.yaw),
+              z = -d.x * std::sin(v.yaw) + d.z * std::cos(v.yaw);
+        if (q.y < v.pos.y + 1.6f && q.y + 1.75f > v.pos.y &&
+            std::abs(x) < vehicleWidth(v.id) / 2 + .29f &&
+            std::abs(z) < vehicleLength(v.id) / 2 + .29f)
           return true;
       }
     if (people)
@@ -400,8 +436,12 @@ Vec3 World::moveCapsule(Id id, Vec3 p, Vec3 delta, bool people) const {
                 // A loaded world or wake-up can begin in contact. Permit only motion
                 // increasing separation; this never lets a clear body enter another.
                 float before = previous.x * previous.x + previous.z * previous.z;
+                // Coarse-to-near transitions may begin with overlapping bodies on a ladder.
+                // Permit motion that separates those existing contacts in any axis; never
+                // allow a fresh overlap or movement deeper into an existing one.
                 if (std::abs(previous.y) >= 1.7f || before >= .58f * .58f ||
-                    d.x * d.x + d.z * d.z <= before + .000001f)
+                    d.x * d.x + d.z * d.z + d.y * d.y <=
+                        before + previous.y * previous.y + .000001f)
                   return true;
               }
             }
@@ -447,6 +487,7 @@ void World::moveCrowd(double seconds) {
       if (b.version != r.routeVersion) {
         b.version = r.routeVersion;
         b.next = 1;
+        b.detourTime = 0;
       }
       // Landing entrants yield to bodies already travelling along the ladder.
       // Retreat uses normal capsule motion; nobody is pushed through another body.
@@ -492,11 +533,17 @@ void World::moveCrowd(double seconds) {
       }
       Vec3 d = (yielding ? retreat : r.route[b.next].p) - b.pos;
       bool vertical = std::abs(d.y) > .1f;
+      bool detouring = !vertical && !yielding && b.detourTime > 0;
+      if (detouring) {
+        d = b.detour;
+        b.detourTime = std::max(0.f, b.detourTime - dt);
+      }
       Vec3 delta = normalized(d) * std::min(length(d), dt * (vertical ? 3.f : walkingSpeed(id)));
       Vec3 next = moveCapsule(id, b.pos, delta);
       // Try clear, right-biased arcs when another body occupies the direct line.
       // This also handles the last metre into a queue, where the old steering stopped.
       if (!vertical && length(next - b.pos) < length(delta) * .7f && length(d) > .08f) {
+        b.detourTime = 0;
         Vec3 forward = normalized(Vec3{d.x, 0, d.z}), right{-forward.z, 0, forward.x};
         float best = length(next - b.pos);
         for (float angle : {.55f, 1.05f, 1.57f, -.55f, -1.05f, -1.57f}) {
@@ -508,6 +555,11 @@ void World::moveCrowd(double seconds) {
             best = progress;
           }
         }
+      }
+      if (!vertical && !yielding && !detouring && length(next - b.pos) > length(delta) * .7f &&
+          dot(normalized(next - b.pos), normalized(d)) < .75f) {
+        b.detour = normalized(next - b.pos);
+        b.detourTime = .25f;
       }
       if (length(next - b.pos) > .01f)
         exercise(id, dt * (1440 / config.dayMinutes), vertical ? 1.5f : .2f);
@@ -527,11 +579,10 @@ float World::moveBody(Id id, Body &body, Vec3 desired, float dt) const {
     body.velocity.y -= 9.81f * s;
     Vec3 horizontal = moveCapsule(id, body.position, {desired.x * s, 0, desired.z * s});
     body.position = horizontal + Vec3{0, body.velocity.y * s, 0};
-    int floor = int(std::floor((oldY + .0001f) / 3));
-    float plane = floor * 3.f;
+    bool wasGrounded = body.grounded;
+    float plane = supportHeight(body.position, oldY + (wasGrounded ? .18f : .0001f));
     body.grounded = false;
-    if (floor >= 0 && floor < config.floors && body.velocity.y <= 0 && body.position.y <= plane &&
-        layout(floor).supported({body.position.x, plane, body.position.z})) {
+    if (plane > -9000 && body.velocity.y <= 0 && body.position.y <= plane) {
       impact = std::max(impact, -body.velocity.y);
       body.position.y = plane;
       body.velocity.y = 0;

@@ -172,8 +172,8 @@ void World::cancelOrder(Id oid, Id buyer) {
 void World::chooseJob(Id id, Role role, Id fid) {
   auto &r = residents.at(id);
   auto &f = facilities.at(fid);
-  if (!r.alive || !r.present || !f.open || r.carrying != none || r.activity == Activity::Jailed ||
-      role == Role::Unemployed || activeFires.contains(fid))
+  if (!r.alive || !r.present || !f.open || r.carrying != none || r.vehicle != none ||
+      r.activity == Activity::Jailed || role == Role::Unemployed || activeFires.contains(fid))
     throw std::runtime_error("Cannot start this job");
   if (!f.hiring && r.jobSite != fid)
     throw std::runtime_error("This employer is not hiring");
@@ -184,7 +184,8 @@ void World::chooseJob(Id id, Role role, Id fid) {
       (role == Role::Cleaner &&
        (f.kind == FacilityKind::Garbage || f.kind == FacilityKind::Morgue ||
         f.kind == FacilityKind::Crematorium)) ||
-      ((role == Role::Builder || role == Role::Repairer) && f.kind == FacilityKind::Workshop) ||
+      ((role == Role::Builder || role == Role::Repairer || role == Role::TowDriver) &&
+       f.kind == FacilityKind::Workshop) ||
       ((role == Role::VideoEditor || role == Role::Programmer || role == Role::Administrator) &&
        f.kind == FacilityKind::Office) ||
       ((role == Role::Medic || role == Role::Pilot || role == Role::Warden) &&
@@ -240,7 +241,10 @@ void World::buyFacility(Id id, Id fid) {
 void World::subscribeLift(Id id, Id fid) {
   auto &f = facilities.at(fid);
   auto &r = residents.at(id);
-  if (!r.alive || !r.present || f.kind != FacilityKind::Elevator || !f.open)
+  if (!r.alive || !r.present ||
+      (f.kind != FacilityKind::Elevator && f.kind != FacilityKind::Ramp &&
+       f.kind != FacilityKind::FreightLift) ||
+      !f.open)
     throw std::runtime_error("Lift unavailable");
   pay(r.account, f.owner, f.subscriptionPrice, "lift-subscription");
   f.subscribers[id] = std::max(time, f.subscribers[id]) + 30 * 86400;
@@ -249,13 +253,19 @@ void World::payLift(Id id, Id fid, int destination) {
   auto &f = facilities.at(fid);
   auto &r = residents.at(id);
   int current = int(std::round(position(id).y / 3));
-  if (!r.alive || !r.present || f.kind != FacilityKind::Elevator || !f.open ||
-      std::find(f.stops.begin(), f.stops.end(), current) == f.stops.end() ||
+  if (!r.alive || !r.present ||
+      (f.kind != FacilityKind::Elevator && f.kind != FacilityKind::Ramp &&
+       f.kind != FacilityKind::FreightLift) ||
+      !f.open || std::find(f.stops.begin(), f.stops.end(), current) == f.stops.end() ||
       std::find(f.stops.begin(), f.stops.end(), destination) == f.stops.end())
     throw std::runtime_error("Lift does not serve these floors");
+  Id payer = r.account;
+  if ((f.kind == FacilityKind::Ramp || f.kind == FacilityKind::FreightLift) && r.vehicle != none &&
+      vehicles[r.vehicle].towTruck && r.employer == vehicles[r.vehicle].owner)
+    payer = r.employer;
   if (!f.whitelist.contains(id) && !(f.subscribers.contains(id) && f.subscribers.at(id) > time) &&
-      r.account != f.owner)
-    pay(r.account, f.owner, f.price, "lift-fare");
+      payer != f.owner)
+    pay(payer, f.owner, f.price, "lift-fare");
   log("lift.access_paid", id, fid);
 }
 Money World::housingPrice(int floor) const {
@@ -378,6 +388,8 @@ void World::submitVideo(Id id, const std::vector<int> &clips) {
 Id World::proposeProject(Id owner, Id fid, bool demolition, Money budget) {
   auto &r = residents.at(owner);
   auto &f = facilities.at(fid);
+  if (f.kind == FacilityKind::Ramp || f.kind == FacilityKind::FreightLift)
+    throw std::runtime_error("traffic.error.road_work");
   bool owns = f.owner == r.account || directsCompany(owner, companyForAccount(f.owner), true);
   if (!r.alive || !r.present || f.demolished || (!owns && owner != dormOwner) || budget < 10000)
     throw std::runtime_error("Permission and a real budget are required");
@@ -520,6 +532,8 @@ void World::workProject(Id id, double seconds) {
                                                          : residents[p.owner].account;
       pay(p.escrow, refund, accounts[p.escrow].balance, "construction-unspent-budget");
     }
+    if (f.open && f.kind == FacilityKind::Parking)
+      generateParkingBays(f.id);
     if (f.open && f.kind == FacilityKind::Elevator)
       generateLifts();
     if (f.open && f.kind == FacilityKind::Infirmary)
