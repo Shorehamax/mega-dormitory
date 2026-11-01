@@ -655,6 +655,93 @@ int main() {
     require(w.roads[0].active, "Another owner's road was erased");
     w.validate();
   });
+  test("Pre-existing pedestrian contacts can separate from a car but cannot deepen", [] {
+    auto w = small();
+    car(w, {150, 0, 150});
+    w.vehicles[2].yaw = 0;
+    place(w, 5, {150.9f, 0, 150});
+    auto away = w.moveCapsule(5, {150.9f, 0, 150}, {.4f, 0, 0}, false);
+    auto inward = w.moveCapsule(5, {150.9f, 0, 150}, {-.4f, 0, 0}, false);
+    require(away.x > 151.25f && inward.x >= 150.899f,
+            "Car contact trapped a pedestrian or allowed penetration");
+    auto fresh = w.moveCapsule(5, {152, 0, 150}, {-2, 0, 0}, false);
+    require(fresh.x > 151.1f, "Clear pedestrian entered a car");
+  });
+  test("Vehicle planning goes around real people occupying an open corridor", [] {
+    auto w = small();
+    car(w, {150, 0, 150});
+    w.vehicles[2].yaw = 0;
+    place(w, 5, {150, 0, 135});
+    auto path = w.planVehicleRoute(0, 2, {150, 0, 110});
+    bool detour = false;
+    for (auto point : path)
+      detour |= std::abs(point.pos.x - 150) > 2;
+    require(detour, "Vehicle planned directly through a standing resident");
+    w.driveTo(0, {150, 0, 110}, true);
+    w.advance(48 * 240);
+    require(length(w.vehicles[2].pos - Vec3{150, 0, 110}) < 1 && w.residents[5].health == 100,
+            "Vehicle failed to drive around resident safely");
+    w.validate();
+  });
+  test("A car may reverse out of an existing pedestrian overlap without driving deeper", [] {
+    auto w = small();
+    car(w, {150, 0, 150});
+    w.vehicles[2].yaw = 0;
+    place(w, 5, {150, 0, 148});
+    for (int n = 0; n < 20; ++n)
+      w.driveVehicle(0, 1, 0, .02f);
+    require(w.vehicles[2].pos.z >= 149.999f, "Car deepened an existing overlap");
+    for (int n = 0; n < 120; ++n)
+      w.driveVehicle(0, -1, 0, .02f);
+    require(w.vehicles[2].pos.z > 152 && w.residents[5].health == 100,
+            "Car could not safely reverse clear");
+    w.validate();
+  });
+  test("A blocked driver reverses physically and resumes its saved route around a pedestrian", [] {
+    auto w = small();
+    car(w, {150, 0, 150});
+    w.vehicles[2].yaw = 0;
+    w.driveTo(0, {150, 0, 110}, true);
+    place(w, 5, {150, 0, 148});
+    w.advance(48 * 4);
+    require(w.vehicleJourneys.contains(2) && w.vehicleJourneys[2].recoveries > 0,
+            "No bounded recovery began");
+    auto file = std::filesystem::temp_directory_path() / "mega-vehicle-recovery.mdsave";
+    w.save(file);
+    auto saved = World::load(file);
+    saved.advance(48 * 240);
+    require(length(saved.vehicles[2].pos - Vec3{150, 0, 110}) < 1 &&
+                saved.residents[5].health == 100,
+            "Saved recovery failed or harmed resident");
+    saved.validate();
+    std::filesystem::remove(file);
+  });
+  test("Blocked traffic cannot automatically back off an unsupported floor edge", [] {
+    auto w = small();
+    car(w, {319, 0, 100});
+    w.vehicles[2].yaw = -1.5707963f;
+    w.driveTo(0, {300, 0, 100}, false);
+    place(w, 5, {317.5f, 0, 100});
+    w.advance(48 * 12);
+    require(w.vehicles[2].pos.x < 319.01f && !w.vehicles[2].airborne &&
+                w.residents[0].health == 100,
+            "Recovery backed off floor edge");
+    w.validate();
+  });
+  test("Lobby vehicle trips use the outer aisle and align before entering the ramp", [] {
+    auto w = small();
+    car(w, {-34, 0, 304.8f});
+    auto path = w.planVehicleRoute(0, 2, {80, 3, 116});
+    bool outside = false;
+    for (auto point : path)
+      outside |= point.pos.x < -60 && point.pos.z > 220;
+    require(outside, "Car route crossed busy lobby counters");
+    w.driveTo(0, {80, 3, 116}, true);
+    w.advance(48 * 300);
+    require(length(w.vehicles[2].pos - Vec3{80, 3, 116}) < 1,
+            "Outer aisle failed to align with ramp");
+    w.validate();
+  });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

@@ -31,7 +31,8 @@ bool World::directsCompany(Id actor, Id cid, bool ownerOnly) const {
   const auto &r = residents[actor];
   const auto &c = companies[cid];
   return r.alive && r.present && !r.leaving && r.activity != Activity::Jailed &&
-         (actor == c.owner || (!ownerOnly && actor == c.leader && r.employer == c.account));
+         (actor == companyController(cid) ||
+          (!ownerOnly && actor == c.leader && r.employer == c.account));
 }
 void World::setupCompanies() {
   std::set<Id> personalAccounts{dormAccount};
@@ -45,6 +46,9 @@ void World::setupCompanies() {
       c.owner = f.manager;
       c.account = f.owner;
       c.name = "Studio " + std::to_string(c.id + 1);
+      c.shares[residents[c.owner].account] = 10000;
+      c.autoExpand = true;
+      c.nextExpansionAt = time + 86400;
       companies.push_back(c);
       workspaceOffers[f.id] = 2500 + f.stations * 500;
     }
@@ -59,6 +63,8 @@ Id World::foundCompany(Id actor, const std::string &name, Money capital) {
   c.id = Id(companies.size());
   c.owner = actor;
   c.name = name;
+  c.shares[r.account] = 10000;
+  c.nextExpansionAt = time + 86400;
   c.account = account(name);
   pay(r.account, c.account, capital, "company-capital");
   companies.push_back(c);
@@ -104,7 +110,7 @@ void World::companyDividend(Id actor, Id cid, Money amount) {
       amount > accounts[c.account].balance - companyReserve(cid))
     throw std::runtime_error(
         "Dividends must leave accrued wages, one payroll shift and three days of rent");
-  pay(c.account, residents[actor].account, amount, "company-dividend");
+  distributeEquity(c.account, cid, amount, "company-dividend");
 }
 void World::changeOfficeEmployer(Id fid, Id employer, bool dismiss) {
   auto &f = facilities.at(fid);
@@ -328,6 +334,7 @@ void World::dismissEmployee(Id actor, Id fid, Id worker) {
   log("company.dismissed", worker, cid);
 }
 void World::companyTick() {
+  equityTick();
   for (auto &l : workspaceLeases) {
     settleWorkspaceLease(l.id);
     if (l.active && (l.missedDays >= 3 || facilities[l.facility].demolished))
@@ -394,6 +401,8 @@ void World::companyTick() {
           break;
         }
   }
+  for (Id cid = 0; cid < Id(companies.size()); ++cid)
+    expansionTick(cid);
   // Old wage claims survive dismissal, moving jobs and lease default.
   std::set<Id> employers;
   for (const auto &c : companies)
@@ -407,6 +416,7 @@ void World::companyTick() {
       }
 }
 void World::validateCompanies() const {
+  validateEquity();
   auto resident = [&](Id id) { return id >= 0 && std::size_t(id) < residents.size(); };
   auto account = [&](Id id) { return id > 0 && std::size_t(id) < accounts.size(); };
   auto facility = [&](Id id) {

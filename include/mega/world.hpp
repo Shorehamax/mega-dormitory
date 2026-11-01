@@ -411,6 +411,9 @@ struct VehicleJourney {
   double blockedAt = -1;
   bool autoExit = true, reversing = false;
   Id parkingDestination = none;
+  Vec3 backupOrigin{};
+  double recoveryUntil = -1;
+  int recoveries = 0;
 };
 enum class VehicleJobState { Waiting, ToVehicle, Working, Returning, Complete, Cancelled };
 struct VehicleJob {
@@ -499,6 +502,24 @@ struct Company {
   std::map<Id, int> assignments;
   std::map<Id, int> completed;
   Money revenue = 0;
+  std::map<Id, int> shares; // Account IDs; exactly 10,000 units in a company.
+  Id parent = none;
+  bool autoExpand = false;
+  double nextExpansionAt = 0;
+};
+struct ShareOffer {
+  Id id = none, company = none, seller = none; // seller is an account, not a resident ID
+  int units = 0;
+  Money unitPrice = 0;
+  bool capital = false, active = true;
+};
+enum class AcquisitionState { Pending, Complete, Cancelled };
+struct Acquisition {
+  Id id = none, buyer = none, target = none, proposer = none, escrow = none;
+  Money price = 0;
+  double expires = 0;
+  AcquisitionState state = AcquisitionState::Pending;
+  std::map<Id, bool> ballots; // Account votes, weighted by current shares.
 };
 struct WorkspaceLease {
   Id id = none, company = none, facility = none, landlord = none, manager = none, escrow = none;
@@ -716,6 +737,32 @@ public:
   std::vector<LiftCar> lifts;
   std::vector<OfficeOrder> officeOrders;
   std::vector<Company> companies;
+  mutable std::unordered_map<Id, Id> equityPeople;
+  mutable std::size_t equityPopulation = 0;
+  std::vector<ShareOffer> shareOffers;
+  std::vector<Acquisition> acquisitions;
+  std::map<Id, Id> equityHeirs; // Resident nominations, affecting company equity only.
+  Id companyController(Id company) const;
+  void refreshCompanyControl(Id company);
+  bool controlsAccount(Id actor, Id account) const;
+  int heldShares(Id actor, Id company) const;
+  int reservedShares(Id account, Id company) const;
+  Money companyValue(Id company) const;
+  Id listShares(Id actor, Id company, int units, Money unitPrice, bool capital = false);
+  void cancelShareOffer(Id actor, Id offer);
+  void buyShares(Id buyer, Id offer, int units);
+  void distributeEquity(Id source, Id company, Money amount, const std::string &reason);
+  Id proposeAcquisition(Id actor, Id buyer, Id target, Money price);
+  void voteAcquisition(Id actor, Id acquisition, bool approve);
+  void completeAcquisition(Id acquisition);
+  void cancelAcquisition(Id actor, Id acquisition);
+  void nominateEquityHeir(Id actor, Id heir);
+  void equityTick();
+  void validateEquity() const;
+  Id expandCompany(Id actor, Id company, bool unoccupiedOnly = false);
+  void setCompanyExpansion(Id actor, Id company, bool enabled);
+  void expansionTick(Id company);
+  void seedCapitalMarkets();
   std::vector<WorkspaceLease> workspaceLeases;
   std::map<Id, Id> leasedWorkspaces;
   std::map<Id, Money> workspaceOffers;

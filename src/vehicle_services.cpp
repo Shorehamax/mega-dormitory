@@ -457,7 +457,10 @@ void World::validateVehicles() const {
         throw std::runtime_error("Invalid freight-lift queue");
   }
   for (auto [id, j] : vehicleJourneys) {
-    if (!ref(id, vehicles.size()) || id != j.vehicle ||
+    if (!std::isfinite(j.backupOrigin.x) || !std::isfinite(j.backupOrigin.y) ||
+        !std::isfinite(j.backupOrigin.z) || !std::isfinite(j.recoveryUntil) ||
+        j.recoveryUntil < -1 || j.recoveries < 0 || j.recoveries > 3 || !ref(id, vehicles.size()) ||
+        id != j.vehicle ||
         (j.parkingDestination != none && !ref(j.parkingDestination, parking.size())) ||
         !ref(j.driver, residents.size()) || j.path.size() > 10000 || j.next > j.path.size() ||
         !std::isfinite(j.blockedAt) || !std::isfinite(j.goal.x) || !std::isfinite(j.goal.y) ||

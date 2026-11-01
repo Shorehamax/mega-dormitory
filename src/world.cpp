@@ -332,6 +332,7 @@ World World::generate(const Config &cfg) {
     }
   w.setupOffices();
   w.setupCompanies();
+  w.seedCapitalMarkets();
   w.generateMedical();
   w.generateLifts();
   w.generateRoads();

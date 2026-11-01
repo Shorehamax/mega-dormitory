@@ -12,12 +12,14 @@ bool World::hasDevice(Id id) const {
         (items[i].kind == ItemKind::Phone || items[i].kind == ItemKind::Laptop))
       return true;
   return r.terminal != none && r.terminalUntil > time && facilities.at(r.terminal).open &&
-         near(id, facilities[r.terminal].pos);
+         near(id, facilities[r.terminal].pos,
+              facilities[r.terminal].kind == FacilityKind::Office ? 3.f : 1.8f);
 }
 void World::useTerminal(Id id, Id fid, double minutes) {
   auto &r = residents.at(id);
   auto &f = facilities.at(fid);
-  if (!r.alive || !r.present || !operational(fid) || !accessAllowed(id, fid) || !near(id, f.pos) ||
+  if (!r.alive || !r.present || !operational(fid) || !accessAllowed(id, fid) ||
+      !near(id, f.pos, f.kind == FacilityKind::Office ? 3.f : 1.8f) ||
       !(f.kind == FacilityKind::Terminal || f.kind == FacilityKind::Office) ||
       !std::isfinite(minutes) || minutes <= 0 || minutes > 120)
     throw std::runtime_error("Computer unavailable");

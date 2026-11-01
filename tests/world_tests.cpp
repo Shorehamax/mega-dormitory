@@ -3216,6 +3216,7 @@ int main() {
     w.facilities[f].askingPrice = 10000;
     w.buyFacility(0, f);
     w.companies.clear();
+    w.shareOffers.clear(); // This fixture also discards the generated companies' listings.
     w.workspaceOffers.clear();
     w.setupCompanies();
     require(w.companyForAccount(w.residents[0].account) == none,

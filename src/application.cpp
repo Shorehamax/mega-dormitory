@@ -20,6 +20,10 @@ static std::string number(std::int64_t n) {
   return s;
 }
 static std::string money(Money n) { return "¥" + number(n / 100); }
+static std::string preciseMoney(Money n) {
+  auto cents = std::abs(n % 100);
+  return money(n) + "." + (cents < 10 ? "0" : "") + std::to_string(cents);
+}
 static std::string timeLabel(double t) {
   auto seconds = std::int64_t(std::clamp(t, 0., 1e15));
   long long d = seconds / 86400 + 1;
@@ -103,7 +107,10 @@ public:
   bool emergencyScreen = false;
   bool cheatOpen = false, companyScreen = false, companyConstruction = false;
   Id selectedCompany = none;
-  int companyPage = 0;
+  int companyPage = 0, companyMarketPage = 0;
+  bool companyMarket = false, companyEquity = false, capitalTerms = false, capitalPrimary = false;
+  std::string shareUnits = "100", sharePrice = "10", acquisitionTarget = "0",
+              acquisitionPrice = "500000", equityHeir = "-1";
   double nextCompanyStats = 0;
   Money reservedCompanyCash = 0;
   std::string companyName;
@@ -439,7 +446,8 @@ public:
     savesOpen = importOpen = importSummary = false;
     emergencyScreen = companyScreen = companyConstruction = cheatOpen = false;
     selectedCompany = video = office = customVehicle = lethalConfirm = none;
-    companyPage = 0;
+    companyPage = companyMarketPage = 0;
+    companyMarket = companyEquity = capitalTerms = false;
     nextCompanyStats = 0;
     scrollOffset = networkScroll = helpScroll = 0;
     tab = networkTab = 0;
@@ -1439,6 +1447,169 @@ public:
       }
     return y;
   }
+  std::string shareholderName(Id account) {
+    auto &w = *world;
+    Id firm = w.companyForAccount(account);
+    if (firm != none)
+      return w.companies[firm].name;
+    auto it = w.equityPeople.find(account);
+    return it == w.equityPeople.end() ? w.accounts[account].name
+                                      : w.displayName(it->second, locale.language);
+  }
+  float companyEquityPanel(float x, float y, float width, Id cid) {
+    auto &w = *world;
+    auto &c = w.companies[cid];
+    Id actor = w.player;
+    bool director = w.directsCompany(actor, cid, true);
+    y = ui.wrap(x, y, width, t("capital.intro"), 13, hex(0xa9bdbe)) + 16;
+    y = ui.wrap(x, y, width,
+                t("capital.holding") + " · " + std::to_string(w.heldShares(actor, cid)) +
+                    " / 10,000",
+                16, hex(0xa5cbb9)) +
+        12;
+    y = ui.wrap(x, y, width, t("capital.value") + " · " + money(w.companyValue(cid)), 13,
+                hex(0xb1c3c6)) +
+        12;
+    if (c.parent != none)
+      y = ui.wrap(x, y, width, t("capital.parent") + " · " + w.companies[c.parent].name, 14,
+                  hex(0xb1c3c6)) +
+          12;
+    int holders = 0;
+    for (auto [account, units] : c.shares)
+      if (++holders <= 12)
+        y = ui.wrap(x, y, width,
+                    shareholderName(account) + " · " + std::to_string(units) + " / 10,000", 13,
+                    hex(0xb1c3c6)) +
+            8;
+    if (ui.button("capitalListTerms", {x, y, width, 32}, t("capital.offer_terms")))
+      capitalTerms = !capitalTerms;
+    y += 42;
+    if (capitalTerms) {
+      ui.text(x, y, t("capital.quantity_price"), 13, hex(0xa5cbb9));
+      y += 25;
+      ui.input("shareUnits", {x, y, width / 2 - 5, 32}, shareUnits, true);
+      ui.input("sharePrice", {x + width / 2 + 5, y, width / 2 - 5, 32}, sharePrice, true);
+      y += 42;
+      if (ui.button("capitalPrimary", {x, y, width, 32},
+                    t(capitalPrimary ? "capital.primary" : "capital.secondary")))
+        capitalPrimary = !capitalPrimary;
+      y += 40;
+      if (ui.button("offerCompanyShares", {x, y, width, 32}, t("capital.list")))
+        act([&] {
+          w.listShares(actor, cid, std::stoi(shareUnits), std::stoll(sharePrice), capitalPrimary);
+        });
+      y += 42;
+    }
+    bool offered = false;
+    for (const auto &o : w.shareOffers)
+      if (o.company == cid && o.active) {
+        offered = true;
+        y = ui.wrap(x, y, width,
+                    shareholderName(o.seller) + " · " + std::to_string(o.units) + " × " +
+                        preciseMoney(o.unitPrice) + " · " +
+                        t(o.capital ? "capital.primary" : "capital.secondary"),
+                    13, hex(0xd1c4a7)) +
+            9;
+        if (w.controlsAccount(actor, o.seller)) {
+          if (ui.button("cancelShare" + std::to_string(o.id), {x, y, width, 32},
+                        t("action.cancel")))
+            act([&] { w.cancelShareOffer(actor, o.id); });
+        } else if (ui.button("buyShare" + std::to_string(o.id), {x, y, width, 32},
+                             t("capital.buy") + " " + std::to_string(std::min(100, o.units)) +
+                                 " · " + money(o.unitPrice * std::min(100, o.units))))
+          act([&] { w.buyShares(actor, o.id, std::min(100, o.units)); });
+        y += 43;
+      }
+    if (!offered)
+      y = ui.wrap(x, y, width, t("capital.no_offer"), 13, hex(0x95aaad)) + 14;
+    y = ui.wrap(x, y, width, t("capital.buyout_info"), 13, hex(0xa9bdbe)) + 14;
+    if (director) {
+      ui.text(x, y, t("capital.target_price"), 13, hex(0xa5cbb9));
+      y += 25;
+      ui.input("acquisitionTarget", {x, y, width / 2 - 5, 32}, acquisitionTarget, true);
+      ui.input("acquisitionPrice", {x + width / 2 + 5, y, width / 2 - 5, 32}, acquisitionPrice,
+               true);
+      y += 42;
+      if (ui.button("acquireCompany", {x, y, width, 32}, t("capital.propose")))
+        act([&] {
+          w.proposeAcquisition(actor, cid, std::stoi(acquisitionTarget),
+                               std::stoll(acquisitionPrice));
+        });
+      y += 42;
+    }
+    for (const auto &a : w.acquisitions)
+      if ((a.buyer == cid || a.target == cid) && a.state == AcquisitionState::Pending) {
+        y = ui.wrap(x, y, width,
+                    w.companies[a.buyer].name + " → " + w.companies[a.target].name + " · " +
+                        money(a.price),
+                    14, hex(0xd5bd88)) +
+            10;
+        int yes = 0, no = 0;
+        for (auto [account, units] : w.companies[a.target].shares)
+          if (a.ballots.contains(account)) {
+            if (a.ballots.at(account))
+              yes += units;
+            else
+              no += units;
+          }
+        y = ui.wrap(x, y, width,
+                    t("capital.votes") + " " + std::to_string(yes) + " / " + std::to_string(no) +
+                        " · " + t("capital.expires") + " " + timeLabel(a.expires),
+                    12, hex(0xa9bdbe)) +
+            12;
+        if (ui.button("approveAcq" + std::to_string(a.id), {x, y, width / 2 - 5, 32},
+                      t("capital.approve")))
+          act([&] { w.voteAcquisition(actor, a.id, true); });
+        if (ui.button("rejectAcq" + std::to_string(a.id), {x + width / 2 + 5, y, width / 2 - 5, 32},
+                      t("capital.reject")))
+          act([&] { w.voteAcquisition(actor, a.id, false); });
+        y += 42;
+        if (w.directsCompany(actor, a.buyer, true)) {
+          if (ui.button("cancelAcq" + std::to_string(a.id), {x, y, width, 32},
+                        t("capital.cancel_bid")))
+            act([&] { w.cancelAcquisition(actor, a.id); });
+          y += 42;
+        }
+      }
+    for (const auto &project : w.projects)
+      if (project.newConstruction && project.state != ProjectState::Completed &&
+          w.facilities[project.facility].owner == c.account) {
+        y = ui.wrap(x, y, width,
+                    t("capital.constructing") + " · " + t("status.floor") + " " +
+                        std::to_string(w.facilities[project.facility].floor + 1) + " · " +
+                        money(project.budget),
+                    14, hex(0xd5bd88)) +
+            9;
+        y = ui.wrap(x, y, width,
+                    t(project.materialsDelivered ? "capital.materials_delivered"
+                                                 : "capital.materials_waiting"),
+                    13, hex(0xa9bdbe)) +
+            12;
+      }
+    if (director) {
+      y = ui.wrap(x, y, width, t("capital.expansion_info"), 13, hex(0xa9bdbe)) + 14;
+      if (ui.button("companyAutoExpand", {x, y, width, 32},
+                    t(c.autoExpand ? "capital.auto_on" : "capital.auto_off")))
+        act([&] { w.setCompanyExpansion(actor, cid, !c.autoExpand); });
+      y += 42;
+      if (ui.button("companyExpandNow", {x, y, width, 32}, t("capital.expand")))
+        act([&] { w.expandCompany(actor, cid); });
+      y += 42;
+    }
+    y = ui.wrap(x, y, width, t("capital.heir_info"), 13, hex(0xa9bdbe)) + 14;
+    ui.input("equityHeir", {x, y, width / 2 - 5, 32}, equityHeir, true);
+    if (ui.button("setEquityHeir", {x + width / 2 + 5, y, width / 2 - 5, 32},
+                  t("capital.nominate")))
+      act([&] { w.nominateEquityHeir(actor, std::stoi(equityHeir)); });
+    y += 44;
+    if (w.equityHeirs.contains(actor))
+      y = ui.wrap(x, y, width,
+                  t("capital.heir") + " · " +
+                      w.displayName(w.equityHeirs.at(actor), locale.language),
+                  13, hex(0xa5cbb9)) +
+          15;
+    return y;
+  }
   float companyPanel(float x, float y, float width) {
     auto &w = *world;
     ui.text(x, y, t("company.title"), 23, hex(0xe1e7df));
@@ -1461,19 +1632,39 @@ public:
         companyPage = 0;
       });
     y += 47;
+    if (ui.button("browseCompanies", {x, y, width, 31},
+                  t(companyMarket ? "capital.mine" : "capital.market"))) {
+      companyMarket = !companyMarket;
+      companyMarketPage = 0;
+    }
+    y += 40;
+    std::vector<Id> visibleCompanies;
     for (const auto &c : w.companies)
-      if (c.owner == w.player || c.leader == w.player ||
-          c.account == w.residents[w.player].employer) {
-        if (ui.button("companySelect" + std::to_string(c.id), {x, y, width, 31}, c.name,
-                      selectedCompany == c.id)) {
-          selectedCompany = c.id;
-          companyPage = 0;
-          nextCompanyStats = 0;
-        }
-        y += 39;
-        if (selectedCompany == none)
-          selectedCompany = c.id;
+      if (companyMarket || w.directsCompany(w.player, c.id) ||
+          c.account == w.residents[w.player].employer || w.heldShares(w.player, c.id) > 0)
+        visibleCompanies.push_back(c.id);
+    companyMarketPage =
+        std::clamp(companyMarketPage, 0, std::max(0, (int(visibleCompanies.size()) - 1) / 8));
+    for (int n = companyMarketPage * 8;
+         n < std::min(int(visibleCompanies.size()), companyMarketPage * 8 + 8); ++n) {
+      const auto &c = w.companies[visibleCompanies[n]];
+      if (ui.button("companySelect" + std::to_string(c.id), {x, y, width, 31},
+                    "#" + std::to_string(c.id) + " · " + c.name, selectedCompany == c.id)) {
+        selectedCompany = c.id;
+        companyPage = 0;
+        nextCompanyStats = 0;
       }
+      y += 39;
+      if (selectedCompany == none)
+        selectedCompany = c.id;
+    }
+    if (visibleCompanies.size() > 8) {
+      if (ui.button("capitalMarketPrev", {x, y, width / 2 - 4, 29}, "←"))
+        --companyMarketPage;
+      if (ui.button("capitalMarketNext", {x + width / 2 + 4, y, width / 2 - 4, 29}, "→"))
+        ++companyMarketPage;
+      y += 40;
+    }
     if (selectedCompany < 0 || std::size_t(selectedCompany) >= w.companies.size())
       return y;
     auto &c = w.companies[selectedCompany];
@@ -1486,13 +1677,20 @@ public:
     ui.text(x, y, c.name, 20, hex(0xa5cbb9));
     y += 32;
     for (const auto &[label, value] : std::vector<std::pair<std::string, std::string>>{
-             {t("company.owner"), w.displayName(c.owner, locale.language)},
+             {t("capital.director"), w.displayName(c.owner, locale.language)},
              {t("company.cash"), money(w.accounts[c.account].balance)},
              {t("company.reserve"), money(reservedCompanyCash)},
              {t("company.revenue"), money(c.revenue)},
              {t("company.leader"),
               c.leader == none ? t("company.vacant") : w.displayName(c.leader, locale.language)}})
       y = ui.wrap(x, y, width, label + " · " + value, 14, hex(0xb7c8c4)) + 10;
+    if (ui.button("companySection", {x, y, width, 32},
+                  t(companyEquity ? "capital.operations" : "capital.ownership"))) {
+      companyEquity = !companyEquity;
+    }
+    y += 43;
+    if (companyEquity)
+      return companyEquityPanel(x, y, width, c.id);
     if (owner) {
       if (ui.button("companyInvest", {x, y, width / 2 - 4, 32},
                     t("company.invest") + " " + money(10000)))
@@ -4951,8 +5149,10 @@ int runApplication(int argc, char **argv) {
     Application app(window);
     int frames = 0, maxFrames = 0;
     bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false,
-         playConstruction = false, playVehicles = false;
+         playConstruction = false, playVehicles = false, playCompany = false;
     Id playCourier = none, constructionJob = none;
+    Id capitalCompany = none, capitalOffice = none, capitalOffer = none, capitalOrder = none;
+    int capitalStage = 0, capitalFinish = 0;
     int vehicleStage = 0, vehicleFinishFrame = 0;
     bool rampCaptured = false, liftCaptured = false;
     int constructionStage = 0, constructionFinishedFrame = 0;
@@ -4977,6 +5177,13 @@ int runApplication(int argc, char **argv) {
       } else if (arg == "--playtest-construction") {
         playConstruction = demo = animate = true;
         panel = "construction";
+        app.config.population = 600;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-company") {
+        playCompany = demo = animate = true;
+        panel = "capital-play";
         app.config.population = 600;
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
@@ -5043,12 +5250,12 @@ int runApplication(int argc, char **argv) {
       else if (arg == "--skin-budget")
         app.renderer->skinVertexBudget = std::stoull(value());
     }
-    if (playAutonomy || playConstruction || playVehicles) {
+    if (playAutonomy || playConstruction || playVehicles || playCompany) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
       if (maxFrames == 0)
-        maxFrames = playVehicles ? 7200 : playConstruction ? 1800 : 1200;
+        maxFrames = playVehicles ? 7200 : playCompany ? 3000 : playConstruction ? 1800 : 1200;
       if (fixedStep == 0)
         fixedStep = 1.f / 30;
     }
@@ -5067,7 +5274,47 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "traffic") {
+      if (panel == "capital-play") {
+        auto &w = *app.world;
+        auto &r = w.residents[w.player];
+        w.pay(0, r.account, 2000000, "playtest-company-capital");
+        w.leaveQueue(r.id);
+        w.clockOut(r.id);
+        r.pos = w.position(r.id);
+        r.route.clear();
+        ++r.routeVersion;
+        r.automatic = false;
+        r.activity = Activity::Idle;
+        r.task = TaskKind::None;
+        r.hunger = r.thirst = r.bladder = .1f;
+        r.hygiene = r.energy = 1;
+        r.needsAt = w.time;
+        capitalOffice = w.nearest(r.id, FacilityKind::Office);
+        for (const auto &o : w.shareOffers)
+          if (o.company == w.companyForAccount(w.facilities[capitalOffice].owner)) {
+            capitalOffer = o.id;
+            break;
+          }
+        if (capitalOffer == none)
+          throw std::runtime_error("Company playthrough needs an actual initial financing offer");
+        capitalCompany = w.foundCompany(r.id, app.t("company.default_name"), 1000000);
+        w.leaseWorkspace(r.id, capitalCompany, capitalOffice);
+        w.chooseJob(r.id, Role::Programmer, capitalOffice);
+        r.routine.shiftStart = 0;
+        r.routine.shiftHours = 24;
+        r.routine.daysOff = 0;
+        w.assignCompanyWork(r.id, capitalCompany, r.id, Role::Programmer, 0);
+        w.travel(r.id, w.facilities[capitalOffice].pos, TaskKind::Work, capitalOffice);
+        app.setFirstPerson(false);
+        app.drawerOpen = false;
+        app.phone = false;
+        app.currentFloor = r.home;
+        app.cameraFocus = r.pos;
+        app.distance = 11;
+        app.pitch = .28f;
+        std::cout << "COMPANY PLAYTEST: funded a real company and lease; walking from home to the "
+                     "workplace\n";
+      } else if (panel == "traffic") {
         auto &w = *app.world;
         auto &r = w.residents[w.player];
         w.pay(0, r.account, 5000000, "playtest-starting-capital");
@@ -5472,7 +5719,7 @@ int runApplication(int argc, char **argv) {
         app.drawerSlide = app.drawerOpen ? 1 : 0;
         app.tab = 0;
         app.emergencyScreen = true;
-      } else if (panel == "companies") {
+      } else if (panel == "companies" || panel == "equity" || panel == "equity-offers") {
         app.drawerOpen = true;
         app.drawerSlide = 1;
         app.tab = 2;
@@ -5482,6 +5729,12 @@ int runApplication(int argc, char **argv) {
         app.selectedCompany = w.foundCompany(w.player, app.t("company.default_name"), 60000);
         Id f = w.nearest(w.player, FacilityKind::Office);
         w.leaseWorkspace(w.player, app.selectedCompany, f);
+        if (panel == "equity" || panel == "equity-offers") {
+          app.companyEquity = true;
+          app.capitalTerms = panel == "equity-offers";
+          app.scrollOffset = 470;
+          w.listShares(w.player, app.selectedCompany, 1500, 10, true);
+        }
       } else if (panel == "work")
         app.tab = 2;
       else if (panel == "facilities")
@@ -5502,7 +5755,7 @@ int runApplication(int argc, char **argv) {
     }
     if (demo && animate) {
       app.paused = false;
-      if (playAutonomy || playConstruction || playVehicles)
+      if (playAutonomy || playConstruction || playVehicles || playCompany)
         app.speed = 6;
     }
     if (computeTest) {
@@ -5605,10 +5858,79 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playCompany) {
+        auto &w = *app.world;
+        auto &r = w.residents[w.player];
+        if (capitalStage == 0 && r.route.empty() && r.activity == Activity::Working &&
+            w.operational(capitalOffice) && w.near(r.id, w.facilities[capitalOffice].pos, 3)) {
+          w.useTerminal(r.id, capitalOffice, 120);
+          capitalOrder = w.officeOrder(r.id);
+          app.office = capitalOrder;
+          app.phone = true;
+          app.networkTab = 3;
+          capitalStage = 1;
+          if (!capture.empty())
+            frameCapture = capture.parent_path() / (capture.stem().string() + "-working.ppm");
+          std::cout << "COMPANY PLAYTEST: reached the actual office; starting an attended "
+                       "programming contract\n";
+        }
+        if (capitalStage == 1) {
+          auto &o = w.officeOrders[capitalOrder];
+          if (o.total - o.remaining >= 600) {
+            w.submitOffice(capitalOrder, {0, 2, 3});
+            w.buyShares(r.id, capitalOffer, 100);
+            w.companyDividend(r.id, capitalCompany, 10000);
+            capitalStage = 2;
+            app.phone = false;
+            app.drawerOpen = true;
+            app.drawerSlide = 1;
+            app.companyScreen = true;
+            app.companyEquity = true;
+            app.tab = 2;
+            app.selectedCompany = w.shareOffers[capitalOffer].company;
+            app.scrollOffset = 470;
+            if (!capture.empty())
+              frameCapture = capture.parent_path() / (capture.stem().string() + "-shares.ppm");
+            std::cout << "COMPANY PLAYTEST: paid client work submitted; real shares purchased and "
+                         "dividend paid\n";
+          }
+        } else if (capitalStage == 2) {
+          Id space = w.expandCompany(r.id, capitalCompany);
+          if (!w.facilities[space].open) {
+            bool funded = false;
+            for (const auto &project : w.projects)
+              if (project.facility == space && project.newConstruction &&
+                  project.state == ProjectState::Funded)
+                funded = true;
+            if (!funded)
+              throw std::runtime_error("Company expansion has neither an operating lease nor a "
+                                       "funded real building contract");
+          }
+          app.selectedCompany = capitalCompany;
+          app.scrollOffset = 950;
+          capitalStage = 3;
+          capitalFinish = frames;
+          std::cout << (w.facilities[space].open
+                            ? "COMPANY PLAYTEST: paid for a second operating lease\n"
+                            : "COMPANY PLAYTEST: funded a real construction contract; new office "
+                              "remains closed pending materials and workers\n");
+        }
+        app.cameraFocus = w.position(r.id);
+        app.currentFloor = std::clamp(int(app.cameraFocus.y / 3), 0, w.config.floors - 1);
+        if (capitalStage == 3 && frames >= capitalFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playVehicles) {
         auto &w = *app.world;
         auto &r = w.residents[w.player];
         auto &car = w.vehicles[2];
+        if (frames > 0 && frames % 600 == 0)
+          std::cout << "VEHICLE PLAYTEST: stage " << vehicleStage << " time " << w.time << " car "
+                    << car.pos.x << "," << car.pos.y << "," << car.pos.z << " route "
+                    << w.vehicleJourneys.contains(car.id) << "\n";
         if (vehicleStage == 0 && r.route.empty() &&
             w.near(r.id, w.facilities[car.dealer].pos, 3.f) && w.operational(car.dealer)) {
           w.buyVehicle(r.id, car.id);
@@ -5751,6 +6073,16 @@ int runApplication(int argc, char **argv) {
       }
       std::cout << "PLAYTEST PASS: walking, budgeted checkout, real courier delivery, live UI and "
                    "conserved state\n";
+    }
+    if (playCompany) {
+      auto &w = *app.world;
+      w.validate();
+      if (capitalStage != 3 || w.officeOrders[capitalOrder].quality < 99 ||
+          w.heldShares(w.player, w.shareOffers[capitalOffer].company) < 100)
+        throw std::runtime_error(
+            "Company playthrough did not complete real office/investment/expansion work");
+      std::cout << "COMPANY PLAYTEST PASS: real home-to-work travel, paid attendance, client "
+                   "submission, share purchase, dividend and funded workspace expansion\n";
     }
     if (playVehicles) {
       auto &w = *app.world;

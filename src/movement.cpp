@@ -193,9 +193,27 @@ std::vector<Vec3> World::floorPath(Vec3 from, Vec3 to, bool avoidHazards, Id veh
   from = accessible(from);
   to = accessible(to);
   float allowedDanger = avoidHazards ? dangerAt(from) + .025f : 10.f;
+  std::vector<Vec3> trafficPeople;
+  float trafficRadius = 0;
+  if (vehicle != none) {
+    trafficRadius = std::hypot(vehicleWidth(vehicle) / 2, vehicleLength(vehicle) / 2) + .45f;
+    for (const auto &r : residents)
+      if (r.id != vehicles[vehicle].driver && r.alive && r.present && r.vehicle == none &&
+          r.lift == none && r.ambulance == none && r.carriedBy == none) {
+        auto p = position(r.id);
+        if (std::abs(p.y - to.y) < 1.6f && std::hypot(p.x - from.x, p.z - from.z) > trafficRadius)
+          trafficPeople.push_back(p);
+      }
+  }
   auto safe = [&](Vec3 p) {
     if (!clearPosition(p) || (avoidHazards && dangerAt(p) > allowedDanger))
       return false;
+    if (vehicle != none)
+      for (auto person : trafficPeople) {
+        float dx = person.x - p.x, dz = person.z - p.z;
+        if (dx * dx + dz * dz < trafficRadius * trafficRadius)
+          return false;
+      }
     if (vehicle != none)
       for (float yaw : {0.f, .7853982f, 1.5707963f, 2.3561945f})
         if (!vehicleFits(vehicle, p, yaw, false))
@@ -413,8 +431,19 @@ Vec3 World::moveCapsule(Id id, Vec3 p, Vec3 delta, bool people) const {
               z = -d.x * std::sin(v.yaw) + d.z * std::cos(v.yaw);
         if (q.y < v.pos.y + 1.6f && q.y + 1.75f > v.pos.y &&
             std::abs(x) < vehicleWidth(v.id) / 2 + .29f &&
-            std::abs(z) < vehicleLength(v.id) / 2 + .29f)
-          return true;
+            std::abs(z) < vehicleLength(v.id) / 2 + .29f) {
+          Vec3 prior = p - v.pos;
+          float px = prior.x * std::cos(v.yaw) + prior.z * std::sin(v.yaw),
+                pz = -prior.x * std::sin(v.yaw) + prior.z * std::cos(v.yaw);
+          float hw = vehicleWidth(v.id) / 2 + .29f, hl = vehicleLength(v.id) / 2 + .29f;
+          // Detail transitions can start in contact. Permit only motion toward
+          // the nearest boundary, never deeper into or through a vehicle.
+          float before = std::max(std::abs(px) - hw, std::abs(pz) - hl),
+                after = std::max(std::abs(x) - hw, std::abs(z) - hl);
+          if (p.y >= v.pos.y + 1.6f || p.y + 1.75f <= v.pos.y || before >= 0 ||
+              after <= before + .000001f)
+            return true;
+        }
       }
     if (people)
       for (int y = int(std::floor(q.y / 3)) - 1; y <= int(std::floor(q.y / 3)) + 1; ++y)

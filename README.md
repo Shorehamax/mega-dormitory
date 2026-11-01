@@ -45,6 +45,10 @@ The software option uses lavapipe and selects X11 when available on this Linux i
 - Cheat permits inspection/possession, autonomous/manual control and bounded overrides for cash, health, needs, happiness, hygiene, strength and aggression. Cash changes go through the ledger. This is not yet an editor for every world rule.
 - Menu → Settings → Save / Load opens eight **named save slots**, with mode, game time, population and backup-only previews. Existing slots require a second confirmation before replacement. Previews are advisory; missing or stale metadata never prevents loading the world. A previous `.bak` is retained and used if a slot is corrupt; the browser also offers explicit backup loading. Saving after recovery repairs the primary without destroying the good backup. Game over opens the same browser or returns to the main menu. Default location is `userdata/`; `--saves /path` overrides it. Do not overwrite your only save with an experimental build.
 
+## Company investment and growth
+
+**Work → Companies & teams → Shares, acquisitions & expansion** exposes real share listings, company financing, proportionate dividends, shareholder-approved subsidiary acquisitions, equity-heir nominations and funded office expansion. Browse the market for company IDs. New offices require the established material-delivery and builder workflow. Office desks can now be shared across shifts without paused briefs monopolizing them. See [capital rules and limits](docs/capital.md).
+
 ## Vehicles and workshop services
 
 **DORMNET → Vehicles & parking** now includes fuel/condition, paid refueling, staffed repairs, physical towing and automatic driving to X/Z/floor. W/S accelerates or reverses, A/D steers, E enters or safely exits. **Management → Interior & structural works** commissions paid ramps and freight lifts through actual construction crews. New worlds have sparse starter connections when plots fit; existing saves retain their layouts. **Work → Tow operator** exposes real workshop requests and service trucks. See [traffic rules and current limits](docs/traffic.md).

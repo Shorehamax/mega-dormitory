@@ -15,13 +15,26 @@ float width(VehicleKind k) {
 float lengthOf(VehicleKind k) {
   return k <= VehicleKind::Scooter ? 1.7f : k == VehicleKind::CompactCar ? 4.2f : 5.1f;
 }
-bool boxContact(Vec3 pos, float yaw, float hw, float hl, const Obstacle &o) {
+float boxSeparation(Vec3 pos, float yaw, float hw, float hl, const Obstacle &o) {
   float c = std::cos(yaw), s = std::sin(yaw);
   Vec3 middle = (o.min + o.max) * .5f, ext = (o.max - o.min) * .5f, d = middle - pos;
-  return std::abs(d.x) <= ext.x + hw * std::abs(c) + hl * std::abs(s) &&
-         std::abs(d.z) <= ext.z + hw * std::abs(s) + hl * std::abs(c) &&
-         std::abs(d.x * c + d.z * s) <= hw + ext.x * std::abs(c) + ext.z * std::abs(s) &&
-         std::abs(-d.x * s + d.z * c) <= hl + ext.x * std::abs(s) + ext.z * std::abs(c);
+  return std::max({std::abs(d.x) - ext.x - hw * std::abs(c) - hl * std::abs(s),
+                   std::abs(d.z) - ext.z - hw * std::abs(s) - hl * std::abs(c),
+                   std::abs(d.x * c + d.z * s) - hw - ext.x * std::abs(c) - ext.z * std::abs(s),
+                   std::abs(-d.x * s + d.z * c) - hl - ext.x * std::abs(s) - ext.z * std::abs(c)});
+}
+bool boxContact(Vec3 pos, float yaw, float hw, float hl, const Obstacle &o) {
+  return boxSeparation(pos, yaw, hw, hl, o) <= 0;
+}
+bool separatesContact(const Vehicle &v, Vec3 pos, float yaw, float hw, float hl,
+                      const Obstacle &o) {
+  float before = boxSeparation(v.pos, v.yaw, hw, hl, o), after = boxSeparation(pos, yaw, hw, hl, o);
+  if (before > 0)
+    return false;
+  if (after > before + .000001f)
+    return true;
+  Vec3 center = (o.min + o.max) * .5f, a = pos - center, b = v.pos - center;
+  return after >= before - .000001f && a.x * a.x + a.z * a.z > b.x * b.x + b.z * b.z + .000001f;
 }
 DeckCut footprint(const RoadLink &r) {
   return {r.pos.x - r.width / 2 - .15f, r.pos.x + r.width / 2 + .15f,
@@ -112,7 +125,8 @@ bool World::vehicleFits(Id id, Vec3 pos, float yaw, bool people, Id ignore) cons
       last = std::min(config.floors - 1, int(std::floor((pos.y + 1.6f) / 3)));
   for (int f = first; f <= last; ++f)
     for (const auto &o : floorObstacles(f))
-      if (pos.y + 1.55f > o.min.y && pos.y < o.max.y && boxContact(pos, yaw, hw, hl, o))
+      if (pos.y + 1.55f > o.min.y && pos.y < o.max.y && boxContact(pos, yaw, hw, hl, o) &&
+          !separatesContact(v, pos, yaw, hw, hl, o))
         return false;
   for (const auto &other : vehicles)
     if (other.id != id && other.id != ignore && other.id != v.towing && other.id != v.towedBy &&
@@ -125,8 +139,9 @@ bool World::vehicleFits(Id id, Vec3 pos, float yaw, bool people, Id ignore) cons
       if (r.id != v.driver && r.alive && r.present && r.vehicle == none && r.lift == none &&
           r.ambulance == none && r.carriedBy == none) {
         auto p = position(r.id);
-        if (std::abs(p.y - pos.y) < 1.6f &&
-            boxContact(pos, yaw, hw, hl, {p - Vec3{.29f, 0, .29f}, p + Vec3{.29f, 1.7f, .29f}}))
+        Obstacle person{p - Vec3{.29f, 0, .29f}, p + Vec3{.29f, 1.7f, .29f}};
+        if (std::abs(p.y - pos.y) < 1.6f && boxContact(pos, yaw, hw, hl, person) &&
+            !separatesContact(v, pos, yaw, hw, hl, person))
           return false;
       }
   return true;
@@ -490,7 +505,7 @@ std::vector<DrivePoint> World::planVehicleRoute(Id driver, Id id, Vec3 goal) con
   std::reverse(links.begin(), links.end());
   std::vector<DrivePoint> out;
   Vec3 here = v.pos;
-  auto floorRoute = [&](Vec3 target) {
+  auto floorSegment = [&](Vec3 target) {
     // Walking navigation supplies the topology; a separate footprint check rejects narrow passages.
     auto path = floorPath(here, target, false, id);
     for (std::size_t i = 1; i < path.size(); ++i) {
@@ -504,6 +519,22 @@ std::vector<DrivePoint> World::planVehicleRoute(Id driver, Id id, Vec3 goal) con
     }
     here = target;
   };
+  auto floorRoute = [&](Vec3 target) {
+    auto lobby = layout(0);
+    // Prefer the wide outer circulation aisle when entering/leaving the
+    // crowded entrance service district, rather than cutting across queues.
+    if (std::abs(here.y) < .1f && std::abs(target.y) < .1f && lobby.halfWidth() > 90 &&
+        lobby.halfDepth() > 140) {
+      float boundary = lobby.halfDepth() - 100;
+      if ((here.z > boundary && target.z < boundary - 20) ||
+          (target.z > boundary && here.z < boundary - 20)) {
+        float lane = here.x < 0 ? -62.f : 62.f;
+        floorSegment({lane, 0, here.z});
+        floorSegment({lane, 0, target.z});
+      }
+    }
+    floorSegment(target);
+  };
   int floor = from;
   for (Id link : links) {
     const auto &r = roads[link];
@@ -512,6 +543,8 @@ std::vector<DrivePoint> World::planVehicleRoute(Id driver, Id id, Vec3 goal) con
       Vec3 a = r.pos + Vec3{0, 0, -4}, b = r.pos + Vec3{0, (r.to - r.from) * 3.f, r.length + 4};
       if (floor == r.to)
         std::swap(a, b);
+      if (std::hypot(here.x - a.x, here.z - a.z) > 10)
+        floorRoute(a + Vec3{0, 0, floor == r.from ? -12.f : 12.f});
       floorRoute(a);
       Vec3 first = r.pos, last = r.pos + Vec3{0, (r.to - r.from) * 3.f, r.length};
       if (floor == r.to)
@@ -607,6 +640,26 @@ void World::vehicleTick() {
         continue;
       }
     }
+    if (j.recoveryUntil >= 0) {
+      // Back straight at walking pace before attempting another turn. Existing
+      // contacts may separate; fresh obstacles still stop the physical body.
+      if (length(v.pos - j.backupOrigin) < 4.f && time < j.recoveryUntil) {
+        v.speed = std::max(v.speed, -.6f);
+        driveVehicle(j.driver, -.2f, 0, .02f);
+        continue;
+      }
+      v.speed = 0;
+      j.recoveryUntil = -1;
+      try {
+        j.path = planVehicleRoute(j.driver, id, j.goal);
+        j.next = 0;
+        j.blockedAt = -1;
+        j.reversing = false;
+      } catch (const std::runtime_error &) {
+        done.push_back(id);
+      }
+      continue;
+    }
     if (j.next >= j.path.size()) {
       v.speed = 0;
       if (j.autoExit && v.freightLift == none)
@@ -660,6 +713,7 @@ void World::vehicleTick() {
     float distance = std::hypot(d.x, d.z);
     if (distance < .35f && std::abs(d.y) < .3f) {
       v.speed = 0;
+      j.blockedAt = -1;
       ++j.next;
       continue;
     }
@@ -682,12 +736,26 @@ void World::vehicleTick() {
       done.push_back(id);
       continue;
     }
-    if (length(v.pos - before) < .0001f) {
+    if (length(v.pos - before) < .005f) {
       if (j.blockedAt < 0)
         j.blockedAt = time;
       else if (time - j.blockedAt > 3600) {
         v.speed = 0;
         done.push_back(id);
+      } else if (j.recoveries < 3 && time - j.blockedAt > 3 * (1440 / config.dayMinutes) &&
+                 v.road == none && v.freightLift == none && !v.airborne && point.link == none) {
+        bool supported = true;
+        for (float distance = .5f; distance <= 4; distance += .5f) {
+          auto p = v.pos - Vec3{std::sin(v.yaw), 0, -std::cos(v.yaw)} * distance;
+          if (std::abs(supportHeight(p, v.pos.y + .2f) - v.pos.y) > .15f)
+            supported = false;
+        }
+        if (supported) {
+          j.backupOrigin = v.pos;
+          j.recoveryUntil = time + 12 * (1440 / config.dayMinutes);
+          ++j.recoveries;
+          v.speed = 0;
+        }
       }
     } else
       j.blockedAt = -1;

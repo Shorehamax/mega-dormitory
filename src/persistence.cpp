@@ -81,7 +81,12 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FireSpray, fire, item, workedAt)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PersonalUse, item, ingredient, remaining, workedAt, origin)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LooseBody, velocity, pusher, justified, updated)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Company, id, owner, account, leader, name,
-                                                assignments, completed, revenue)
+                                                assignments, completed, revenue, shares, parent,
+                                                autoExpand, nextExpansionAt)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ShareOffer, id, company, seller, units, unitPrice,
+                                                capital, active)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Acquisition, id, buyer, target, proposer, escrow,
+                                                price, expires, state, ballots)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WorkspaceLease, id, company, facility, landlord,
                                                 manager, escrow, dailyRent, deposit, arrears,
                                                 nextDue, missedDays, active)
@@ -109,7 +114,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(RoadLink, id, facility, kind, fr
                                                 doorsUntil, occupant, calls)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(DrivePoint, pos, link, destination)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(VehicleJourney, vehicle, driver, path, next, goal,
-                                                blockedAt, autoExit, reversing, parkingDestination)
+                                                blockedAt, autoExit, reversing, parkingDestination,
+                                                backupOrigin, recoveryUntil, recoveries)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(VehicleJob, id, customer, vehicle, workshop, worker,
                                                 truck, escrow, tow, parts, state, budget, remaining,
                                                 workedAt, startingCondition, retrofit, payer)
@@ -194,6 +200,9 @@ void World::save(const std::filesystem::path &path) const {
             {"lifts", lifts},
             {"officeOrders", officeOrders},
             {"companies", companies},
+            {"shareOffers", shareOffers},
+            {"acquisitions", acquisitions},
+            {"equityHeirs", equityHeirs},
             {"workspaceLeases", workspaceLeases},
             {"workspaceOffers", workspaceOffers},
             {"repairs", repairs},
@@ -417,8 +426,22 @@ static World readSave(const std::filesystem::path &path) {
     w.floorHomes[w.housing[i].floor].push_back(i);
   READ(residentHomes);
   READ(facilities);
-  if (j.contains("companies"))
+  if (j.contains("companies")) {
     j.at("companies").get_to(w.companies);
+    for (std::size_t i = 0; i < w.companies.size(); ++i)
+      if (!j.at("companies").at(i).contains("shares")) {
+        auto &c = w.companies[i];
+        if (c.owner < 0 || std::size_t(c.owner) >= w.residents.size())
+          throw std::runtime_error("Invalid legacy company owner");
+        c.shares[w.residents[c.owner].account] = 10000;
+      }
+  }
+  if (j.contains("shareOffers"))
+    j.at("shareOffers").get_to(w.shareOffers);
+  if (j.contains("acquisitions"))
+    j.at("acquisitions").get_to(w.acquisitions);
+  if (j.contains("equityHeirs"))
+    j.at("equityHeirs").get_to(w.equityHeirs);
   if (j.contains("workspaceLeases"))
     j.at("workspaceLeases").get_to(w.workspaceLeases);
   if (j.contains("workspaceOffers"))

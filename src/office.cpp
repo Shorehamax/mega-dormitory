@@ -35,8 +35,12 @@ Id World::officeOrder(Id id) {
     throw std::runtime_error(
         "Work contracts require attendance at an open office during your shift");
   int count = 0;
-  for (auto &[worker, order] : activeOfficeOrders)
-    if (officeOrders[order].facility == r.jobSite)
+  // A paused brief belongs to its worker, not to an empty physical computer.
+  // Capacity follows actual attendance, shared with the payroll clock-in rule.
+  for (Id worker : facilities[r.jobSite].employees)
+    if (worker != id && residents[worker].alive && residents[worker].present &&
+        residents[worker].activity == Activity::Working && onShift(worker) &&
+        near(worker, facilities[r.jobSite].pos, 3))
       ++count;
   if (count >= facilities[r.jobSite].stations)
     throw std::runtime_error("All company workstations are allocated");
