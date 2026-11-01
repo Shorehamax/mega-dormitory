@@ -417,7 +417,8 @@ Id World::nearestAt(Vec3 p, FacilityKind kind) const {
 void World::travel(Id id, Vec3 dest, TaskKind task, Id target) {
   auto &r = residents.at(id);
   if (!r.alive || !r.present || r.vehicle != none || r.lift != none || r.ambulance != none ||
-      r.carriedBy != none || r.activity == Activity::Jailed || r.activity == Activity::Restrained)
+      r.carriedBy != none || r.activity == Activity::Jailed || r.activity == Activity::Restrained ||
+      (r.activity == Activity::Escorted && r.task != TaskKind::Escort))
     throw std::runtime_error("Resident cannot travel");
   if (looseBodies.contains(id))
     throw std::runtime_error("physics.error.airborne");
@@ -487,6 +488,8 @@ void World::decide(Id id) {
     return;
   schedule(time + 180 + random() * 120, EventKind::Decide, id);
   if (looseBodies.contains(id))
+    return;
+  if (r.task == TaskKind::Escort && r.escort != none)
     return;
   if (!r.automatic || r.vehicle != none || r.lift != none || r.ambulance != none ||
       r.carriedBy != none || r.medicalDuty != none || r.activity == Activity::Jailed ||
@@ -991,6 +994,7 @@ void World::dispatch(const Event &e) {
     return;
   }
   if (e.kind == EventKind::FacilityTick) {
+    securityTick();
     for (auto &p : expansions)
       if (!p.complete && p.worker != none)
         workExpansion(p.id, 60);
@@ -1116,6 +1120,8 @@ void World::dispatch(const Event &e) {
       r.activity = Activity::Idle;
       r.surrendered = false;
       r.escort = none;
+      if (custodyRecords.contains(r.id))
+        custodyRecords[r.id].active = false;
       log("custody.released", r.id);
     }
     return;
@@ -1165,7 +1171,16 @@ void World::dispatch(const Event &e) {
 }
 void World::arrive(Id id) {
   auto &r = residents.at(id);
-  float arrivalRadius = r.task == TaskKind::Service || r.task == TaskKind::Work ? .68f : .08f;
+  float arrivalRadius = r.task == TaskKind::Investigate                           ? 2.5f
+                        : r.task == TaskKind::Service || r.task == TaskKind::Work ? .68f
+                                                                                  : .08f;
+  if (r.task == TaskKind::None && !r.route.empty() && crowd.contains(id))
+    for (Id other : nearbyResidents)
+      if (other != id && residents[other].alive && residents[other].present &&
+          length(position(other) - r.route.back().p) < .58f) {
+        arrivalRadius = .68f;
+        break;
+      }
   bool closeHandover =
       r.task == TaskKind::DeliveryPickup ? near(id, items[orders[r.target].item].pos)
       : r.task == TaskKind::DeliveryDrop ? near(id, position(orders[r.target].buyer))
@@ -1268,27 +1283,36 @@ void World::arrive(Id id) {
     } else
       clockIn(id);
   } else if (task == TaskKind::Investigate) {
-    auto &c = incidents[target];
-    if (residents[c.offender].surrendered)
-      apprehend(id, c.offender);
-    else if (near(id, position(c.offender), 2.5f)) {
-      if (residents[c.offender].strength < r.strength * 1.2f) {
-        surrender(c.offender);
-        apprehend(id, c.offender);
-      } else
-        attack(id, c.offender, false);
-    } else
-      travel(id, position(c.offender), task, target);
+    investigateArrival(id, target);
   } else if (task == TaskKind::Escort) {
     if (r.escort != none) {
       auto &suspect = residents[r.escort];
-      if (near(suspect.id, r.pos, 3)) {
-        suspect.pos = accessible(r.pos + Vec3{1.2f, 0, 0});
+      Vec3 intake = facilities[suspect.target].pos, actual = position(suspect.id);
+      bool atIntake = std::abs(actual.y - intake.y) < .2f && length(actual - intake) < 3.3f;
+      if (!atIntake && !suspect.route.empty()) {
+        r.task = TaskKind::Escort;
+        r.target = suspect.target;
+        schedule(std::max(time + 12, suspect.route.back().time), EventKind::Arrive, id, none,
+                 r.routeVersion);
+        return;
+      }
+      if (atIntake) {
+        suspect.pos = position(suspect.id);
         if (crowd.contains(suspect.id))
           crowd[suspect.id].pos = suspect.pos;
         suspect.route.clear();
         suspect.activity = Activity::Jailed;
-        suspect.releaseAt = time + 8 * 3600;
+        double hours =
+            custodyRecords.contains(suspect.id)
+                ? (custodyRecords[suspect.id].sentenceUntil - custodyRecords[suspect.id].bookedAt) /
+                      3600
+                : 8;
+        suspect.releaseAt = time + hours * 3600;
+        if (custodyRecords.contains(suspect.id)) {
+          custodyRecords[suspect.id].bookedAt = time;
+          custodyRecords[suspect.id].sentenceUntil = suspect.releaseAt;
+        }
+        depositEvidence(id, suspect.target);
         schedule(suspect.releaseAt, EventKind::Release, suspect.id);
         log("custody.jailed", suspect.id, id);
       }

@@ -90,6 +90,8 @@ public:
   float observerHeight = 0;
   Vec3 cameraFocus{}, firstPersonOffset{0, 1.6f, 0};
   Id cameraResident = none;
+  FirstPersonFollow firstPersonFollow;
+  std::uint64_t viewFrame = 0, cameraUpdated = ~std::uint64_t(0);
   std::string floorWidth = "512", floorDepth = "512", lobbyWidth = "640", lobbyDepth = "640";
   float networkScroll = 0, helpScroll = 0;
   int customCategory = 0, buildKind = 1, cheatStat = 0;
@@ -105,6 +107,8 @@ public:
   std::string browserPath;
   std::future<World> importing;
   bool emergencyScreen = false;
+  bool securityScreen = false;
+  int securityPage = 0;
   bool cheatOpen = false, companyScreen = false, companyConstruction = false;
   Id selectedCompany = none;
   int companyPage = 0, companyMarketPage = 0;
@@ -444,7 +448,8 @@ public:
     world = std::make_unique<World>(std::move(w));
     selected = world->player;
     savesOpen = importOpen = importSummary = false;
-    emergencyScreen = companyScreen = companyConstruction = cheatOpen = false;
+    securityScreen = emergencyScreen = companyScreen = companyConstruction = cheatOpen = false;
+    securityPage = 0;
     selectedCompany = video = office = customVehicle = lethalConfirm = none;
     companyPage = companyMarketPage = 0;
     companyMarket = companyEquity = capitalTerms = false;
@@ -984,11 +989,184 @@ public:
     }
     return y;
   }
+  float securityPanel(float x, float y, float width) {
+    auto &w = *world;
+    auto &r = w.residents[selected];
+    bool control = selected == w.player || w.config.mode == Mode::Cheat;
+    bool official =
+        r.role == Role::Warden || w.config.mode == Mode::Manager || w.config.mode == Mode::Cheat;
+    ui.text(x, y, t("security.title"), 23, hex(0xe6e8df));
+    y += 37;
+    if (ui.button("securityBack", {x, y, width, 31}, t("fire.back"))) {
+      securityScreen = false;
+      scrollOffset = 0;
+    }
+    y += 42;
+    y = ui.wrap(x, y, width, t("security.description"), 13, hex(0xa9bdbe)) + 16;
+    if (w.custodyRecords.contains(selected) && w.custodyRecords.at(selected).active) {
+      const auto &custody = w.custodyRecords.at(selected);
+      y = ui.wrap(x, y, width,
+                  t("security.sentence") + " · " +
+                      std::to_string(
+                          int(std::ceil(std::max(0., custody.sentenceUntil - w.time) / 3600))) +
+                      " " + t("security.hours"),
+                  16, hex(0xe5bd8c)) +
+          12;
+      if (control) {
+        if (ui.button(
+                "custodyEscape", {x, y, width, 32},
+                t(custody.escapeAt < 0 ? "security.attempt_escape" : "security.cancel_escape")))
+          act([&] {
+            if (custody.escapeAt < 0) {
+              w.startEscape(selected);
+              paused = false;
+            } else
+              w.stopEscape(selected);
+          });
+        y += 43;
+        if (custody.escapeAt >= 0)
+          y = ui.wrap(x, y, width,
+                      t("security.escape_progress") + " " +
+                          std::to_string(int(custody.escapeProgress / 60)) + " min",
+                      13, hex(0xd2ac89)) +
+              12;
+      }
+    }
+    std::vector<Id> visible;
+    for (auto it = w.incidents.rbegin(); it != w.incidents.rend(); ++it) {
+      bool witness = std::any_of(it->witnesses.begin(), it->witnesses.end(),
+                                 [&](const Testimony &s) { return s.witness == selected; });
+      if ((official && it->reported) || it->victim == selected || witness ||
+          (it->suspect == selected && it->reported))
+        visible.push_back(it->id);
+    }
+    securityPage = std::clamp(securityPage, 0,
+                              std::max(0, int(visible.size() - (visible.empty() ? 0 : 1)) / 8));
+    if (ui.button("securityPrev", {x, y, width / 2 - 4, 29}, "←")) {
+      securityPage = std::max(0, securityPage - 1);
+      scrollOffset = 0;
+    }
+    if (ui.button("securityNext", {x + width / 2 + 4, y, width / 2 - 4, 29}, "→")) {
+      securityPage = std::min(std::max(0, (int(visible.size()) - 1) / 8), securityPage + 1);
+      scrollOffset = 0;
+    }
+    y += 42;
+    static const char *kinds[] = {"security.queue",  "security.assault", "security.excessive",
+                                  "security.murder", "security.theft",   "security.escape"};
+    for (int n = securityPage * 8; n < std::min(int(visible.size()), securityPage * 8 + 8); ++n) {
+      Id id = visible[n];
+      const auto &c = w.incidents[id];
+      std::string key = std::to_string(id);
+      ui.line(x, y, x + width, y, hex(0x3a474b));
+      y += 17;
+      y = ui.wrap(x, y, width,
+                  "#" + std::to_string(id + 1) + " · " + t(kinds[int(c.kind)]) + " · " +
+                      t(c.resolved   ? "security.closed"
+                        : c.reported ? "security.reported_state"
+                                     : "security.unreported"),
+                  16, hex(0xd6dfd8)) +
+          9;
+      y = ui.wrap(x, y, width,
+                  t("security.suspect") + " · " +
+                      (c.suspect == none ? t("security.unknown")
+                                         : w.displayName(c.suspect, locale.language)) +
+                      " · " + t("status.floor") + " " + std::to_string(int(c.pos.y / 3) + 1),
+                  13, hex(0xa8bdba)) +
+          12;
+      if (!c.resolved && control) {
+        bool witness = std::any_of(c.witnesses.begin(), c.witnesses.end(), [&](const Testimony &s) {
+          return s.witness == selected && !s.filed;
+        });
+        if (witness || (c.victim == selected && !c.reported)) {
+          if (ui.button("fileCase" + key, {x, y, width, 31}, t("security.file")))
+            act([&] { w.fileCrimeReport(selected, id); });
+          y += 40;
+        }
+        if (r.role == Role::Warden && c.reported) {
+          if (ui.button("caseTravel" + key, {x, y, width, 31}, t("security.investigate")))
+            act([&] {
+              Vec3 goal = w.investigationDestination(selected, id);
+              w.travel(selected, goal, TaskKind::Investigate, id);
+              w.incidents[id].warden = selected;
+              paused = false;
+            });
+          y += 40;
+          if (w.near(selected, c.pos, 4) && !c.inspected) {
+            if (ui.button("caseInspect" + key, {x, y, width, 31}, t("security.inspect")))
+              act([&] { w.inspectCrimeScene(selected, id); });
+            y += 40;
+          }
+          for (const auto &s : c.witnesses)
+            if (!s.filed && w.residents[s.witness].alive &&
+                w.near(selected, w.position(s.witness), 2.5f)) {
+              if (ui.button("caseInterview" + key + std::to_string(s.witness), {x, y, width, 31},
+                            t("security.interview") + " · " +
+                                w.displayName(s.witness, locale.language)))
+                act([&] { w.interviewWitness(selected, id, s.witness); });
+              y += 40;
+            }
+          if (c.item != none && !w.items[c.item].consumed && w.items[c.item].reservedAt == none) {
+            if (ui.button("caseRecover" + key, {x, y, width, 31}, t("security.recover")))
+              act([&] { w.recoverEvidence(selected, id, c.item); });
+            y += 40;
+          }
+        }
+      }
+    }
+    if (visible.empty())
+      y = ui.wrap(x, y, width, t("security.no_cases"), 14, hex(0xa8bdba)) + 16;
+    ui.text(x, y, t("security.property"), 19, hex(0xe6e8df));
+    y += 33;
+    for (const auto &e : w.evidenceReceipts)
+      if (!e.claimed && (e.owner == r.account || (official && e.carrier == selected))) {
+        const auto &i = w.items[e.item];
+        y = ui.wrap(x, y, width,
+                    "#" + std::to_string(e.id + 1) + " · " + t(itemLabel(i.kind)) + " · " +
+                        t(e.locker != none    ? "security.at_locker"
+                          : e.carrier != none ? "security.in_transit"
+                                              : "security.missing"),
+                    14, hex(0xa8bdba)) +
+            12;
+        if (control && e.locker != none) {
+          if (ui.button("evidenceWalk" + std::to_string(e.id), {x, y, width, 31},
+                        t("security.to_locker")))
+            act([&] {
+              w.travel(selected, w.facilities[e.locker].pos + Vec3{1.6f, 0, 1.6f}, TaskKind::None,
+                       none);
+              paused = false;
+            });
+          y += 40;
+          if (e.owner == r.account && w.near(selected, w.facilities[e.locker].pos, 3)) {
+            if (ui.button("evidenceClaim" + std::to_string(e.id), {x, y, width, 31},
+                          t("security.claim")))
+              act([&] { w.claimEvidence(selected, e.id); });
+            y += 40;
+          }
+        }
+      }
+    if (control && r.role == Role::Warden)
+      for (const auto &f : w.facilities)
+        if (f.kind == FacilityKind::Jail && w.near(selected, f.pos, 4)) {
+          if (ui.button("evidenceDeposit", {x, y, width, 31}, t("security.deposit")))
+            act([&] { w.depositEvidence(selected, f.id); });
+          y += 40;
+          break;
+        }
+    return y;
+  }
   float lifePanel(float x, float y, float width) {
+    if (securityScreen)
+      return securityPanel(x, y, width);
     if (emergencyScreen)
       return emergencyPanel(x, y, width);
     if (ui.button("openEmergencies", {x, y, width, 33}, t("fire.title"))) {
       emergencyScreen = true;
+      securityScreen = false;
+      scrollOffset = 0;
+    }
+    y += 45;
+    if (ui.button("openSecurity", {x, y, width, 33}, t("security.title"))) {
+      securityScreen = true;
       scrollOffset = 0;
     }
     y += 45;
@@ -2055,10 +2233,11 @@ public:
         });
       y += 50;
       for (auto &c : w.incidents)
-        if (!c.resolved) {
+        if (c.reported && !c.resolved) {
           ui.text(x, y,
                   "#" + std::to_string(c.id + 1) + " · " +
-                      w.displayName(c.offender, locale.language),
+                      (c.suspect == none ? t("security.unknown")
+                                         : w.displayName(c.suspect, locale.language)),
                   14, hex(0xe3b485));
           y += 32;
         }
@@ -2784,7 +2963,9 @@ public:
     if (tab == 5) {
       for (auto it = world->news.rbegin(); it != world->news.rend(); ++it) {
         std::string label = t(it->key);
-        if (it->subject >= 0 && std::size_t(it->subject) < world->names.size())
+        bool privateCrime = it->key.starts_with("crime.") || it->key == "physics.shoved";
+        if ((!privateCrime || world->config.mode == Mode::Cheat) && it->subject >= 0 &&
+            std::size_t(it->subject) < world->names.size())
           label += " · " + world->displayName(it->subject, locale.language);
         bottom = ui.wrap(content.x, bottom, content.w, label, 15, hex(0xc2c8cf)) + 18;
       }
@@ -2957,6 +3138,7 @@ public:
                         std::to_string(w.activeFires.size()),
                     danger)) {
         emergencyScreen = true;
+        securityScreen = false;
         tab = 0;
         scrollOffset = 0;
         drawerOpen = true;
@@ -3713,9 +3895,10 @@ public:
               return t("office.no_request");
             int type = (slot + o.brief) % 4;
             std::string subject =
-                (type == 0 || type == 3)
-                    ? t(facilityKey(w.facilities[target].kind))
-                    : w.displayName(type == 2 ? target : w.incidents[target].offender,
+                (type == 0 || type == 3) ? t(facilityKey(w.facilities[target].kind))
+                : type != 2 && w.incidents[target].suspect == none
+                    ? t("security.unknown")
+                    : w.displayName(type == 2 ? target : w.incidents[target].suspect,
                                     locale.language);
             return t("office.ticket" + std::to_string(type)) + " · " + subject + " #" +
                    std::to_string(target + 1);
@@ -4636,7 +4819,9 @@ public:
         pose = CharacterPose::Climb;
       else if (w.looseBodies.contains(r.id))
         pose = CharacterPose::Fall;
-      else if (r.surrendered)
+      else if (r.activity == Activity::Jailed)
+        pose = CharacterPose::Sit;
+      else if (r.surrendered && !moving)
         pose = CharacterPose::Surrender;
       else if (r.activity == Activity::Fighting) {
         pose = CharacterPose::Fight;
@@ -4899,10 +5084,26 @@ public:
       if (cameraResident != selected) {
         cameraResident = selected;
         firstPersonOffset = offset;
-      } else
+        firstPersonFollow.reset();
+        cameraUpdated = ~std::uint64_t(0);
+      }
+      if (cameraUpdated != viewFrame) {
         firstPersonOffset =
             firstPersonOffset + (offset - firstPersonOffset) * (1 - std::exp(-sceneDelta * 8));
-      eye = world->position(selected) + firstPersonOffset;
+        Vec3 body = world->position(selected);
+        bool grounded = !world->looseBodies.contains(selected) && !world->climbing(selected) &&
+                        r.vehicle == none && r.lift == none && r.ambulance == none &&
+                        r.carriedBy == none &&
+                        std::abs(body.y - std::round(body.y / 3) * 3) < .025f;
+        Vec3 anchor = firstPersonFollow.update(body, sceneDelta, grounded);
+        // Never let presentation smoothing put the eye across a wall or furnishing.
+        if (!world->lineOfSight(body + firstPersonOffset, anchor + firstPersonOffset)) {
+          firstPersonFollow.reset();
+          firstPersonFollow.update(body, 0, false);
+        }
+        cameraUpdated = viewFrame;
+      }
+      eye = firstPersonFollow.anchor + firstPersonOffset;
       target = eye + Vec3{std::sin(playerYaw) * std::cos(playerPitch), std::sin(playerPitch),
                           -std::cos(playerYaw) * std::cos(playerPitch)};
     } else {
@@ -4944,6 +5145,7 @@ public:
   }
   void frame(float dt, const std::filesystem::path &capture) {
     sceneDelta = dt;
+    ++viewFrame;
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
     double mx, my;
@@ -5149,10 +5351,16 @@ int runApplication(int argc, char **argv) {
     Application app(window);
     int frames = 0, maxFrames = 0;
     bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false,
-         playConstruction = false, playVehicles = false, playCompany = false;
+         playConstruction = false, playVehicles = false, playCompany = false, playSecurity = false,
+         playCrowd = false;
     Id playCourier = none, constructionJob = none;
     Id capitalCompany = none, capitalOffice = none, capitalOffer = none, capitalOrder = none;
     int capitalStage = 0, capitalFinish = 0;
+    Id lawCase = none, lawItem = none, lawJail = none, lawReceipt = none;
+    int lawStage = 0, lawFinish = 0;
+    bool lawEscortCaptured = false;
+    float crowdCameraStep = 0, crowdBodyDrift = 0;
+    Vec3 crowdCameraPrevious{};
     int vehicleStage = 0, vehicleFinishFrame = 0;
     bool rampCaptured = false, liftCaptured = false;
     int constructionStage = 0, constructionFinishedFrame = 0;
@@ -5178,6 +5386,20 @@ int runApplication(int argc, char **argv) {
         playConstruction = demo = animate = true;
         panel = "construction";
         app.config.population = 600;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-crowd") {
+        playCrowd = demo = animate = true;
+        panel = "crowd-play";
+        app.config.population = 40;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-security") {
+        playSecurity = demo = animate = true;
+        panel = "security-play";
+        app.config.population = 200;
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
         app.config.accidentRate = 0;
@@ -5250,12 +5472,16 @@ int runApplication(int argc, char **argv) {
       else if (arg == "--skin-budget")
         app.renderer->skinVertexBudget = std::stoull(value());
     }
-    if (playAutonomy || playConstruction || playVehicles || playCompany) {
+    if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
+        playCrowd) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
       if (maxFrames == 0)
-        maxFrames = playVehicles ? 7200 : playCompany ? 3000 : playConstruction ? 1800 : 1200;
+        maxFrames = playVehicles                  ? 7200
+                    : playCompany || playSecurity ? 3000
+                    : playConstruction            ? 1800
+                                                  : 1200;
       if (fixedStep == 0)
         fixedStep = 1.f / 30;
     }
@@ -5274,7 +5500,93 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "capital-play") {
+      if (panel == "crowd-play") {
+        auto &w = *app.world;
+        for (auto &r : w.residents) {
+          w.leaveQueue(r.id);
+          w.clockOut(r.id);
+          r.automatic = false;
+          r.pos = {100 + r.id * 2.f, 57, 100};
+          r.route.clear();
+          ++r.routeVersion;
+          r.activity = Activity::Idle;
+          r.task = TaskKind::None;
+          r.hunger = r.thirst = .1f;
+          r.energy = r.hygiene = 1;
+        }
+        w.crowd.clear();
+        w.residents[0].pos = {80, 0, 140};
+        for (Id id = 1; id <= 16; ++id) {
+          float angle = id <= 6 ? (id - 1) * 1.04719755f : (id - 7) * .62831853f;
+          float radius = id <= 6 ? .64f : 1.7f;
+          w.residents[id].pos = {80 + std::cos(angle) * radius, 0, 140 + std::sin(angle) * radius};
+          w.travel(id, {80, 0, 140}, TaskKind::None, none);
+        }
+        w.focus(0);
+        w.moveCrowd(.0001);
+        app.selected = 0;
+        app.setFirstPerson(true);
+        app.drawerOpen = false;
+        app.phone = false;
+        app.playerYaw = .15f;
+        app.playerPitch = 0;
+        app.speed = 1;
+        std::cout << "CROWD PLAYTEST: controlled resident pressed by sixteen actual approaching "
+                     "pedestrians\n";
+      } else if (panel == "security-play") {
+        auto &w = *app.world;
+        auto place = [&](Id id, Vec3 at) {
+          auto &r = w.residents[id];
+          w.leaveQueue(id);
+          w.clockOut(id);
+          r.pos = w.accessible(at);
+          r.route.clear();
+          ++r.routeVersion;
+          w.crowd.erase(id);
+          r.automatic = false;
+          r.task = TaskKind::None;
+          r.activity = Activity::Idle;
+          r.age = 30;
+          r.energy = r.hygiene = 1;
+          r.hunger = r.thirst = .1f;
+        };
+        lawJail = w.nearest(2, FacilityKind::Jail);
+        place(0, {150, 3, 150});
+        place(1, {151.3f, 3, 150});
+        place(2, w.facilities[lawJail].pos + Vec3{2, 0, 2});
+        w.chooseJob(2, Role::Warden, lawJail);
+        w.residents[2].routine.shiftStart = 0;
+        w.residents[2].routine.shiftHours = 24;
+        w.residents[2].routine.daysOff = 0;
+        w.residents[2].strength = 90;
+        w.residents[0].strength = 5;
+        w.residents[1].strength = 30;
+        Item item;
+        item.id = Id(w.items.size());
+        item.kind = ItemKind::Phone;
+        item.owner = w.residents[0].account;
+        item.carrier = 0;
+        lawItem = item.id;
+        w.items.push_back(item);
+        w.residents[0].items.push_back(item.id);
+        if (!w.stealItem(1, 0, lawItem, true))
+          throw std::runtime_error("Security playthrough robbery fixture failed");
+        lawCase = Id(w.incidents.size() - 1);
+        w.fileCrimeReport(0, lawCase);
+        w.wardenRespond(2);
+        app.selected = 2;
+        app.setFirstPerson(false);
+        app.currentFloor = 0;
+        app.cameraFocus = w.position(2);
+        app.distance = 12;
+        app.pitch = .3f;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        app.securityScreen = true;
+        std::cout << "SECURITY PLAYTEST: actual victim reported a robbery; officer walking to the "
+                     "last-seen location on another floor\n";
+      } else if (panel == "capital-play") {
         auto &w = *app.world;
         auto &r = w.residents[w.player];
         w.pay(0, r.account, 2000000, "playtest-company-capital");
@@ -5330,6 +5642,26 @@ int runApplication(int argc, char **argv) {
         r.hygiene = r.energy = 1;
         r.needsAt = w.time;
         auto dealer = w.vehicles[2].dealer;
+        // This workflow tests vehicles, not whether a particular hungry generated
+        // clerk finishes a scarce water queue before the dealership closes.
+        // Reserve staff still walk to work, clock in, draw wages and gate sales.
+        auto &vendor = w.residents[3];
+        w.leaveQueue(vendor.id);
+        w.clockOut(vendor.id);
+        vendor.pos = w.accessible(w.facilities[dealer].pos + Vec3{6, 0, -8});
+        w.crowd.erase(vendor.id);
+        vendor.route.clear();
+        ++vendor.routeVersion;
+        vendor.task = TaskKind::None;
+        vendor.activity = Activity::Idle;
+        vendor.automatic = false;
+        vendor.hunger = vendor.thirst = vendor.bladder = .1f;
+        vendor.energy = vendor.hygiene = 1;
+        w.chooseJob(vendor.id, Role::Vendor, dealer);
+        vendor.routine.shiftStart = 0;
+        vendor.routine.shiftHours = 24;
+        vendor.routine.daysOff = 0;
+        w.travel(vendor.id, w.facilities[dealer].pos, TaskKind::Work, dealer);
         w.travel(r.id, w.facilities[dealer].pos + Vec3{1.5f, 0, -2.f}, TaskKind::None, none);
         app.setFirstPerson(false);
         app.drawerOpen = false;
@@ -5577,6 +5909,11 @@ int runApplication(int argc, char **argv) {
         app.currentFloor = std::clamp(int(app.cameraFocus.y / 3), 0, w.config.floors - 1);
         app.distance = 5;
         app.pitch = -.2f;
+      } else if (panel == "security") {
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        app.securityScreen = true;
       } else if (panel == "import") {
         app.openImporter();
       } else if (panel == "saves" || panel == "save-browser") {
@@ -5755,7 +6092,8 @@ int runApplication(int argc, char **argv) {
     }
     if (demo && animate) {
       app.paused = false;
-      if (playAutonomy || playConstruction || playVehicles || playCompany)
+      if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
+          playCrowd)
         app.speed = 6;
     }
     if (computeTest) {
@@ -5858,6 +6196,60 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playCrowd) {
+        auto &w = *app.world;
+        w.stepBody(0, {0, 0, -w.walkingSpeed(0, true)}, dt);
+        crowdBodyDrift = std::max(crowdBodyDrift, length(w.position(0) - Vec3{80, 0, 140}));
+        if (frames > 30)
+          crowdCameraStep = std::max(crowdCameraStep, length(app.cameraEye - crowdCameraPrevious));
+        crowdCameraPrevious = app.cameraEye;
+        for (Id id = 1; id <= 16; ++id)
+          if (length(w.position(id) - w.position(0)) < .579f)
+            throw std::runtime_error("Crowd camera test disabled body contact");
+      }
+      if (playSecurity) {
+        auto &w = *app.world;
+        if (lawStage == 0 && w.residents[1].activity == Activity::Escorted) {
+          lawStage = 1;
+          if (w.items[lawItem].carrier != 2)
+            throw std::runtime_error("Officer did not physically seize the stolen item");
+          std::cout << "SECURITY PLAYTEST: officer reached and apprehended the identified robber; "
+                       "physically carrying recovered property\n";
+        }
+        if (lawStage == 1 && !lawEscortCaptured && w.position(2).y > .3f &&
+            w.position(2).y < 2.7f) {
+          lawEscortCaptured = true;
+          if (!capture.empty())
+            frameCapture = capture.parent_path() / (capture.stem().string() + "-escort.ppm");
+        }
+        if (lawStage == 1 && w.residents[1].activity == Activity::Jailed) {
+          for (const auto &e : w.evidenceReceipts)
+            if (e.item == lawItem)
+              lawReceipt = e.id;
+          if (lawReceipt == none || w.evidenceReceipts[lawReceipt].locker != lawJail)
+            throw std::runtime_error("Seized property never reached the actual jail locker");
+          lawStage = 2;
+          w.travel(0, w.facilities[lawJail].pos + Vec3{1.6f, 0, 1.6f}, TaskKind::None, none);
+          app.selected = 0;
+          std::cout << "SECURITY PLAYTEST: real escort reached intake; evidence deposited; victim "
+                       "walking to claim it\n";
+        }
+        if (lawStage == 2 && w.near(0, w.facilities[lawJail].pos, 3) &&
+            !w.residents[0].surrendered) {
+          w.claimEvidence(0, lawReceipt);
+          lawStage = 3;
+          lawFinish = frames;
+          std::cout << "SECURITY PLAYTEST: owner reached the property desk and collected the "
+                       "original stolen phone\n";
+        }
+        app.cameraFocus = w.position(app.selected);
+        app.currentFloor = std::clamp(int(app.cameraFocus.y / 3), 0, w.config.floors - 1);
+        if (lawStage == 3 && frames >= lawFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playCompany) {
         auto &w = *app.world;
         auto &r = w.residents[w.player];
@@ -6073,6 +6465,32 @@ int runApplication(int argc, char **argv) {
       }
       std::cout << "PLAYTEST PASS: walking, budgeted checkout, real courier delivery, live UI and "
                    "conserved state\n";
+    }
+    if (playCrowd) {
+      app.world->validate();
+      if (frames < 120 || crowdCameraStep > .015f || crowdBodyDrift > .10f)
+        throw std::runtime_error("Jammed first-person view remained unstable");
+      std::cout << "CROWD PLAYTEST PASS: continuous manual running input remained blocked by real "
+                   "people; maximum settled camera step "
+                << crowdCameraStep << " m, total body drift " << crowdBodyDrift << " m\n";
+    }
+    if (playSecurity) {
+      auto &w = *app.world;
+      w.validate();
+      if (lawStage != 3 || w.items[lawItem].carrier != 0 || lawReceipt == none ||
+          !w.evidenceReceipts[lawReceipt].claimed || w.residents[1].activity != Activity::Jailed) {
+        if (!capture.empty())
+          w.save(capture.string() + ".mdsave");
+        std::cerr << "SECURITY TRACE: stage " << lawStage << " time " << w.time << " guard "
+                  << int(w.residents[2].activity) << " task " << int(w.residents[2].task)
+                  << " route " << w.residents[2].route.size() << " suspect "
+                  << int(w.residents[1].activity) << " victim " << int(w.residents[0].activity)
+                  << "\n";
+        throw std::runtime_error("Security playthrough failed to complete a physical "
+                                 "investigation, escort and property claim");
+      }
+      std::cout << "SECURITY PLAYTEST PASS: witnessed robbery, credible report, real officer "
+                   "travel, seizure, cross-floor escort, jail intake and owner collection\n";
     }
     if (playCompany) {
       auto &w = *app.world;

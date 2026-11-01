@@ -38,7 +38,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     alive, present, surrendered, items, hourlyWage, automatic, interests, hygiene, bladder, outfit,
     vehicle, routine, ladder, ladderExit, ladderWait, ladderTarget, ladderDirection, ambulance,
     medicalDuty, carriedBy, bodyCarrying, medicalProvider, medicalTier, medicalUntil, infectedAt,
-    immuneUntil)
+    immuneUntil, surrenderUntil)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Ambulance, id, provider, patient, medic, pilot,
                                                 guard, state, tier, pos, landing, route, readyAt)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Remains, resident, carrier, storage, worker,
@@ -121,8 +121,18 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(VehicleJob, id, customer, vehicl
                                                 workedAt, startingCondition, retrofit, payer)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParkingBay, id, facility, vehicle, pos, width, dailyPrice,
                                    paidUntil)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Incident, id, offender, victim, warden, kind, pos, time,
-                                   resolved, threat)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Testimony, witness, offenderPosition, seenAt,
+                                                confidence, identifies, filed)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(EvidenceReceipt, id, item, incident, owner, carrier,
+                                                locker, claimed)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(CustodyRecord, resident, guard, jail, bookedAt,
+                                                sentenceUntil, escapeAt, escapeProgress, active,
+                                                escaped, charges, careAt)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Incident, id, offender, victim, warden, kind, pos,
+                                                time, resolved, threat, reported, inspected,
+                                                discovered, suspect, item, reporter, confidence,
+                                                lastKnown, seenAt, reportedAt, witnesses,
+                                                searchAfter)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Project, id, owner, facility, worker, escrow, state,
                                                 budget, spent, compensation, remaining, affected,
                                                 consented, demolition, offer, newConstruction,
@@ -214,6 +224,8 @@ void World::save(const std::filesystem::path &path) const {
             {"messages", messages},
             {"relationships", relationships},
             {"incidents", incidents},
+            {"evidenceReceipts", evidenceReceipts},
+            {"custodyRecords", custodyRecords},
             {"projects", projects},
             {"videos", videos},
             {"news", news}};
@@ -517,6 +529,18 @@ static World readSave(const std::filesystem::path &path) {
   if (j.contains("relationships"))
     j.at("relationships").get_to(w.relationships);
   READ(incidents);
+  for (std::size_t i = 0; i < w.incidents.size(); ++i)
+    if (!j.at("incidents").at(i).contains("suspect")) {
+      auto &c = w.incidents[i];
+      c.suspect = c.offender;
+      c.lastKnown = c.pos;
+      c.seenAt = c.time;
+      c.reportedAt = c.time;
+    }
+  if (j.contains("evidenceReceipts"))
+    j.at("evidenceReceipts").get_to(w.evidenceReceipts);
+  if (j.contains("custodyRecords"))
+    j.at("custodyRecords").get_to(w.custodyRecords);
   READ(projects);
   READ(videos);
   READ(news);

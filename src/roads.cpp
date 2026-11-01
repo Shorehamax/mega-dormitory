@@ -718,19 +718,24 @@ void World::vehicleTick() {
       continue;
     }
     float desired = std::atan2(d.x, -d.z), angle = std::remainder(desired - v.yaw, 6.2831853f);
-    float steer = std::clamp(angle * 2, -1.f, 1.f), throttle = std::abs(angle) > 1.1f ? .15f
-                                                               : distance < 2         ? .3f
-                                                                                      : 1;
+    float steer = std::clamp(angle * 2, -1.f, 1.f);
+    float cruise =
+        (v.kind <= VehicleKind::Scooter ? 5.f : 7.f) * std::clamp(v.condition, .25f, 1.f);
+    // Positive throttle alone never slows a car approaching a corner. Match a
+    // stopping-distance speed target, then brake through the ordinary physics.
+    float approach = std::min(cruise, std::sqrt(6.f * std::max(.02f, distance - .2f)) * .65f);
+    float targetSpeed = approach * std::clamp(std::cos(angle), .15f, 1.f);
     if (std::abs(angle) > 2.1f && (distance < 20 || j.reversing)) {
       float reverse = std::remainder(angle + 3.14159265f, 6.2831853f);
       steer = -std::clamp(reverse * 2, -1.f, 1.f);
-      throttle = -.45f;
+      targetSpeed = -std::min(1.5f, approach) * std::clamp(std::cos(reverse), .15f, 1.f);
       j.reversing = true;
     }
     if (std::abs(angle) < 1.f)
       j.reversing = false;
     auto before = v.pos;
     try {
+      float throttle = std::clamp((targetSpeed - v.speed) * 1.5f, -1.f, 1.f);
       driveVehicle(j.driver, throttle, steer, .02f);
     } catch (const std::runtime_error &) {
       done.push_back(id);

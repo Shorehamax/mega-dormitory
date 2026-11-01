@@ -742,6 +742,26 @@ int main() {
             "Outer aisle failed to align with ramp");
     w.validate();
   });
+  test("Automatic driving brakes for a corner instead of circling its waypoint", [] {
+    auto w = small();
+    car(w, {150, 0, 150});
+    auto &v = w.vehicles[2];
+    v.yaw = 0;
+    w.driveTo(0, {190, 0, 110}, false);
+    w.vehicleJourneys[2].path = {{{150, 0, 110}}, {{190, 0, 110}}};
+    w.vehicleJourneys[2].next = 0;
+    v.speed = 7;
+    bool braked = false;
+    for (int n = 0; n < 1200 && w.vehicleJourneys.contains(2); ++n) {
+      w.advance(48 * .1);
+      if (w.vehicleJourneys.contains(2) && w.vehicleJourneys[2].next == 0 &&
+          length(v.pos - Vec3{150, 0, 110}) < 3 && std::abs(v.speed) < 3)
+        braked = true;
+    }
+    require(braked && !w.vehicleJourneys.contains(2) && length(v.pos - Vec3{190, 0, 110}) < .4f,
+            "The driver failed to slow down and complete a clear right-angle route");
+    w.validate();
+  });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

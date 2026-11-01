@@ -303,6 +303,74 @@ int main() {
     require(w.residents[0].activity != Activity::Working, "Falling resident clocked in");
     w.validate();
   });
+  test("A blocked controlled resident stays still while a crowd presses in", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 50});
+    for (Id id = 1; id <= 6; ++id) {
+      float angle = (id - 1) * 1.04719755f;
+      place(w, id, {50 + .60f * std::cos(angle), 0, 50 + .60f * std::sin(angle)});
+    }
+    w.focus(0);
+    w.physicsController = 0;
+    Vec3 origin = w.position(0);
+    for (int n = 0; n < 600; ++n) {
+      w.moveCrowd((1440 / w.config.dayMinutes) / 60);
+      w.advance((1440 / w.config.dayMinutes) / 60);
+      w.stepBody(0, {0, 0, -7.2f}, 1.f / 60);
+      require(length(w.position(0) - origin) < .03f, "A jammed body was displaced or oscillated");
+      for (Id id = 1; id <= 6; ++id)
+        require(length(w.position(0) - w.position(id)) >= .579f, "Crowd collision was disabled");
+    }
+    w.validate();
+  });
+  test("A pedestrian waits at an occupied destination instead of orbiting its occupant", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 50});
+    place(w, 1, {50, 0, 49.2f});
+    w.focus(0);
+    w.travel(0, w.position(1), TaskKind::None, none);
+    float sideways = 0, reversals = 0;
+    Vec3 prior = w.position(0), direction{};
+    for (int n = 0; n < 600; ++n) {
+      w.moveCrowd((1440 / w.config.dayMinutes) / 60);
+      w.advance((1440 / w.config.dayMinutes) / 60);
+      auto p = w.position(0);
+      Vec3 delta = p - prior;
+      sideways = std::max(sideways, std::abs(p.x - 50));
+      if (length(delta) > .0001f && length(direction) > .0001f && dot(delta, direction) < 0)
+        ++reversals;
+      if (length(delta) > .0001f)
+        direction = delta;
+      require(length(p - w.position(1)) >= .579f, "Waiting pedestrian penetrated another resident");
+      prior = p;
+    }
+    require(sideways < .001f && reversals == 0, "Blocked destination caused repeated sidesteps");
+    require(w.residents[0].route.empty(), "A nearby occupied walking goal never completed");
+    w.validate();
+  });
+  test("A crowded navigation corner can be passed without stepping onto its occupant", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 50});
+    place(w, 1, {50, 0, 49});
+    auto &r = w.residents[0];
+    r.activity = Activity::Walking;
+    r.route = {{{50, 0, 50}, w.time}, {{50, 0, 49}, w.time + 100}, {{54, 0, 49}, w.time + 300}};
+    ++r.routeVersion;
+    w.schedule(w.time + 300, EventKind::Arrive, 0, none, r.routeVersion);
+    w.focus(0);
+    Vec3 prior = w.position(0);
+    for (int n = 0; n < 1200; ++n) {
+      w.moveCrowd((1440 / w.config.dayMinutes) / 60);
+      w.advance((1440 / w.config.dayMinutes) / 60);
+      auto p = w.position(0);
+      require(length(p - w.position(1)) >= .579f, "Corner look-ahead removed person collision");
+      require(length(p - prior) < .065f, "Corner look-ahead teleported a pedestrian");
+      prior = p;
+    }
+    require(length(w.position(0) - Vec3{54, 0, 49}) < .2f && r.route.empty(),
+            "A shared navigation corner permanently blocked pedestrian flow");
+    w.validate();
+  });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

@@ -44,6 +44,35 @@ int main() {
     require(floor == 0 && offset == 0, "Observer moved beneath its floor bounds");
     moveObserverHeight(floor, offset, 1000, 20);
     require(floor == 19 && offset == 0, "Observer moved past the highest floor");
+    // Dense contact can alternate the body's final millimetres without rotating the view.
+    for (float rate : {30.f, 60.f, 144.f}) {
+      FirstPersonFollow follow;
+      Vec3 origin{50, 0, 50};
+      follow.update(origin, 1 / rate, true);
+      float largest = 0;
+      for (int n = 0; n < int(rate * 4); ++n) {
+        Vec3 contact = origin + Vec3{n % 2 ? .035f : -.035f, 0, 0};
+        auto eye = follow.update(contact, 1 / rate, true);
+        largest = std::max(largest, std::abs(eye.x - origin.x));
+        require(eye.y == contact.y && length(eye - contact) <= .1001f,
+                "Contact filtering left the real body footprint");
+      }
+      require(largest < .012f, "Crowd contact still shakes the first-person camera");
+      for (int n = 0; n < int(rate * 2); ++n) {
+        Vec3 walking = origin + Vec3{7.2f * n / rate, 0, 0};
+        auto eye = follow.update(walking, 1 / rate, true);
+        require(length(eye - walking) <= .1001f, "Camera filtering added excessive running lag");
+      }
+      Vec3 falling{55, -7.25f, 51};
+      require(length(follow.update(falling, 1 / rate, false) - falling) < .0001f,
+              "Camera smoothing hid a real fall");
+      Vec3 changed{150, 300, -150};
+      require(length(follow.update(changed, 1 / rate, true) - changed) < .0001f,
+              "Camera interpolated across a resident change or teleport");
+      follow.reset();
+      require(length(follow.update(origin, 1 / rate, true) - origin) < .0001f,
+              "Camera reset retained another body's offset");
+    }
     Locale locale(std::filesystem::path(MEGA_ASSETS) / "locales");
     Font font(std::filesystem::path(MEGA_ASSETS) / "fonts/NotoSansCJK-Regular.ttc",
               locale.charset());
@@ -81,7 +110,8 @@ int main() {
     ui.input("name", {20, 20, 160, 34}, input);
     ui.end();
     require(input.ends_with("visibility"), "backspace split a UTF-8 character");
-    std::cout << "Multilingual text, clipped input and continuous observer camera passed\n";
+    std::cout << "Multilingual text, clipped input, crowd-contact first-person camera and "
+                 "continuous observer camera passed\n";
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';
     return 1;

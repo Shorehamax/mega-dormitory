@@ -1,6 +1,33 @@
 #pragma once
 #include "math.hpp"
 namespace mega {
+// Presentation only: collision and interaction checks continue to use the real capsule.
+// Keep the eye inside its body's footprint, without filtering mouse look or vertical physics.
+struct FirstPersonFollow {
+  Vec3 anchor{}, previous{};
+  bool initialized = false;
+  void reset() { initialized = false; }
+  Vec3 update(Vec3 body, float seconds, bool grounded) {
+    if (!initialized || !grounded || length(body - previous) > 1.25f) {
+      anchor = body;
+      initialized = true;
+    } else {
+      Vec3 error = body - anchor;
+      error.y = 0;
+      float distance = length(error);
+      if (distance > .008f)
+        anchor = anchor + error * ((1 - .008f / distance) *
+                                   (1 - std::exp(-14.f * std::clamp(seconds, 0.f, .1f))));
+      error = body - anchor;
+      error.y = 0;
+      if (length(error) > .10f)
+        anchor = body - normalized(error) * .10f;
+      anchor.y = body.y;
+    }
+    previous = body;
+    return anchor;
+  }
+};
 // Observer motion is independent of resident bodies and their physics.
 inline Vec3 observerEye(Vec3 target, float yaw, float pitch, float distance) {
   float horizontal = std::cos(pitch) * distance;

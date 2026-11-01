@@ -552,6 +552,28 @@ void World::moveCrowd(double seconds) {
               }
             }
       }
+      // A shared grid corner is guidance, not a spot every pedestrian must occupy.
+      // Skip a nearby horizontal corner only if the entire replacement segment
+      // clears static geometry. Actual motion still checks all other bodies.
+      while (!yielding && b.next + 1 < r.route.size() && length(r.route[b.next].p - b.pos) < .85f &&
+             std::abs(r.route[b.next].p.y - b.pos.y) < .025f &&
+             std::abs(r.route[b.next + 1].p.y - b.pos.y) < .025f) {
+        Vec3 goal = r.route[b.next + 1].p;
+        float distance = length(goal - b.pos);
+        if (!std::isfinite(distance) || distance > 16384)
+          break;
+        int samples = std::max(1, int(std::ceil(distance / .2f)));
+        bool clear = true;
+        for (int sample = 1; sample <= samples; ++sample)
+          if (!clearPosition(b.pos + (goal - b.pos) * (float(sample) / samples))) {
+            clear = false;
+            break;
+          }
+        if (!clear)
+          break;
+        ++b.next;
+        b.detourTime = 0;
+      }
       while (!yielding && b.next < r.route.size() && length(r.route[b.next].p - b.pos) < .025f &&
              (time >= r.route[b.next].time ||
               length(r.route[b.next].p - r.route[b.next - 1].p) > .01f))
@@ -571,7 +593,16 @@ void World::moveCrowd(double seconds) {
       Vec3 next = moveCapsule(id, b.pos, delta);
       // Try clear, right-biased arcs when another body occupies the direct line.
       // This also handles the last metre into a queue, where the old steering stopped.
-      if (!vertical && length(next - b.pos) < length(delta) * .7f && length(d) > .08f) {
+      bool destinationOccupied = false;
+      if (!vertical && length(r.route.back().p - b.pos) < 1.2f)
+        for (Id other : nearbyResidents)
+          if (other != id && residents[other].alive && residents[other].present &&
+              length(position(other) - r.route.back().p) < .58f) {
+            destinationOccupied = true;
+            break;
+          }
+      if (!vertical && !destinationOccupied && length(next - b.pos) < length(delta) * .7f &&
+          length(d) > .08f) {
         b.detourTime = 0;
         Vec3 forward = normalized(Vec3{d.x, 0, d.z}), right{-forward.z, 0, forward.x};
         float best = length(next - b.pos);

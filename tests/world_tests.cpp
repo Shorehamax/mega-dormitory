@@ -389,9 +389,9 @@ int main() {
     require(w.residents[1].activity == Activity::Escorted, "Missing escort state");
     double end = w.residents[2].route.back().time;
     w.advance((end - w.time) / 2);
-    require(length(w.position(2) - w.position(1)) < 1, "Prisoner detached from escort");
+    require(length(w.position(2) - w.position(1)) < 3.5f, "Prisoner detached from escort");
     require(w.residents[1].activity != Activity::Jailed, "Prisoner teleported to jail");
-    w.advance(end - w.time + .1);
+    w.advance(std::max(end, w.residents[1].route.back().time) - w.time + .1);
     require(w.residents[1].activity == Activity::Jailed, "No custody on arrival");
   });
   test("Fall damage depends on impact velocity", [] {

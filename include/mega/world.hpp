@@ -127,7 +127,7 @@ enum class TaskKind {
   TradeMeet,
   ShoppingTerminal
 };
-enum class CrimeKind { QueueCutting, Assault, ExcessiveForce, Murder, Theft };
+enum class CrimeKind { QueueCutting, Assault, ExcessiveForce, Murder, Theft, Escape };
 enum class ProjectState { Proposed, AwaitingConsent, Funded, Working, Completed, Disputed };
 struct Config {
   int floors = 2000;
@@ -255,7 +255,7 @@ struct Resident {
   Id target = none, queuedAt = none, carrying = none, opponent = none, escort = none;
   float hunger = .35f, thirst = .3f, energy = .8f, health = 100, happiness = .5f, strength = 40,
         aggression = .2f;
-  double needsAt = 0, terminalUntil = 0, nextHit = 0, releaseAt = 0;
+  double needsAt = 0, terminalUntil = 0, nextHit = 0, releaseAt = 0, surrenderUntil = 0;
   Id terminal = none;
   bool alive = true, present = true, surrendered = false;
   std::vector<Id> items;
@@ -560,6 +560,23 @@ struct Message {
   std::string text;
   bool read = false;
 };
+struct Testimony {
+  Id witness = none;
+  Vec3 offenderPosition{};
+  double seenAt = 0;
+  float confidence = 0;
+  bool identifies = false, filed = false;
+};
+struct EvidenceReceipt {
+  Id id = none, item = none, incident = none, owner = none, carrier = none, locker = none;
+  bool claimed = false;
+};
+struct CustodyRecord {
+  Id resident = none, guard = none, jail = none;
+  double bookedAt = 0, sentenceUntil = 0, escapeAt = -1, escapeProgress = 0, careAt = 0;
+  bool active = true, escaped = false;
+  std::vector<Id> charges;
+};
 struct Incident {
   Id id = none, offender = none, victim = none, warden = none;
   CrimeKind kind = CrimeKind::Assault;
@@ -567,6 +584,12 @@ struct Incident {
   double time = 0;
   bool resolved = false;
   bool threat = false;
+  bool reported = true, inspected = false, discovered = true;
+  Id suspect = none, item = none, reporter = none;
+  float confidence = 1;
+  Vec3 lastKnown{};
+  double seenAt = -1, reportedAt = -1, searchAfter = 0;
+  std::vector<Testimony> witnesses;
 };
 struct Project {
   Id id = none, owner = none, facility = none, worker = none, escrow = none;
@@ -813,6 +836,27 @@ public:
   std::vector<Message> messages;
   std::map<std::uint64_t, Relationship> relationships;
   std::vector<Incident> incidents;
+  std::vector<EvidenceReceipt> evidenceReceipts;
+  std::map<Id, CustodyRecord> custodyRecords;
+  Id recordCrime(CrimeKind kind, Id offender, Id victim, bool threat = false, Id item = none);
+  void observeCrime(Id incident);
+  void fileCrimeReport(Id reporter, Id incident);
+  void inspectCrimeScene(Id warden, Id incident);
+  void interviewWitness(Id warden, Id incident, Id witness);
+  bool canEnforce(const Incident &incident) const;
+  bool hasWarrant(Id resident) const;
+  Vec3 investigationDestination(Id warden, Id incident);
+  void investigateArrival(Id warden, Id incident);
+  void recoverEvidence(Id warden, Id incident, Id item);
+  void depositEvidence(Id warden, Id jail);
+  void claimEvidence(Id owner, Id receipt);
+  void securityTick();
+  void beginCustody(Id guard, Id suspect, Id jail);
+  void startEscape(Id resident);
+  void stopEscape(Id resident);
+  void escapeCustody(Id resident);
+  double sentenceHours(Id suspect) const;
+  void validateSecurity() const;
   std::vector<Project> projects;
   std::vector<VideoJob> videos;
   std::vector<News> news;
@@ -1001,7 +1045,7 @@ public:
   void fundProject(Id, Id);
   void assignBuilder(Id, Id);
   void workProject(Id, double);
-  Id report(CrimeKind, Id, Id, bool threat = false);
+  Id report(CrimeKind, Id, Id, bool threat = false, bool published = true);
   void attack(Id, Id, bool lethal = false);
   void combatHit(Id, Id, bool lethal, float reach);
   void shoot(Id attacker, Id victim);

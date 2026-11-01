@@ -45,9 +45,11 @@ void World::prepareAdministration(OfficeOrder &order) {
         consider(3, id, f.pos);
     }
   for (const auto &incident : incidents)
-    if (!incident.resolved && incident.warden == none && incident.kind != CrimeKind::QueueCutting &&
-        residents[incident.offender].alive && residents[incident.offender].present)
-      consider(1, incident.id, position(incident.offender));
+    if (incident.reported && !incident.resolved && incident.warden == none &&
+        incident.kind != CrimeKind::QueueCutting &&
+        (incident.suspect == none ||
+         (residents[incident.suspect].alive && residents[incident.suspect].present)))
+      consider(1, incident.id, incident.suspect == none ? incident.pos : incident.lastKnown);
   for (const auto &resident : residents)
     if (resident.alive && resident.present && resident.health < 50 &&
         resident.medicalUntil > time && resident.medicalProvider != none &&
@@ -115,14 +117,15 @@ void World::dispatchAdministration(OfficeOrder &order, const std::vector<int> &a
             order.dispatched[slot] = rescue.id;
       } else {
         auto &incident = incidents.at(target);
-        if (incident.resolved || incident.warden != none || !residents[incident.offender].alive ||
-            !residents[incident.offender].present) {
+        if (incident.resolved || incident.warden != none ||
+            (incident.suspect != none &&
+             (!residents[incident.suspect].alive || !residents[incident.suspect].present))) {
           order.outcomes[slot] = 2;
           continue;
         }
         Id guard = none;
         float best = 1e30f;
-        Vec3 location = position(incident.offender);
+        Vec3 location = incident.suspect == none ? incident.pos : incident.lastKnown;
         for (const auto &r : residents) {
           if (!r.alive || !r.present || r.role != Role::Warden || !r.automatic || !onShift(r.id) ||
               r.medicalDuty != none || r.ambulance != none || r.opponent != none ||

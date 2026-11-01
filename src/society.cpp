@@ -4,7 +4,7 @@
 #include <limits>
 #include <numeric>
 namespace mega {
-Id World::report(CrimeKind kind, Id offender, Id victim, bool threat) {
+Id World::report(CrimeKind kind, Id offender, Id victim, bool threat, bool published) {
   (void)residents.at(offender);
   (void)residents.at(victim);
   Incident c;
@@ -15,12 +15,20 @@ Id World::report(CrimeKind kind, Id offender, Id victim, bool threat) {
   c.pos = position(victim);
   c.time = time;
   c.threat = threat;
+  c.reported = published;
+  c.discovered = published;
+  c.confidence = published ? 1 : 0;
+  c.suspect = published ? offender : none;
+  c.lastKnown = c.pos;
+  c.seenAt = published ? time : -1;
+  c.reportedAt = published ? time : -1;
   incidents.push_back(c);
-  log(kind == CrimeKind::Murder         ? "crime.murder"
-      : kind == CrimeKind::QueueCutting ? "crime.queue_cut"
-      : kind == CrimeKind::Theft        ? "crime.theft"
-                                        : "crime.violence",
-      offender, victim);
+  if (published)
+    log(kind == CrimeKind::Murder         ? "crime.murder"
+        : kind == CrimeKind::QueueCutting ? "crime.queue_cut"
+        : kind == CrimeKind::Theft        ? "crime.theft"
+                                          : "crime.violence",
+        offender, victim);
   return c.id;
 }
 void World::cutQueue(Id id, Id fid, std::size_t place) {
@@ -34,7 +42,7 @@ void World::cutQueue(Id id, Id fid, std::size_t place) {
   f.queue.erase(it);
   f.queue.insert(f.queue.begin() + static_cast<std::ptrdiff_t>(place), id);
   layoutQueue(fid);
-  report(CrimeKind::QueueCutting, id, victim);
+  recordCrime(CrimeKind::QueueCutting, id, victim);
   residents[victim].happiness = std::max(0.f, residents[victim].happiness - .12f);
   if (residents[victim].aggression > .7f && random() < residents[victim].aggression) {
     leaveQueue(victim);
@@ -59,12 +67,12 @@ void World::combatHit(Id attacker, Id victim, bool lethal, float reach) {
   bool defense = v.opponent == attacker && v.activity == Activity::Fighting && !helpless;
   bool enforcement =
       a.role == Role::Warden && std::any_of(incidents.begin(), incidents.end(), [&](auto &c) {
-        return !c.resolved && c.offender == victim && c.kind != CrimeKind::QueueCutting;
+        return canEnforce(c) && c.suspect == victim && c.kind != CrimeKind::QueueCutting;
       });
   if (helpless)
-    report(CrimeKind::ExcessiveForce, attacker, victim);
+    recordCrime(CrimeKind::ExcessiveForce, attacker, victim);
   else if (!defense && !enforcement)
-    report(CrimeKind::Assault, attacker, victim, true);
+    recordCrime(CrimeKind::Assault, attacker, victim, true);
   bool justified =
       !helpless && (defense || enforcement) && v.lethalThreat && v.activity == Activity::Fighting;
   if (v.opponent != none && v.opponent != attacker && residents[v.opponent].opponent == victim) {
@@ -116,6 +124,7 @@ void World::surrender(Id id) {
   leaveQueue(id);
   clockOut(id);
   r.surrendered = true;
+  r.surrenderUntil = time + 900;
   r.activity = Activity::Surrendered;
   r.task = TaskKind::None;
   if (r.opponent != none) {
@@ -131,47 +140,49 @@ void World::surrender(Id id) {
 }
 void World::wardenRespond(Id id) {
   auto &w = residents.at(id);
-  if (w.role != Role::Warden || !w.alive || !w.present || w.activity == Activity::Jailed ||
-      w.activity == Activity::Escorted || w.task == TaskKind::Escort ||
-      w.task == TaskKind::Investigate)
+  if (w.role != Role::Warden || !w.alive || !w.present || w.surrendered ||
+      w.activity == Activity::Jailed || w.activity == Activity::Escorted ||
+      w.task == TaskKind::Escort || w.task == TaskKind::Investigate)
     return;
   for (auto &c : incidents) {
-    if (c.resolved || !residents[c.offender].alive || !residents[c.offender].present ||
-        (c.warden != none && c.warden != id))
+    if (!c.reported || c.resolved || c.searchAfter > time || (c.warden != none && c.warden != id))
+      continue;
+    if (c.suspect != none && (!residents[c.suspect].alive || !residents[c.suspect].present ||
+                              residents[c.suspect].activity == Activity::Jailed))
       continue;
     if (c.kind == CrimeKind::QueueCutting) {
-      if (near(id, position(c.offender), 5)) {
+      if (c.suspect != none && near(id, position(c.suspect), 5)) {
         c.resolved = true;
-        log("warden.warning", id, c.offender);
+        log("warden.warning", id, c.suspect);
       }
       continue;
     }
+    auto goal = investigationDestination(id, c.id);
     c.warden = id;
-    if (near(id, position(c.offender), 2.5f)) {
-      if (residents[c.offender].surrendered)
-        apprehend(id, c.offender);
+    if (canEnforce(c) && c.suspect != none && near(id, position(c.suspect), 2.5f)) {
+      if (residents[c.suspect].surrendered)
+        apprehend(id, c.suspect);
       else if (time >= w.nextHit)
-        attack(id, c.offender, false);
-    } else if (residents[c.offender].lethalThreat && hasGun(id) &&
-               near(id, position(c.offender), 30)) {
-      try {
-        shoot(id, c.offender);
-      } catch (const std::runtime_error &) {
-        travel(id, position(c.offender), TaskKind::Investigate, c.id);
-      }
-    } else
-      travel(id, position(c.offender), TaskKind::Investigate, c.id);
+        attack(id, c.suspect, false);
+    } else if (canEnforce(c) && c.suspect != none && residents[c.suspect].lethalThreat &&
+               hasGun(id) && near(id, position(c.suspect), 30) &&
+               lineOfSight(position(id) + Vec3{0, 1.4f, 0}, position(c.suspect) + Vec3{0, 1.4f, 0}))
+      shoot(id, c.suspect);
+    else
+      travel(id, goal, TaskKind::Investigate, c.id);
     return;
   }
 }
 void World::apprehend(Id warden, Id suspect) {
   auto &w = residents.at(warden);
   auto &s = residents.at(suspect);
-  if (w.role != Role::Warden || !w.alive || !s.alive || !w.present || !s.present ||
+  if (w.role != Role::Warden || !w.alive || !s.alive || !w.present || !s.present || w.surrendered ||
+      w.activity == Activity::Jailed || w.activity == Activity::Restrained ||
       looseBodies.contains(warden) || looseBodies.contains(suspect) || !s.surrendered ||
       !near(warden, position(suspect), 2.5f) ||
+      !lineOfSight(position(warden) + Vec3{0, 1.4f, 0}, position(suspect) + Vec3{0, 1.4f, 0}) ||
       !std::any_of(incidents.begin(), incidents.end(), [&](auto &c) {
-        return !c.resolved && c.offender == suspect && c.kind != CrimeKind::QueueCutting;
+        return canEnforce(c) && c.suspect == suspect && c.kind != CrimeKind::QueueCutting;
       }))
     throw std::runtime_error("Cannot apprehend this resident");
   if (s.vehicle != none) {
@@ -190,7 +201,7 @@ void World::apprehend(Id warden, Id suspect) {
   if (occupied >= std::max(4, facilities[jail].stations))
     throw std::runtime_error("Jail is full");
   w.escort = suspect;
-  travel(warden, facilities[jail].pos, TaskKind::Escort, jail);
+  travel(warden, accessible(facilities[jail].pos + Vec3{-1.6f, 0, 1.6f}), TaskKind::Escort, jail);
   Vec3 original = position(suspect), guardStart = position(warden);
   for (auto &point : w.route)
     point.time += 40;
@@ -198,17 +209,31 @@ void World::apprehend(Id warden, Id suspect) {
   ++w.routeVersion;
   schedule(w.route.back().time, EventKind::Arrive, warden, none, w.routeVersion);
   s.route = w.route;
+  if (s.route.size() > 1)
+    s.route.pop_back();
   for (auto &point : s.route)
-    point.p.x += .8f;
+    point.time += 32;
+  if (s.route.empty())
+    s.route.push_back({original, time});
+  auto path = floorPath(s.route.back().p, accessible(facilities[jail].pos + Vec3{1.6f, 0, 1.6f}));
+  double arrival = s.route.back().time;
+  Vec3 prior = s.route.back().p;
+  for (auto point : path) {
+    arrival += length(point - prior) / walkingSpeed(suspect) * (1440 / config.dayMinutes);
+    s.route.push_back({point, arrival});
+    prior = point;
+  }
   s.route.front().p = original;
+  s.route.front().time = time;
   s.pos = original;
   ++s.routeVersion;
   s.activity = Activity::Escorted;
   s.task = TaskKind::None;
   s.target = jail;
   s.escort = warden;
+  beginCustody(warden, suspect, jail);
   for (auto &c : incidents)
-    if (c.offender == suspect && !c.resolved) {
+    if (c.offender == suspect && canEnforce(c)) {
       c.resolved = true;
       c.warden = warden;
     }
@@ -324,7 +349,7 @@ void World::kill(Id id, Id killer, bool justified) {
     }
   }
   if (killer != none && !justified)
-    report(CrimeKind::Murder, killer, id);
+    recordCrime(CrimeKind::Murder, killer, id);
   else if (killer != none)
     log("combat.justified", killer, id);
   log("resident.died", id, killer);
@@ -348,7 +373,7 @@ void World::applyFall(Id id, float speed, Id pusher, bool justified) {
              return !c.resolved && c.offender == pusher && c.victim == id &&
                     c.kind == CrimeKind::Assault;
            }))
-    report(CrimeKind::Assault, pusher, id);
+    recordCrime(CrimeKind::Assault, pusher, id);
 }
 void World::depart(Id id) {
   auto &r = residents.at(id);
@@ -404,6 +429,7 @@ void World::validate() const {
       throw std::runtime_error("Invalid floor dimensions");
   validateStructures();
   validateVehicles();
+  validateSecurity();
   for (const auto &r : residents)
     if (!std::isfinite(r.fitness) || r.fitness < 0 || r.fitness > 100)
       throw std::runtime_error("Invalid resident fitness");
@@ -439,7 +465,7 @@ void World::validate() const {
     if (r.id != Id(i) || r.sex < -1 || r.sex > 1 || r.age < 0 || r.age > 150 ||
         !accountValid(r.account) || r.home < 0 || r.home >= config.floors ||
         !std::isfinite(r.health) || !std::isfinite(r.pos.x) || !std::isfinite(r.pos.y) ||
-        !std::isfinite(r.pos.z) || int(r.activity) < 0 ||
+        !std::isfinite(r.pos.z) || !std::isfinite(r.surrenderUntil) || int(r.activity) < 0 ||
         int(r.activity) > int(Activity::Departed) || int(r.role) < 0 ||
         int(r.role) > int(Role::TowDriver))
       throw std::runtime_error("Invalid resident");

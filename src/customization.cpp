@@ -61,8 +61,18 @@ bool World::stealItem(Id thief, Id victim, Id item, bool robbery) {
         "The item must be within reach; worn, reserved or delivery items cannot be snatched");
   stopPersonalUse(thief);
   bool noticed = robbery || v.activity != Activity::Sleeping;
-  if (noticed)
-    report(CrimeKind::Theft, thief, victim, robbery);
+  if (robbery && v.activity == Activity::Sleeping) {
+    v.activity = Activity::Idle;
+    v.route.clear();
+    ++v.routeVersion;
+  }
+  Id crime = recordCrime(CrimeKind::Theft, thief, victim, robbery, item);
+  if (!noticed) {
+    incidents[crime].witnesses.erase(
+        std::remove_if(incidents[crime].witnesses.begin(), incidents[crime].witnesses.end(),
+                       [&](const Testimony &s) { return s.witness == victim; }),
+        incidents[crime].witnesses.end());
+  }
   bool success =
       robbery ? v.surrendered || a.strength > v.strength * 1.6f : random() < (noticed ? .6f : .9f);
   if (success) {

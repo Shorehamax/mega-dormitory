@@ -186,14 +186,14 @@ void World::shove(Id actor, Id victim) {
   bool enforcement =
       a.role == Role::Warden &&
       std::any_of(incidents.begin(), incidents.end(), [&](const Incident &c) {
-        return !c.resolved && c.offender == victim && c.kind != CrimeKind::QueueCutting;
+        return canEnforce(c) && c.suspect == victim && c.kind != CrimeKind::QueueCutting;
       });
   bool justified =
       !helpless && (defense || enforcement) && v.lethalThreat && v.activity == Activity::Fighting;
   if (helpless)
-    report(CrimeKind::ExcessiveForce, actor, victim);
+    recordCrime(CrimeKind::ExcessiveForce, actor, victim);
   else if (!defense && !enforcement)
-    report(CrimeKind::Assault, actor, victim);
+    recordCrime(CrimeKind::Assault, actor, victim);
   stopPersonalUse(actor);
   stopPersonalUse(victim);
   clockOut(actor);
