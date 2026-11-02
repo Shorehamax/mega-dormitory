@@ -1,4 +1,5 @@
 # Generated builds and caches
+/dist/
 /build*/
 /_build/
 /cmake-build-*/

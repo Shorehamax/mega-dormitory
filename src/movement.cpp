@@ -101,6 +101,9 @@ const std::vector<Obstacle> &World::floorObstacles(int floor) const {
       auto &f = facilities[id];
       if (!f.demolished && f.kind != FacilityKind::Ramp && f.kind != FacilityKind::FreightLift) {
         add(f.pos + Vec3{0, .6f, 0}, {1.9f, 1.2f, 1.3f});
+        if (f.kind == FacilityKind::Locker)
+          for (int slot = 0; slot < f.stations; ++slot)
+            add(servicePosition(f.id, slot) + Vec3{0, .6f, -.6f}, {.9f, 1.2f, .5f});
         if (f.kind == FacilityKind::Washbasin)
           for (int station = 0; station < std::min(16, f.stations); ++station)
             add(servicePosition(f.id, station) + Vec3{0, .46f, -.65f}, {.65f, .92f, .53f});

@@ -78,7 +78,8 @@ void World::fileCrimeReport(Id reporter, Id id) {
     throw std::runtime_error("security.error.report");
   auto statement = std::find_if(c.witnesses.begin(), c.witnesses.end(),
                                 [&](const Testimony &s) { return s.witness == reporter; });
-  bool victim = reporter == c.victim && r.activity != Activity::Sleeping;
+  bool victim = reporter == c.victim && r.activity != Activity::Sleeping &&
+                (!c.remoteProperty || near(reporter, c.pos, 4));
   bool inspector =
       r.role == Role::Warden && c.inspected && near(reporter, c.sceneLocated ? c.scene : c.pos, 4);
   if (statement == c.witnesses.end() && !victim && !inspector)
@@ -263,6 +264,15 @@ void World::recoverEvidence(Id warden, Id id, Id item) {
     throw std::runtime_error("security.error.locker");
   if (!lineOfSight(position(warden) + Vec3{0, 1.4f, 0}, p + Vec3{0, 1.2f, 0}))
     throw std::runtime_error("security.error.property");
+  if (i.storedAt != none) {
+    auto &lease = storageLeases.at(i.storedAt);
+    if (!lease.open)
+      throw std::runtime_error("storage.error.access");
+    storageByItemOwner[i.owner].erase(item);
+    std::erase(lease.items, item);
+    i.storedAt = i.sharedWith = none;
+    i.storageSlot = -1;
+  }
   if (holder != none)
     std::erase(residents[holder].items, item);
   EvidenceReceipt e;
@@ -488,7 +498,7 @@ void World::securityTick() {
       continue;
     if (c.kind == CrimeKind::Theft && !c.reported && residents[c.victim].alive &&
         residents[c.victim].present && residents[c.victim].activity != Activity::Sleeping &&
-        residents[c.victim].automatic) {
+        residents[c.victim].automatic && (!c.remoteProperty || near(c.victim, c.pos, 4))) {
       try {
         fileCrimeReport(c.victim, c.id);
       } catch (const std::runtime_error &) {

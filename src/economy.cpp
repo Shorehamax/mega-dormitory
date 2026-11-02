@@ -397,7 +397,7 @@ Id World::proposeProject(Id owner, Id fid, bool demolition, Money budget) {
     throw std::runtime_error("Permission and a real budget are required");
   if (activeFires.contains(fid))
     throw std::runtime_error("Resolve the active fire before changing this property");
-  if (leasedWorkspaces.contains(fid))
+  if (leasedWorkspaces.contains(fid) || storageFacilityBusy(fid))
     throw std::runtime_error("An active workspace lease must end before renovation or demolition");
   for (auto &existing : projects)
     if (existing.facility == fid && existing.state != ProjectState::Completed)
@@ -439,7 +439,7 @@ void World::fundProject(Id id, Id owner) {
     throw std::runtime_error("All affected occupants must consent");
   if (activeFires.contains(p.facility))
     throw std::runtime_error("Construction must wait until the fire and smoke are cleared");
-  if (leasedWorkspaces.contains(p.facility))
+  if (leasedWorkspaces.contains(p.facility) || storageFacilityBusy(p.facility))
     throw std::runtime_error("An active workspace lease protects this property");
   Id company = companyForAccount(facilities[p.facility].owner);
   Id from = directsCompany(owner, company, true) ? companies[company].account
@@ -521,6 +521,9 @@ void World::workProject(Id id, double seconds) {
       f.stock += 100;
     }
     p.state = ProjectState::Completed;
+    r.activity = Activity::Idle;
+    r.task = TaskKind::None;
+    r.target = none;
     if (p.newConstruction) {
       if (p.materialItem != none) {
         items[p.materialItem].consumed = true;

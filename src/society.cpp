@@ -391,6 +391,9 @@ void World::depart(Id id) {
   leaveQueue(id);
   clockOut(id);
   stopPersonalUse(id);
+  auto stored = storageByItemOwner.find(r.account);
+  if (stored != storageByItemOwner.end() && !stored->second.empty())
+    throw std::runtime_error("storage.error.collect_before_departure");
   r.present = false;
   r.activity = Activity::Departed;
   pay(r.account, 0, accounts[r.account].balance, "emigration-outflow");
@@ -421,6 +424,8 @@ void World::validate() const {
   validateAutonomy();
   validateHouseholds();
   validateEducation();
+  validateStorage();
+  validateCrewContracts();
   if (!std::isfinite(time) || time < 0 || accounts.size() < 2 || residents.size() < 2 ||
       residents.size() > 500000 || names.size() != residents.size() ||
       residentHomes.size() != residents.size() || player < 0 ||
@@ -463,6 +468,17 @@ void World::validate() const {
         accounts[p.escrow].balance != p.budget - p.paid || !std::isfinite(p.site.x) ||
         !std::isfinite(p.site.y) || !std::isfinite(p.site.z))
       throw std::runtime_error("Invalid expansion contract");
+    if (p.materials < 0 || p.materials > 20000 ||
+        (p.workshop != none && (p.workshop < 0 || std::size_t(p.workshop) >= facilities.size() ||
+                                facilities[p.workshop].kind != FacilityKind::Workshop)) ||
+        (p.materials > 0 && (p.workshop == none || (p.supplied && p.material == none))) ||
+        (p.material != none &&
+         (p.material < 0 || std::size_t(p.material) >= items.size() ||
+          items[p.material].kind != ItemKind::Materials || items[p.material].owner != p.owner ||
+          (items[p.material].consumed != p.complete) ||
+          (!p.complete && items[p.material].reservedAt != p.workshop))) ||
+        (p.materials == 0 && !p.supplied))
+      throw std::runtime_error("Invalid expansion supplies");
   }
   for (std::size_t i = 0; i < residents.size(); ++i) {
     auto &r = residents[i];
@@ -503,7 +519,7 @@ void World::validate() const {
     auto &f = facilities[i];
     if (f.id != Id(i) || !accountValid(f.owner) || f.floor < 0 || f.floor >= config.floors ||
         f.stations < 1 || f.stock < 0 || f.price < 0 || !std::isfinite(f.duration) ||
-        f.duration <= 0 || int(f.kind) < 0 || int(f.kind) > int(FacilityKind::FreightLift) ||
+        f.duration <= 0 || int(f.kind) < 0 || int(f.kind) > int(FacilityKind::Locker) ||
         f.serving.size() > std::size_t(f.stations))
       throw std::runtime_error("Invalid facility");
     if (!std::isfinite(f.condition) || f.condition < 0 || f.condition > 1 || f.wageOffer < 0 ||
@@ -564,7 +580,7 @@ void World::validate() const {
   if (!residentValid(dormOwner) || !accountValid(dormAccount))
     throw std::runtime_error("Invalid owner");
   for (const auto &r : residents) {
-    if (int(r.task) < 0 || int(r.task) > int(TaskKind::PrisonRescue) ||
+    if (int(r.task) < 0 || int(r.task) > int(TaskKind::CrewWork) ||
         ((r.task == TaskKind::Service || r.task == TaskKind::Work || r.task == TaskKind::Escort ||
           r.task == TaskKind::ShoppingTerminal || r.task == TaskKind::LeaveService) &&
          !facilityValid(r.target)) ||
@@ -585,6 +601,15 @@ void World::validate() const {
         (r.task == TaskKind::Investigate &&
          (r.target < 0 || std::size_t(r.target) >= incidents.size())))
       throw std::runtime_error("Invalid resident task");
+    if (r.task == TaskKind::CrewWork &&
+        (r.target < 0 || std::size_t(r.target) >= crewContracts.size()))
+      throw std::runtime_error("Invalid crew task");
+    if ((r.task == TaskKind::StorageRetrieve || r.task == TaskKind::StorageDeposit) &&
+        (r.target < 0 || std::size_t(r.target) >= storageLeases.size()))
+      throw std::runtime_error("Invalid storage task");
+    if (r.task == TaskKind::StorageRent &&
+        (!facilityValid(r.target) || facilities[r.target].kind != FacilityKind::Locker))
+      throw std::runtime_error("Invalid storage rental task");
     if ((r.task == TaskKind::TradeMeet || r.task == TaskKind::HouseholdMeet ||
          r.task == TaskKind::PrisonRescue) &&
         !residentValid(r.target))
@@ -622,7 +647,8 @@ void World::validate() const {
   }
   for (std::size_t i = 0; i < items.size(); ++i) {
     const auto &item = items[i];
-    if (item.id != Id(i) || item.quantity < 0 || item.quantity > 10000 ||
+    if (item.id != Id(i) || !std::isfinite(item.pos.x) || !std::isfinite(item.pos.y) ||
+        !std::isfinite(item.pos.z) || item.quantity < 0 || item.quantity > 10000 ||
         !accountValid(item.owner) || (item.carrier != none && !residentValid(item.carrier)) ||
         (item.reservedAt != none && !facilityValid(item.reservedAt)) ||
         !std::isfinite(item.cleanliness) || item.cleanliness < 0 || item.cleanliness > 1 ||
@@ -680,8 +706,7 @@ void World::validate() const {
   for (auto &[id, j] : liftJourneys)
     if (!residentValid(id) || j.lift < 0 || std::size_t(j.lift) >= lifts.size() ||
         !std::isfinite(j.goal.x) || !std::isfinite(j.goal.y) || !std::isfinite(j.goal.z) ||
-        int(j.task) < 0 || int(j.task) > int(TaskKind::PrisonRescue) ||
-        j.task == TaskKind::LiftWait)
+        int(j.task) < 0 || int(j.task) > int(TaskKind::CrewWork) || j.task == TaskKind::LiftWait)
       throw std::runtime_error("Invalid lift journey");
   for (auto &r : residents)
     if (r.lift != none &&

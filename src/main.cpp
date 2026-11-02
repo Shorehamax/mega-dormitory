@@ -1,3 +1,4 @@
+#include "mega/runtime_paths.hpp"
 #include "mega/world.hpp"
 #include <chrono>
 #include <iostream>
@@ -7,6 +8,18 @@ int runApplication(int, char **);
 }
 int main(int argc, char **argv) {
   try {
+    for (int i = 1; i < argc; ++i)
+      if (std::string(argv[i]) == "--verify-runtime") {
+        auto paths = mega::RuntimePaths::discover(mega::runningExecutable(argv[0]), MEGA_ASSETS,
+                                                  MEGA_SHADERS, MEGA_PROJECT);
+        if (!std::filesystem::is_regular_file(paths.assets / "locales/en.json") ||
+            !std::filesystem::is_regular_file(paths.shaders / "scene.vert.spv"))
+          throw std::runtime_error("Missing runtime resources");
+        std::cout << "Runtime resources verified; "
+                  << (paths.installed ? "installed package" : "development build")
+                  << "; saves: " << paths.saves.string() << "\n";
+        return 0;
+      }
     bool headless = false, autoplay = false, modeGiven = false;
     for (int i = 1; i < argc; ++i)
       if (std::string(argv[i]) == "--headless")

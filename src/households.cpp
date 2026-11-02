@@ -163,7 +163,7 @@ int World::householdMealDeficit(Id actor) const {
         (o.state == OrderState::Waiting || o.state == OrderState::ToPickup ||
          o.state == OrderState::ToCustomer))
       ++surplus;
-  return std::max(0, need - surplus);
+  return std::max(0, need - surplus - sharedStoredMeals(group, actor));
 }
 bool World::householdDecision(Id actor) {
   auto &p = residentPlans[actor];

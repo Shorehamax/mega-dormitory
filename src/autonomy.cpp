@@ -26,7 +26,7 @@ int held(const World &w, Id id, ItemKind kind) {
         i.reservedAt == none && i.durability > .2f && !w.itemInUse(item))
       ++n;
   }
-  return n;
+  return n + w.storedPossessions(id, kind);
 }
 Money wage(Role role, const Facility &f) {
   if (role == f.staffRole)
@@ -88,6 +88,12 @@ Money World::householdReserve(Id id) const {
   for (const auto &f : facilities)
     if (f.owner == r.account && f.open && !f.demolished)
       reserve += 30000 + static_cast<long double>(f.wageOffer) * std::max(0, f.staffNeeded) * 8;
+  auto lockers = storageByAccount.find(r.account);
+  if (lockers != storageByAccount.end())
+    for (Id lease : lockers->second) {
+      const auto &l = storageLeases[lease];
+      reserve += l.arrears + (!l.released ? l.dailyRent * 3 : 0);
+    }
   return Money(std::clamp(reserve, 6000.L, 1000000000000.L));
 }
 void World::householdShopping(Id id) {
@@ -420,16 +426,24 @@ void World::businessDecision(Id id) {
     bool consumer = f.kind == FacilityKind::Food || f.kind == FacilityKind::Cafe ||
                     f.kind == FacilityKind::Water || f.kind == FacilityKind::Toilet ||
                     f.kind == FacilityKind::Shop || f.kind == FacilityKind::Laundry ||
-                    f.kind == FacilityKind::Shower || f.kind == FacilityKind::Washbasin;
+                    f.kind == FacilityKind::Shower || f.kind == FacilityKind::Washbasin ||
+                    f.kind == FacilityKind::Locker;
     if (!consumer || !f.open || f.demolished || f.askingPrice <= 0 || f.owner == r.account ||
         !local(*this, id, f.pos, 8, 180) || f.condition < .5f || f.stock < 20 ||
-        activeFires.contains(f.id) || (f.queue.empty() && f.serving.empty()))
+        activeFires.contains(f.id) ||
+        (f.kind != FacilityKind::Locker && f.queue.empty() && f.serving.empty()))
       continue;
     Money operating = 30000 + f.wageOffer * std::max(0, f.staffNeeded) * 8;
     if (cash - reserve < f.askingPrice + operating)
       continue;
     double demand = double(f.queue.size() + f.serving.size());
     double estimate = f.price * std::min(demand * 24, f.stations * 86400. / f.duration);
+    if (f.kind == FacilityKind::Locker) {
+      estimate = 0;
+      for (const auto &lease : storageLeases)
+        if (lease.facility == f.id && !lease.released && lease.active)
+          estimate += lease.dailyRent;
+    }
     double ratio = estimate / f.askingPrice;
     if (ratio > score) {
       best = f.id;
@@ -546,6 +560,8 @@ bool World::autonomyDecision(Id id) {
       }
     }
   }
+  if (storageDecision(id))
+    return true;
   if (householdDecision(id))
     return true;
   householdShopping(id);
@@ -702,6 +718,9 @@ void World::validateAutonomy() const {
     };
     if (id < 0 || std::size_t(id) >= residents.size() || !ref(p.order, orders.size()) ||
         !ref(p.tradeItem, items.size()) || !ref(p.seller, residents.size()) ||
+        !ref(p.storageItem, items.size()) || !ref(p.storageGroup, households.size()) ||
+        !std::isfinite(p.storageDeadline) || p.storageDeadline < 0 ||
+        !std::isfinite(p.nextStorage) || p.nextStorage < 0 ||
         !ref(p.lastBusiness, facilities.size()) || !ref(p.helpTarget, residents.size()) ||
         !std::isfinite(p.nextHousehold) || p.nextHousehold < 0 || !std::isfinite(p.helpDeadline) ||
         p.helpDeadline < 0 || p.helpRetries < 0 || p.helpRetries > 3 || p.reserve < 0 ||

@@ -364,6 +364,8 @@ void World::fundStructuralWork(Id actor, Id id) {
   p.blocked.clear();
 }
 bool World::builderCommitted(Id id) const {
+  if (crewContractFor(id) != none)
+    return true;
   for (const auto &job : vehicleJobs)
     if (job.worker == id && job.state != VehicleJobState::Complete &&
         job.state != VehicleJobState::Cancelled)
@@ -422,6 +424,8 @@ void World::removeConstructionWorker(Id actor, Id team, Id worker) {
       (actor != t.foreman && actor != worker && !controls(*this, actor, t.workshop)) ||
       !t.members.contains(worker) || residents[worker].carrying != none)
     throw std::runtime_error("structure.error.crew");
+  if (t.contract != none)
+    crewContracts[t.contract].attendance.erase(worker);
   if (t.work != none) {
     auto &p = structuralWorks[t.work];
     p.attendance.erase(worker);
@@ -429,12 +433,14 @@ void World::removeConstructionWorker(Id actor, Id team, Id worker) {
       p.hauler = none;
   }
   auto &r = residents[worker];
-  if (r.task == TaskKind::None &&
+  if ((r.task == TaskKind::None || r.task == TaskKind::CrewWork) &&
       (r.activity == Activity::Walking || r.activity == Activity::Working)) {
     r.pos = position(worker);
     r.route.clear();
     ++r.routeVersion;
     r.activity = Activity::Idle;
+    r.task = TaskKind::None;
+    r.target = none;
   }
   t.members.erase(worker);
   if (t.foreman == worker)
@@ -462,7 +468,8 @@ void World::assignStructuralTeam(Id actor, Id id, Id team) {
   if (!adult(*this, actor) ||
       (actor != t.foreman && !controls(*this, actor, t.workshop) && actor != p.actor) ||
       (p.state != StructuralState::Funded && p.state != StructuralState::Working) ||
-      p.team != none || t.work != none || t.foreman == none || t.workshop != p.workshop ||
+      p.team != none || t.work != none || t.contract != none || t.foreman == none ||
+      t.workshop != p.workshop ||
       (actor != t.foreman && !controls(*this, actor, t.workshop) &&
        !residents[t.foreman].automatic))
     throw std::runtime_error("structure.error.crew");

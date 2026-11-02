@@ -109,6 +109,10 @@ World World::generate(const Config &cfg) {
                  : kind == FacilityKind::Toilet ? 270
                  : kind == FacilityKind::Shop   ? 90
                                                 : 180;
+    if (kind == FacilityKind::Locker) {
+      v.price = 500;
+      v.stations = 8;
+    }
     if (kind == FacilityKind::School) {
       v.duration = 1800;
       v.price = 1500;
@@ -165,10 +169,11 @@ World World::generate(const Config &cfg) {
   for (int f = 0; f < cfg.floors; f += 200)
     addFacility(FacilityKind::Pool, std::min(f + 99, cfg.floors - 1), 6);
   if (cfg.layoutVersion > 1) {
-    for (auto kind : {FacilityKind::Reception, FacilityKind::Water, FacilityKind::Toilet,
-                      FacilityKind::Toilet, FacilityKind::Shop, FacilityKind::Cafe,
-                      FacilityKind::Terminal, FacilityKind::Laundry, FacilityKind::Shower,
-                      FacilityKind::Garbage, FacilityKind::Workshop, FacilityKind::Washbasin})
+    for (auto kind :
+         {FacilityKind::Reception, FacilityKind::Water, FacilityKind::Toilet, FacilityKind::Toilet,
+          FacilityKind::Shop, FacilityKind::Cafe, FacilityKind::Terminal, FacilityKind::Laundry,
+          FacilityKind::Shower, FacilityKind::Garbage, FacilityKind::Workshop,
+          FacilityKind::Washbasin, FacilityKind::Locker})
       addFacility(kind, 0, 0);
     for (auto &f : w.facilities)
       if (f.kind == FacilityKind::Reception) {
@@ -542,6 +547,8 @@ void World::decide(Id id, bool scheduleNext) {
     crowd.erase(id);
   }
   if (r.leaving) {
+    if (storageDepartureDecision(id))
+      return;
     if (r.route.empty())
       travel(id, layout(0).entrance(), TaskKind::Emigrate, id);
     return;
@@ -606,7 +613,8 @@ void World::decide(Id id, bool scheduleNext) {
   if (r.health < 85)
     for (Id item : r.items)
       if (items[item].kind == ItemKind::Medicine && items[item].owner == r.account &&
-          items[item].carrier == id && !items[item].consumed && items[item].reservedAt == none) {
+          items[item].carrier == id && !items[item].consumed && items[item].durability > 0 &&
+          items[item].reservedAt == none) {
         consumeItem(id, item);
         break;
       }
@@ -614,7 +622,8 @@ void World::decide(Id id, bool scheduleNext) {
     Id food = none, utensil = none;
     for (Id item : r.items)
       if (!items[item].consumed && items[item].carrier == id && items[item].reservedAt == none) {
-        if (items[item].kind == ItemKind::Food)
+        if (items[item].kind == ItemKind::Food && items[item].durability > 0 &&
+            items[item].owner == r.account)
           food = item;
         if ((items[item].kind == ItemKind::Tableware || items[item].kind == ItemKind::RiceCooker) &&
             items[item].durability > 0)
@@ -638,6 +647,8 @@ void World::decide(Id id, bool scheduleNext) {
         usePersonalItem(id, item);
         return;
       }
+  if (r.activity != Activity::Sleeping && r.thirst < .9f && storageDecision(id, true))
+    return;
   if (r.health < 65 && r.hunger < .95f && r.thirst < .95f && r.ambulance == none &&
       r.carriedBy == none) {
     Id f = serviceChoice(id, FacilityKind::Infirmary);
@@ -878,6 +889,8 @@ void World::decide(Id id, bool scheduleNext) {
     return;
   if (chooseVehicleTrip(id))
     return;
+  if (workWindow && r.role == Role::Builder && crewContractDecision(id))
+    return;
   if (workWindow && r.role == Role::Builder) {
     if (structuralDecision(id))
       return;
@@ -898,10 +911,11 @@ void World::decide(Id id, bool scheduleNext) {
           (p.worker == id || (p.worker == none && std::abs(position(id).y - p.site.y) <= 60))) {
         if (p.worker == none)
           assignExpansion(id, p.id);
-        if (near(id, p.site, 2))
+        Vec3 destination = expansionDestination(p.id);
+        if (near(id, destination, 2))
           beginExpansionWork(id, p.id);
         else if (r.route.empty())
-          travel(id, p.site, TaskKind::None, none);
+          travel(id, destination, TaskKind::None, none);
         return;
       }
     for (auto &p : projects)
@@ -1027,6 +1041,7 @@ void World::dispatch(const Event &e) {
   }
   if (e.kind == EventKind::FacilityTick) {
     securityTick();
+    crewContractTick();
     for (auto &p : expansions)
       if (!p.complete && p.worker != none)
         workExpansion(p.id, 60);
@@ -1035,6 +1050,7 @@ void World::dispatch(const Event &e) {
         workProject(p.id, 60);
     personalUseTick();
     orderTick();
+    storageTick();
     emergencyTick();
     refreshServices();
     medicalTick();
@@ -1216,7 +1232,10 @@ void World::arrive(Id id) {
         break;
       }
   bool closeHandover =
-      r.task == TaskKind::Service          ? atServiceEntrance(id, r.target)
+      r.task == TaskKind::StorageRetrieve || r.task == TaskKind::StorageDeposit
+          ? near(id, storagePosition(r.target), 1.8f)
+      : r.task == TaskKind::StorageRent    ? atServiceEntrance(id, r.target)
+      : r.task == TaskKind::Service        ? atServiceEntrance(id, r.target)
       : r.task == TaskKind::DeliveryPickup ? near(id, items[orders[r.target].item].pos)
       : r.task == TaskKind::DeliveryDrop   ? near(id, position(orders[r.target].buyer))
                                            : false;
@@ -1250,7 +1269,12 @@ void World::arrive(Id id) {
       else
         travel(id, serviceApproach(target), TaskKind::Service, target);
     }
-  } else if (task == TaskKind::HouseholdMeet)
+  } else if (task == TaskKind::CrewWork)
+    beginCrewContractWork(id, target);
+  else if (task == TaskKind::StorageRetrieve || task == TaskKind::StorageDeposit ||
+           task == TaskKind::StorageRent)
+    finishStorageVisit(id, task, target);
+  else if (task == TaskKind::HouseholdMeet)
     finishHouseholdVisit(id);
   else if (task == TaskKind::TradeMeet)
     finishAutonomyTrade(id);
@@ -1374,6 +1398,10 @@ void World::joinQueue(Id id, Id fId) {
       !inHours(time, f.opensAt, f.openHours) ||
       (!near(id, f.pos, 3) && !atServiceEntrance(id, fId)))
     throw std::runtime_error("Reach the open facility first");
+  if (f.kind == FacilityKind::Locker) {
+    rentStorage(id, fId);
+    return;
+  }
   if (r.queuedAt == fId)
     return;
   if (r.queuedAt != none)
@@ -1422,6 +1450,8 @@ void World::leaveQueue(Id id) {
 }
 Vec3 World::servicePosition(Id fid, int station) const {
   const auto &f = facilities.at(fid);
+  if (f.kind == FacilityKind::Locker)
+    return f.pos + Vec3{(station % 4 - 1.5f) * 1.2f, 0, 1.6f + (station / 4) * 1.2f};
   if (f.kind == FacilityKind::Washbasin) {
     int columns = std::min(8, f.stations);
     return f.pos + Vec3{(float(station % columns) - (columns - 1) * .5f) * .8f, 0,
@@ -1559,17 +1589,16 @@ std::string activityKey(Activity a) {
   return k[int(a)];
 }
 std::string facilityKey(FacilityKind f) {
-  static const char *k[] = {"facility.food",       "facility.water",        "facility.toilet",
-                            "facility.shop",       "facility.office",       "facility.infirmary",
-                            "facility.jail",       "facility.terminal",     "facility.workshop",
-                            "facility.garbage",    "facility.lift",         "facility.crematorium",
-                            "facility.school",     "facility.laundry",      "facility.shower",
-                            "facility.leisure",    "facility.pool",         "facility.arcade",
-                            "facility.playground", "facility.cinema",       "facility.garden",
-                            "facility.gym",        "facility.library",      "facility.cafe",
-                            "facility.dealership", "facility.parking",      "facility.reception",
-                            "facility.morgue",     "facility.fire_station", "facility.washbasin",
-                            "facility.ramp",       "facility.freight_lift"};
+  static const char *k[] = {
+      "facility.food",         "facility.water",     "facility.toilet",     "facility.shop",
+      "facility.office",       "facility.infirmary", "facility.jail",       "facility.terminal",
+      "facility.workshop",     "facility.garbage",   "facility.lift",       "facility.crematorium",
+      "facility.school",       "facility.laundry",   "facility.shower",     "facility.leisure",
+      "facility.pool",         "facility.arcade",    "facility.playground", "facility.cinema",
+      "facility.garden",       "facility.gym",       "facility.library",    "facility.cafe",
+      "facility.dealership",   "facility.parking",   "facility.reception",  "facility.morgue",
+      "facility.fire_station", "facility.washbasin", "facility.ramp",       "facility.freight_lift",
+      "facility.locker"};
   return k[int(f)];
 }
 } // namespace mega

@@ -1,6 +1,7 @@
 #include "mega/assets.hpp"
 #include "mega/camera.hpp"
 #include "mega/renderer.hpp"
+#include "mega/runtime_paths.hpp"
 #include "mega/ui.hpp"
 #include "mega/world.hpp"
 #include <chrono>
@@ -107,7 +108,8 @@ public:
   std::string browserPath;
   std::future<World> importing;
   bool emergencyScreen = false;
-  bool securityScreen = false;
+  bool securityScreen = false, storageScreen = false;
+  Id selectedStorage = none, selectedStorageFacility = none;
   int securityPage = 0;
   bool cheatOpen = false, companyScreen = false, companyConstruction = false;
   Id selectedCompany = none;
@@ -126,8 +128,8 @@ public:
               driveFloor = "2";
   Id selectedTeam = none;
   std::map<Id, std::array<std::string, 3>> relocationInputs;
-  std::map<Id, float> closetAnimation, curtainAnimation, characterHeading, walkBlend,
-      liftDoorAnimation;
+  std::map<Id, float> closetAnimation, curtainAnimation, lockerAnimation, characterHeading,
+      walkBlend, liftDoorAnimation;
   struct PoseTransition {
     CharacterPose previous = CharacterPose::Idle, current = CharacterPose::Idle;
     float blend = 1;
@@ -159,17 +161,16 @@ public:
                      day = "30", wealth = "80000", recipient = "2", message, inspectId = "1";
   double toastUntil = 0;
   std::vector<int> clips{4, 2, 0, 5, 1, 3};
-  std::filesystem::path saveRoot = std::filesystem::path(MEGA_PROJECT) / "userdata";
+  std::filesystem::path saveRoot;
   float cachedHappiness = .5f;
   std::size_t cachedLiving = 0, cachedQueued = 0;
   double nextStats = 0;
-  Application(GLFWwindow *w)
-      : window(w), locale(std::filesystem::path(MEGA_ASSETS) / "locales"),
-        font(std::filesystem::path(MEGA_ASSETS) / "fonts/NotoSansCJK-Regular.ttc",
-             locale.charset()),
-        ui(font) {
-    assets.loadDormitory(std::filesystem::path(MEGA_ASSETS) / "models");
-    renderer = std::make_unique<Renderer>(w, MEGA_SHADERS, font.atlas, font.atlasSize);
+  Application(GLFWwindow *w, const RuntimePaths &paths)
+      : window(w), locale(paths.assets / "locales"),
+        font(paths.assets / "fonts/NotoSansCJK-Regular.ttc", locale.charset()), ui(font),
+        saveRoot(paths.saves) {
+    assets.loadDormitory(paths.assets / "models");
+    renderer = std::make_unique<Renderer>(w, paths.shaders, font.atlas, font.atlasSize);
     font.dirty = false;
     renderer->uploadMaterials(assets.textures, AssetLibrary::atlasSize);
     for (const char *name :
@@ -449,8 +450,8 @@ public:
     world = std::make_unique<World>(std::move(w));
     selected = world->player;
     savesOpen = importOpen = importSummary = false;
-    educationOpen = securityScreen = emergencyScreen = companyScreen = companyConstruction =
-        cheatOpen = false;
+    storageScreen = educationOpen = securityScreen = emergencyScreen = companyScreen =
+        companyConstruction = cheatOpen = false;
     securityPage = 0;
     selectedCompany = video = office = customVehicle = lethalConfirm = none;
     companyPage = companyMarketPage = 0;
@@ -465,6 +466,7 @@ public:
     characterPoses.clear();
     closetAnimation.clear();
     curtainAnimation.clear();
+    lockerAnimation.clear();
     liftDoorAnimation.clear();
     mouseLocked = false;
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -727,6 +729,18 @@ public:
               glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
               return;
             }
+          for (const auto &l : w.storageLeases)
+            if (!l.released && w.near(selected, w.storagePosition(l.id), 2.2f)) {
+              storageScreen = true;
+              selectedStorage = l.id;
+              selectedStorageFacility = l.facility;
+              tab = 0;
+              drawerOpen = true;
+              scrollOffset = 0;
+              mouseLocked = false;
+              glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+              return;
+            }
           Id best = none;
           float d = 3;
           for (const auto &f : w.facilities) {
@@ -743,6 +757,15 @@ public:
             if (!w.operational(f.id))
               throw std::runtime_error("The reception desk is unstaffed");
             helpOpen = true;
+            mouseLocked = false;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+          } else if (f.kind == FacilityKind::Locker) {
+            storageScreen = true;
+            selectedStorageFacility = f.id;
+            selectedStorage = none;
+            tab = 0;
+            drawerOpen = true;
+            scrollOffset = 0;
             mouseLocked = false;
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
           } else if (f.kind == FacilityKind::Elevator) {
@@ -1062,8 +1085,10 @@ public:
     for (auto it = w.incidents.rbegin(); it != w.incidents.rend(); ++it) {
       bool witness = std::any_of(it->witnesses.begin(), it->witnesses.end(),
                                  [&](const Testimony &s) { return s.witness == selected; });
-      if ((official && it->reported) || it->victim == selected || witness ||
-          (it->suspect == selected && it->reported))
+      if ((official && it->reported) ||
+          (it->victim == selected &&
+           (!it->remoteProperty || it->reported || witness || w.near(selected, it->pos, 4))) ||
+          witness || (it->suspect == selected && it->reported))
         visible.push_back(it->id);
     }
     securityPage = std::clamp(securityPage, 0,
@@ -1184,6 +1209,148 @@ public:
         }
     return y;
   }
+  float storagePanel(float x, float y, float width) {
+    auto &w = *world;
+    auto &r = w.residents[selected];
+    bool control = selected == w.player || w.config.mode == Mode::Cheat;
+    ui.text(x, y, t("storage.title"), 23, hex(0xe6e8df));
+    y += 40;
+    if (ui.button("storageBack", {x, y, width, 31}, t("fire.back"))) {
+      storageScreen = false;
+      scrollOffset = 0;
+    }
+    y += 43;
+    y = ui.wrap(x, y, width,
+                t(selectedStorage == none ? "storage.description" : "storage.short_help"), 12,
+                hex(0x9fb4b7)) +
+        16;
+    if (selectedStorageFacility == none ||
+        std::size_t(selectedStorageFacility) >= w.facilities.size())
+      selectedStorageFacility = w.nearest(selected, FacilityKind::Locker);
+    if (selectedStorageFacility != none && selectedStorage == none) {
+      const auto &f = w.facilities[selectedStorageFacility];
+      y = ui.wrap(x, y, width,
+                  t(facilityKey(f.kind)) + " · " + t("status.floor") + " " +
+                      std::to_string(f.floor + 1) + " · " + money(f.price) + t("storage.per_day"),
+                  14, hex(0xa5cbb9)) +
+          12;
+      if (control) {
+        for (bool pantry : {false, true}) {
+          if (pantry && w.householdOf(selected) == none)
+            continue;
+          if (ui.button(pantry ? "rentPantry" : "rentPrivateStorage", {x, y, width, 32},
+                        t(pantry ? "storage.rent_shared" : "storage.rent_private")))
+            act([&] {
+              Id group = pantry ? w.householdOf(selected) : none;
+              if (w.near(selected, f.pos, 3) || w.atServiceEntrance(selected, f.id))
+                selectedStorage = w.rentStorage(selected, f.id, group);
+              else {
+                w.residentPlans[selected].storageGroup = group;
+                w.travel(selected, w.serviceApproach(f.id), TaskKind::StorageRent, f.id);
+                paused = false;
+              }
+            });
+          y += 40;
+        }
+      }
+    }
+    std::vector<Id> leases;
+    for (const auto &l : w.storageLeases)
+      if ((!l.released || l.arrears > 0) &&
+          (l.holder == r.account || w.storagePermission(selected, l.id) ||
+           (!l.released && w.near(selected, w.storagePosition(l.id), 3))))
+        leases.push_back(l.id);
+    for (Id id : leases) {
+      auto &l = w.storageLeases[id];
+      if (ui.button("selectStorage" + std::to_string(id), {x, y, width, 32},
+                    t("storage.locker") + " #" + std::to_string(l.slot + 1) + " · " +
+                        std::to_string(l.items.size()) + " / 12",
+                    id == selectedStorage))
+        selectedStorage = id;
+      y += 40;
+      if (id != selectedStorage)
+        continue;
+      y = ui.wrap(x, y, width,
+                  w.displayName(l.custodian, locale.language) + " · " + money(l.dailyRent) +
+                      t("storage.per_day"),
+                  13, hex(0xb3c3be)) +
+          10;
+      if (l.arrears > 0)
+        y = ui.wrap(x, y, width, t("storage.arrears") + " " + money(l.arrears), 13, hex(0xe1b280)) +
+            12;
+      if (!control)
+        continue;
+      if (!l.released) {
+        if (!w.near(selected, w.storagePosition(id), 2.2f) &&
+            ui.button("walkStorage" + std::to_string(id), {x, y, width, 31}, t("storage.walk")))
+          act([&] {
+            w.travel(selected, w.storagePosition(id), TaskKind::None, none);
+            paused = false;
+          });
+        if (!w.near(selected, w.storagePosition(id), 2.2f))
+          y += 39;
+        if (w.near(selected, w.storagePosition(id), 2.2f) && w.storagePermission(selected, id)) {
+          if (ui.button("openStorage" + std::to_string(id), {x, y, width, 31},
+                        t(l.open ? "storage.close" : "storage.open")))
+            act([&] { w.setStorageOpen(selected, id, !l.open); });
+          y += 39;
+        }
+      }
+      if (l.holder == r.account) {
+        if (l.arrears > 0) {
+          if (ui.button("payStorage" + std::to_string(id), {x, y, width, 31}, t("storage.pay")))
+            act([&] { w.payStorageArrears(selected, id); });
+          y += 39;
+        }
+        if (!l.released && l.items.empty()) {
+          if (ui.button("releaseStorage" + std::to_string(id), {x, y, width, 31},
+                        t("storage.release")))
+            act([&] { w.releaseStorage(selected, id); });
+          y += 39;
+        }
+      }
+      if (l.open && w.near(selected, w.storagePosition(id), 2.2f)) {
+        auto contents = l.items;
+        for (Id item : contents) {
+          y = ui.wrap(x, y, width,
+                      t(itemLabel(w.items[item].kind)) + " #" + std::to_string(item + 1) + " · " +
+                          t(w.items[item].sharedWith == none ? "storage.private"
+                                                             : "storage.shared_label"),
+                      13, hex(0xc1cbb7)) +
+              7;
+          bool allowed = w.storageItemAllowed(selected, item);
+          if (ui.button("takeStored" + std::to_string(item), {x, y, width, 29},
+                        t(allowed ? "storage.take" : "storage.steal")))
+            act([&] { w.withdrawStorage(selected, item, !allowed); });
+          y += 37;
+        }
+        if (w.storagePermission(selected, id) && l.active && !l.released) {
+          auto carried = r.items;
+          for (Id item : carried) {
+            const auto &i = w.items[item];
+            if (i.carrier != selected || i.owner != r.account || i.consumed ||
+                i.reservedAt != none || i.id == r.outfit || i.kind == ItemKind::Materials ||
+                i.kind == ItemKind::Waste || i.seller != none || w.itemInUse(item))
+              continue;
+            y = ui.wrap(x, y, width, t(itemLabel(i.kind)) + " #" + std::to_string(item + 1), 13,
+                        hex(0xa3bbb4)) +
+                7;
+            if (ui.button("deposit" + std::to_string(item), {x, y, width / 2 - 3, 29},
+                          t("storage.store")))
+              act([&] { w.depositStorage(selected, id, item); });
+            if (l.household != none &&
+                (i.kind == ItemKind::Food || i.kind == ItemKind::Medicine ||
+                 i.kind == ItemKind::Clothes) &&
+                ui.button("shareStored" + std::to_string(item),
+                          {x + width / 2 + 3, y, width / 2 - 3, 29}, t("storage.share")))
+              act([&] { w.depositStorage(selected, id, item, true); });
+            y += 37;
+          }
+        }
+      }
+    }
+    return y;
+  }
   float educationPanel(float x, float y, float width) {
     auto &w = *world;
     auto &r = w.residents[selected];
@@ -1258,6 +1425,8 @@ public:
     return y;
   }
   float lifePanel(float x, float y, float width) {
+    if (storageScreen)
+      return storagePanel(x, y, width);
     if (educationOpen)
       return educationPanel(x, y, width);
     if (securityScreen)
@@ -1405,6 +1574,12 @@ public:
       y = ui.wrap(x, y, width, t("household.explain"), 12, hex(0x8da5aa)) + 12;
       y = ui.wrap(x, y, width, t("autonomy.explain"), 12, hex(0x8da5aa)) + 20;
     }
+    if (ui.button("storageScreen", {x, y, width, 36}, t("storage.title"))) {
+      storageScreen = true;
+      scrollOffset = 0;
+      selectedStorage = none;
+    }
+    y += 44;
     if (ui.button("educationOpen", {x, y, width, 36}, t("education.title"))) {
       educationOpen = true;
       scrollOffset = 0;
@@ -2214,6 +2389,29 @@ public:
       scrollOffset = 0;
     }
     y += 48;
+    if (Id contract = w.crewContractFor(w.player); contract != none) {
+      const auto &c = w.crewContracts[contract];
+      Id lead = c.kind == CrewContractKind::Facility    ? w.projects[c.work].worker
+                : c.kind == CrewContractKind::Housing   ? w.housingWorks[c.work].worker
+                : c.kind == CrewContractKind::Expansion ? w.expansions[c.work].worker
+                                                        : w.repairs[c.work].worker;
+      if (lead != w.player) {
+        y = ui.wrap(x, y, width, t("crew.help"), 13, hex(0x9fb4b7)) + 12;
+        if (ui.button("jobCrewWalk", {x, y, width, 32}, t("action.walk")))
+          act([&] {
+            w.travel(w.player, w.crewContractDestination(w.player, contract), TaskKind::CrewWork,
+                     contract);
+            paused = false;
+          });
+        y += 40;
+        if (ui.button("jobCrewStart", {x, y, width, 32}, t("build.start")))
+          act([&] {
+            w.beginCrewContractWork(w.player, contract);
+            paused = false;
+          });
+        y += 40;
+      }
+    }
     for (auto role :
          {Role::Courier, Role::Warden, Role::Builder, Role::VideoEditor, Role::Programmer,
           Role::Administrator, Role::Chef, Role::Medic, Role::Vendor, Role::Lifeguard,
@@ -2583,6 +2781,73 @@ public:
       }
       for (Id worker : team.members)
         y = ui.wrap(x, y, width, w.displayName(worker, locale.language), 13, hex(0xa1b7bb)) + 8;
+      if (team.contract != none) {
+        const auto &contract = w.crewContracts[team.contract];
+        y = ui.wrap(x, y, width,
+                    t("crew.assigned") + " · " +
+                        t(contract.kind == CrewContractKind::Facility    ? "crew.facility"
+                          : contract.kind == CrewContractKind::Housing   ? "crew.housing"
+                          : contract.kind == CrewContractKind::Expansion ? "crew.expansion"
+                                                                         : "crew.repair") +
+                        " #" + std::to_string(contract.work + 1),
+                    14, hex(0xe0bc76)) +
+            12;
+        y = ui.wrap(x, y, width, t("crew.help"), 13, hex(0x9fb4b7)) + 12;
+        Id lead =
+            contract.kind == CrewContractKind::Facility    ? w.projects[contract.work].worker
+            : contract.kind == CrewContractKind::Housing   ? w.housingWorks[contract.work].worker
+            : contract.kind == CrewContractKind::Expansion ? w.expansions[contract.work].worker
+                                                           : w.repairs[contract.work].worker;
+        if (team.members.contains(w.player) && lead != w.player) {
+          if (ui.button("walkCrewContract", {x, y, width, 32}, t("action.walk")))
+            act([&] {
+              w.travel(w.player, w.crewContractDestination(w.player, contract.id),
+                       TaskKind::CrewWork, contract.id);
+              paused = false;
+            });
+          y += 40;
+          if (ui.button("startCrewContract", {x, y, width, 32}, t("build.start")))
+            act([&] {
+              w.beginCrewContractWork(w.player, contract.id);
+              paused = false;
+            });
+          y += 40;
+        }
+        if (ui.button("releaseCrewContract", {x, y, width, 32}, t("crew.release")))
+          act([&] { w.cancelCrewContract(w.player, contract.id); });
+        y += 40;
+      } else if (team.work == none) {
+        auto offer = [&](CrewContractKind kind, Id id, Id shop) {
+          if (shop != team.workshop)
+            return;
+          const char *key = kind == CrewContractKind::Facility    ? "crew.facility"
+                            : kind == CrewContractKind::Housing   ? "crew.housing"
+                            : kind == CrewContractKind::Expansion ? "crew.expansion"
+                                                                  : "crew.repair";
+          if (ui.button("crewOffer" + std::to_string(int(kind)) + "-" + std::to_string(id),
+                        {x, y, width, 32},
+                        t("structure.hire") + " · " + t(key) + " #" + std::to_string(id + 1)))
+            act([&] { w.assignCrewContract(w.player, team.id, kind, id); });
+          y += 40;
+        };
+        for (const auto &job : w.projects)
+          if (job.state == ProjectState::Funded || job.state == ProjectState::Working)
+            offer(CrewContractKind::Facility, job.id,
+                  job.source != none
+                      ? job.source
+                      : w.nearestAt(w.facilities[job.facility].pos, FacilityKind::Workshop));
+        for (const auto &job : w.housingWorks)
+          if (!job.cancelled &&
+              (job.state == ProjectState::Funded || job.state == ProjectState::Working))
+            offer(CrewContractKind::Housing, job.id, job.workshop);
+        for (const auto &job : w.expansions)
+          if (!job.complete)
+            offer(CrewContractKind::Expansion, job.id,
+                  w.nearestAt(job.site, FacilityKind::Workshop));
+        for (const auto &job : w.repairs)
+          if (!job.complete && job.worker != none)
+            offer(CrewContractKind::Repair, job.id, job.workshop);
+      }
       if (team.members.contains(w.player)) {
         if (ui.button("leaveCrew", {x, y, width, 32}, t("structure.leave")))
           act([&] { w.removeConstructionWorker(w.player, team.id, w.player); });
@@ -2689,10 +2954,14 @@ public:
       ui.text(x, y, t("build.new_facility"), 18, hex(0xa5cbb9));
       y += 32;
       if (ui.button("buildKindPrev", {x, y, 32, 34}, "←"))
-        buildKind = (buildKind + int(FacilityKind::Washbasin)) % (int(FacilityKind::Washbasin) + 1);
+        buildKind = buildKind == int(FacilityKind::Locker) ? int(FacilityKind::Washbasin)
+                    : buildKind == 0                       ? int(FacilityKind::Locker)
+                                                           : buildKind - 1;
       ui.text(x + 42, y + 9, t(facilityKey(FacilityKind(buildKind))), 13, hex(0xd3dfda));
       if (ui.button("buildKindNext", {x + width - 32, y, 32, 34}, "→"))
-        buildKind = (buildKind + 1) % (int(FacilityKind::Washbasin) + 1);
+        buildKind = buildKind == int(FacilityKind::Washbasin) ? int(FacilityKind::Locker)
+                    : buildKind == int(FacilityKind::Locker)  ? 0
+                                                              : buildKind + 1;
       y += 48;
       ui.text(x, y, "X / Z (m)", 13, hex(0x9fb4b7));
       y += 22;
@@ -2929,8 +3198,20 @@ public:
               paused = false;
             });
           if (!p.complete && p.worker == w.player) {
-            if (w.near(w.player, p.site, 2) && ui.button("buildStart" + std::to_string(p.id),
-                                                         {x, y, width, 32}, t("build.start"))) {
+            y = ui.wrap(x, y, width,
+                        t(p.supplied ? "build.materials_ready" : "build.materials_wait"), 13,
+                        hex(0x9fb4b7)) +
+                12;
+            if (ui.button("expansionWalk" + std::to_string(p.id), {x, y, width, 32},
+                          t("action.walk")))
+              act([&] {
+                w.travel(w.player, w.expansionDestination(p.id), TaskKind::None, none);
+                paused = false;
+              });
+            y += 40;
+            if (w.near(w.player, w.expansionDestination(p.id), 2) &&
+                ui.button("buildStart" + std::to_string(p.id), {x, y, width, 32},
+                          t("build.start"))) {
               act([&] { w.beginExpansionWork(w.player, p.id); });
               paused = false;
             }
@@ -4541,6 +4822,38 @@ public:
                   hex(0x71838a));
             cylinder(v, p + Vec3{.14f, .76f, -.45f}, p + Vec3{.2f, .76f, -.32f}, .006f,
                      hex(0xd9b067), 5);
+          } else if (f.kind == FacilityKind::Locker) {
+            const StorageLease *lease = nullptr;
+            for (const auto &l : w.storageLeases)
+              if (!l.released && l.facility == f.id && l.slot == station) {
+                lease = &l;
+                break;
+              }
+            Vec3 c = p + Vec3{0, .6f, -.6f};
+            Color paint = hex(lease ? 0x586f72 : 0x48575e);
+            box(v, c + Vec3{-.44f, 0, 0}, {.04f, 1.2f, .5f}, paint);
+            box(v, c + Vec3{.44f, 0, 0}, {.04f, 1.2f, .5f}, paint);
+            box(v, c + Vec3{0, 0, -.24f}, {.86f, 1.2f, .035f}, paint);
+            for (float shelf : {-.59f, -.31f, -.03f, .25f, .59f})
+              box(v, c + Vec3{0, shelf, 0}, {.86f, .03f, .5f}, paint);
+            float open = 0;
+            if (lease) {
+              auto [door, inserted] = lockerAnimation.try_emplace(lease->id, float(lease->open));
+              door->second += (float(lease->open) - door->second) * (1 - std::exp(-sceneDelta * 9));
+              open = door->second;
+              if (open > .1f)
+                for (Id id : lease->items) {
+                  const auto &item = w.items[id];
+                  Color color = palette(int(item.kind) % 8);
+                  if (item.durability <= 0)
+                    color = hex(0x292b29);
+                  box(v, item.pos, {.17f, item.kind == ItemKind::Food ? .09f : .04f, .12f}, color);
+                }
+            }
+            if (open < .99f) {
+              box(v, c + Vec3{-.43f * open, 0, .265f}, {.86f * (1 - open), 1.16f, .025f}, paint);
+              box(v, c + Vec3{.25f - .72f * open, 0, .285f}, {.025f, .12f, .018f}, hex(0xc6ad72));
+            }
           } else if (f.kind == FacilityKind::Laundry) {
             Vec3 machine = p + Vec3{0, 0, -.65f};
             box(v, machine + Vec3{0, .45f, 0}, {.65f, .9f, .55f}, ceramic);
@@ -5587,12 +5900,22 @@ int runApplication(int argc, char **argv) {
   glfwSetWindowSizeLimits(window, 1000, 720, GLFW_DONT_CARE, GLFW_DONT_CARE);
   int result = 0;
   try {
-    Application app(window);
+    auto paths =
+        RuntimePaths::discover(runningExecutable(argv[0]), MEGA_ASSETS, MEGA_SHADERS, MEGA_PROJECT);
+    Application app(window, paths);
     int frames = 0, maxFrames = 0;
     bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false,
          playConstruction = false, playVehicles = false, playCompany = false, playSecurity = false,
          playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
-         playRescue = false, playFire = false, playAngled = false;
+         playRescue = false, playFire = false, playAngled = false, playStorage = false,
+         playCrew = false;
+    Id crewJob = none, crewTeam = none, crewContract = none;
+    int crewFinish = -1;
+    bool crewCaptured = false;
+    Vec3 crewPrior{};
+    float crewMaxStep = 0;
+    Id pantryFacility = none, pantryOrder = none, pantryLease = none;
+    int pantryStage = 0, pantryFinish = -1;
     Id lifeSchool = none, lifeGift = none, rescueJail = none, spreadTarget = none, burntItem = none;
     int lifeStage = 0, lifeFinish = -1, rescueStage = 0, rescueFinish = -1, fireFinish = -1;
     bool lifeCapture = false, rescueCapture = false;
@@ -5628,8 +5951,22 @@ int runApplication(int argc, char **argv) {
           throw std::runtime_error("Missing argument value");
         return std::string(argv[++i]);
       };
-      if (arg == "--playtest-daily-life" || arg == "--playtest-rescue" ||
-          arg == "--playtest-fire-spread") {
+      if (arg == "--playtest-crew") {
+        playCrew = demo = animate = true;
+        panel = "crew-play";
+        app.config.population = 80;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-storage") {
+        playStorage = demo = animate = true;
+        panel = "storage-play";
+        app.config.population = 80;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-daily-life" || arg == "--playtest-rescue" ||
+                 arg == "--playtest-fire-spread") {
         playLife = arg == "--playtest-daily-life";
         playRescue = arg == "--playtest-rescue";
         playFire = arg == "--playtest-fire-spread";
@@ -5752,15 +6089,16 @@ int runApplication(int argc, char **argv) {
         app.renderer->skinVertexBudget = std::stoull(value());
     }
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
-        playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire) {
+        playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
+        playStorage || playCrew) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
       if (maxFrames == 0)
-        maxFrames = playVehicles                  ? 7200
-                    : playCompany || playSecurity ? 3000
-                    : playConstruction            ? 1800
-                                                  : 1200;
+        maxFrames = playVehicles                   ? 7200
+                    : playCompany || playSecurity  ? 3000
+                    : playConstruction || playCrew ? 2400
+                                                   : 1200;
       if (fixedStep == 0)
         fixedStep = 1.f / 30;
     }
@@ -5781,6 +6119,121 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
+      if (panel == "crew-play") {
+        auto &w = *app.world;
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.automatic = false;
+          r.pos = w.position(r.id);
+          r.route.clear();
+          ++r.routeVersion;
+          r.activity = Activity::Idle;
+          r.task = TaskKind::None;
+          r.role = Role::Unemployed;
+          r.jobSite = r.employer = none;
+          r.hunger = r.thirst = r.bladder = .1f;
+          r.energy = r.hygiene = 1;
+          r.needsAt = w.time;
+          r.age = 30;
+        }
+        w.crowd.clear();
+        w.pay(0, w.residents[0].account, 1000000, "playtest-capital");
+        crewJob = w.commissionFacility(0, FacilityKind::Toilet, 0, {70, 0, 160}, 1);
+        auto &job = w.projects[crewJob];
+        for (Id worker : {2, 3, 4}) {
+          w.chooseJob(worker, worker == 4 ? Role::Repairer : Role::Builder, job.source);
+          auto &r = w.residents[worker];
+          r.automatic = true;
+          r.routine.shiftStart = 0;
+          r.routine.shiftHours = 24;
+          r.routine.daysOff = 0;
+          r.routine.sleepStart = 22;
+          r.routine.sleepHours = 8;
+          r.pos = w.accessible(w.facilities[job.source].pos + Vec3{float(worker) * 2, 0, 6});
+        }
+        crewTeam = w.createConstructionTeam(2, job.source, 2);
+        w.recruitConstructionWorker(2, crewTeam, 3);
+        crewContract = w.assignCrewContract(2, crewTeam, CrewContractKind::Facility, crewJob);
+        for (Id worker : {2, 3, 4})
+          w.schedule(w.time + 1, EventKind::Decide, worker);
+        crewPrior = w.position(3);
+        app.setFirstPerson(false);
+        app.drawerOpen = false;
+        app.phone = false;
+        app.selected = 3;
+        app.cameraFocus = crewPrior;
+        app.currentFloor = int(crewPrior.y / 3);
+        app.distance = 11;
+        app.pitch = .3f;
+        app.orbit = .6f;
+        std::cout << "CREW PLAYTEST: actual workshop staff commute; lead collects supplies and "
+                     "helper walks to site\n";
+      } else if (panel == "storage-play") {
+        auto &w = *app.world;
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.automatic = false;
+          r.route.clear();
+          ++r.routeVersion;
+          r.task = TaskKind::None;
+          r.activity = Activity::Idle;
+          r.role = Role::Unemployed;
+          r.jobSite = r.employer = none;
+          r.age = 30;
+          r.hunger = r.thirst = r.bladder = .1f;
+          r.energy = r.hygiene = 1;
+          r.needsAt = w.time;
+          r.routine.sleepStart = 22;
+          r.routine.sleepHours = 8;
+        }
+        w.crowd.clear();
+        pantryFacility = w.nearestAt({0, 0, 0}, FacilityKind::Locker);
+        Id shop = none;
+        for (const auto &f : w.facilities)
+          if (f.floor == 0 && f.kind == FacilityKind::Shop) {
+            shop = f.id;
+            break;
+          }
+        if (shop == none || pantryFacility == none)
+          throw std::runtime_error("Storage playtest needs real shop and lockers");
+        for (auto [id, role] : {std::pair{Id(2), Role::Courier}, std::pair{Id(3), Role::Vendor}}) {
+          w.chooseJob(id, role, shop);
+          auto &r = w.residents[id];
+          r.automatic = true;
+          r.routine.shiftStart = 0;
+          r.routine.shiftHours = 24;
+          r.routine.daysOff = 0;
+          r.pos = w.accessible(w.facilities[shop].pos + Vec3{id == 2 ? 6.f : -6.f, 0, 8});
+        }
+        w.facilities[shop].opensAt = 0;
+        w.facilities[shop].openHours = 24;
+        w.residents[0].pos = w.accessible(w.facilities[pantryFacility].pos + Vec3{7, 0, 7});
+        w.residents[1].pos = w.accessible(w.facilities[pantryFacility].pos + Vec3{-8, 0, 7});
+        w.residents[1].hunger = .8f;
+        w.households.push_back({0, 0, {0, 1}, {}});
+        w.rebuildHouseholds();
+        w.relationships[1] = {0, 1, .8f, w.time - 3600, 0};
+        w.residentPlans[0].storageGroup = 0;
+        w.travel(0, w.serviceApproach(pantryFacility), TaskKind::StorageRent, pantryFacility);
+        pantryOrder = w.order(0, shop, ItemKind::Food);
+        app.setFirstPerson(false);
+        app.selected = 0;
+        app.currentFloor = 0;
+        app.cameraFocus = w.facilities[pantryFacility].pos;
+        app.observerHeight = 0;
+        app.distance = 12;
+        app.pitch = .35f;
+        app.orbit = .5f;
+        app.storageScreen = true;
+        app.selectedStorageFacility = pantryFacility;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        std::cout << "STORAGE PLAYTEST: walking to rent, vendor and courier commute, actual food "
+                     "checkout\n";
+      }
       if (panel == "daily-life" || panel == "prison-rescue" || panel == "spreading-fire") {
         auto &w = *app.world;
         for (auto &r : w.residents) {
@@ -6543,7 +6996,8 @@ int runApplication(int argc, char **argv) {
     if (demo && animate) {
       app.paused = false;
       if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
-          playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire)
+          playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
+          playStorage || playCrew)
         app.speed = 6;
     }
     if (computeTest) {
@@ -6646,6 +7100,63 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playCrew) {
+        auto &w = *app.world;
+        crewMaxStep = std::max(crewMaxStep, length(w.position(3) - crewPrior));
+        crewPrior = w.position(3);
+        if (!crewCaptured && !w.crewContracts[crewContract].attendance.empty()) {
+          crewCaptured = true;
+          if (!capture.empty())
+            frameCapture = capture.parent_path() / (capture.stem().string() + "-working.ppm");
+          std::cout << "CREW PLAYTEST: helper physically attending work; wages debited from "
+                       "original escrow\n";
+        }
+        if (crewFinish < 0 && w.projects[crewJob].state == ProjectState::Completed)
+          crewFinish = frames;
+        app.cameraFocus = w.position(3);
+        app.currentFloor = int(app.cameraFocus.y / 3);
+        if (crewFinish >= 0 && frames >= crewFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
+      if (playStorage) {
+        auto &w = *app.world;
+        if (pantryLease == none)
+          for (const auto &l : w.storageLeases)
+            if (l.holder == w.residents[0].account && !l.released)
+              pantryLease = l.id;
+        if (pantryLease != none && pantryStage == 0 &&
+            w.orders[pantryOrder].state == OrderState::Delivered) {
+          w.travel(0, w.storagePosition(pantryLease), TaskKind::None, none);
+          pantryStage = 1;
+          app.selectedStorage = pantryLease;
+        }
+        if (pantryStage == 1 && w.near(0, w.storagePosition(pantryLease), .08f)) {
+          w.setStorageOpen(0, pantryLease, true);
+          w.depositStorage(0, pantryLease, w.orders[pantryOrder].item, true);
+          w.residents[1].automatic = true;
+          w.decide(1, false);
+          pantryStage = 2;
+          if (!capture.empty())
+            frameCapture = capture.parent_path() / (capture.stem().string() + "-pantry.ppm");
+          std::cout
+              << "STORAGE PLAYTEST: real parcel deposited; hungry housemate walks to pantry\n";
+        }
+        if (pantryStage == 2 &&
+            w.items[w.orders[pantryOrder].item].owner == w.residents[1].account &&
+            (w.items[w.orders[pantryOrder].item].carrier == 1 ||
+             w.items[w.orders[pantryOrder].item].consumed)) {
+          pantryStage = 3;
+          pantryFinish = frames;
+        }
+        if (pantryFinish >= 0 && frames >= pantryFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playLife) {
         auto &w = *app.world;
         lifeMaxStep = std::max(lifeMaxStep, length(w.position(0) - lifePrior));
@@ -7002,6 +7513,36 @@ int runApplication(int argc, char **argv) {
       }
       app.frame(dt, frameCapture);
       ++frames;
+    }
+    if (playCrew) {
+      auto &w = *app.world;
+      w.validate();
+      bool paid = false;
+      for (const auto &entry : w.ledger)
+        if (entry.reason == "construction-crew-wage" && entry.to == w.residents[3].account &&
+            entry.amount > 0)
+          paid = true;
+      if (crewFinish < 0 || !crewCaptured || !paid || crewMaxStep > 2 ||
+          !w.projects[crewJob].materialsDelivered ||
+          !w.items[w.projects[crewJob].materialItem].consumed ||
+          w.accounts[w.projects[crewJob].escrow].balance != 0)
+        throw std::runtime_error(
+            "Physical crew contract failed staffing, supplies, helper wages or final inspection");
+      std::cout << "CREW PLAYTEST PASS: physical workshop staffing, supplies, paid assistance, "
+                   "continuous movement and lead inspection; max step "
+                << crewMaxStep << "\n";
+    }
+    if (playStorage) {
+      auto &w = *app.world;
+      w.validate();
+      if (pantryStage != 3 || w.orders[pantryOrder].state != OrderState::Delivered ||
+          w.items[w.orders[pantryOrder].item].storedAt != none ||
+          !w.storageLeases[pantryLease].items.empty() ||
+          w.accounts[w.orders[pantryOrder].escrow].balance != 0)
+        throw std::runtime_error(
+            "Physical purchase, locker deposit and household collection did not complete");
+      std::cout << "STORAGE PLAYTEST PASS: paid lease, vendor attendance, real courier, shared "
+                   "deposit and physical household collection\n";
     }
     if (playLife) {
       auto &w = *app.world;

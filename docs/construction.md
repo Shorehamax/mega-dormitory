@@ -18,7 +18,11 @@ Funded structural work can recruit an available automatic workshop crew. Its hau
 
 Completion pays earned wages and the remaining agreed contract price to the workshop operator. Cancellation refunds only unspent escrow and releases the crew. Paid materials remain real owned crates. A builder can collect a cancelled crate and return it to the original operating workshop for a funded ¥800 buyback and four returned stock units. Collection and return require reaching both locations; neither payment nor stock can be credited twice.
 
-Cooperative crews currently execute partitions, floor-slab work and road infrastructure (see `traffic.md`). Existing bed, facility, footprint-expansion and repair contracts retain their established individual-worker workflows.
+Crews can also assist funded bed, facility, footprint-extension and repair contracts. Select a crew and an available local contract in the construction panel. A repair job first needs a qualified repairer; builders assist that specialist. The original lead handles material collection and final inspection, while helpers walk to separate standing positions and receive wages from the existing budget. Helpers cannot spend a second copy of the escrow or finish the inspection remotely. **Work** gives a player helper walk/start controls. Releasing helpers leaves the lead’s original contract and its remaining escrow intact.
+
+Automatic idle foremen can accept a funded local contract. Existing staffed, supplied, attended work continues to follow the original contract’s rules. Unsupplied jobs earn no helper progress. Missing, off-shift, imprisoned or interrupted helpers earn neither labor nor pay. Repair assistance protects the specialist’s final wage. A foreman’s supervision bonus requires actual attendance.
+
+New footprint extensions require a paid material shipment from their contracted workshop. The lead collects the crate, carries it to the edge worksite and unloads it before work starts. Interruption or death leaves recoverable cargo; replacement builders must collect the original shipment. Supply cost is part of the existing funded contract, not extra money. Earlier saved extension contracts keep their original supplied status and payment terms.
 
 ## Intermediate floors
 
@@ -45,3 +49,5 @@ Walls, slab presence, crews, contracts, delivered materials, attendance, counter
 `flexible_construction` tests real stock/money/work, collision and sight, room egress, demolition/rebuilding and gravity, clearance, negotiation, force, save/reload, death, cancellation/salvage, voluntary membership and interrupted staffing. `--playtest-construction` runs an isolated rendered world: two hired builders start at their actual homes, walk to collect and deliver materials, work and complete a partition with a walkable doorway. It does not load or overwrite player slots. This is a scripted in-game playthrough, not manual or exhaustive playtesting.
 
 The rendered scenario also exposed a ladder-entry deadlock. Landing entrants now retreat through normal capsule motion to let traffic already on the ladder pass; collision is not disabled. This addresses that specific conflict, not all crowd congestion at every scale.
+
+`cooperative_construction_contracts` checks shared escrow/wages, physical attendance, supplied jobs, original-lead inspection, job exclusivity, dismissal, voluntary dispatch, save/load, all four contract types and recoverable expansion cargo. `--playtest-crew` runs actual workshop staffing, material hauling, paid assistance and facility completion in an isolated rendered world, with continuous movement checks.

@@ -60,6 +60,8 @@ void World::spreadFireTick(const std::map<Id, double> &elapsed) {
   // Apply heat to each actual possession once, using its carrier's real position.
   // Smoke alone does not destroy belongings, and walls block direct heat.
   for (auto &item : items) {
+    if (item.carrier != none && !residents[item.carrier].present)
+      continue;
     float vulnerability = itemVulnerability(item.kind);
     if (item.consumed || item.durability <= 0 || vulnerability <= 0)
       continue;

@@ -61,7 +61,8 @@ enum class FacilityKind {
   FireStation,
   Washbasin,
   Ramp,
-  FreightLift
+  FreightLift,
+  Locker
 };
 enum class Role {
   Unemployed,
@@ -128,7 +129,11 @@ enum class TaskKind {
   ShoppingTerminal,
   LeaveService,
   HouseholdMeet,
-  PrisonRescue
+  PrisonRescue,
+  StorageRetrieve,
+  StorageDeposit,
+  StorageRent,
+  CrewWork
 };
 enum class CrimeKind { QueueCutting, Assault, ExcessiveForce, Murder, Theft, Escape, Obstruction };
 enum class ProjectState { Proposed, AwaitingConsent, Funded, Working, Completed, Disputed };
@@ -181,8 +186,15 @@ struct StructuralWork {
   std::string blocked;
 };
 struct ConstructionTeam {
-  Id id = none, workshop = none, foreman = none, work = none;
+  Id id = none, workshop = none, foreman = none, work = none, contract = none;
   std::set<Id> members;
+};
+enum class CrewContractKind { Facility, Housing, Expansion, Repair };
+struct CrewContract {
+  Id id = none, team = none, work = none, workshop = none;
+  CrewContractKind kind = CrewContractKind::Facility;
+  bool active = true;
+  std::map<Id, double> attendance;
 };
 struct Expansion {
   Id id = none, owner = none, contractor = none, worker = none, escrow = none;
@@ -191,6 +203,9 @@ struct Expansion {
   double remaining = 0, totalWork = 0, workAt = -1;
   bool complete = false;
   Vec3 site{};
+  Id workshop = none, material = none;
+  int materials = 0;
+  bool supplied = true;
 };
 struct Account {
   Money balance = 0;
@@ -249,6 +264,8 @@ struct ResidentPlan {
   double nextHousehold = 0, helpDeadline = 0;
   Id helpTarget = none;
   int helpRetries = 0;
+  Id storageItem = none, storageGroup = none;
+  double storageDeadline = 0, nextStorage = 0;
 };
 struct Resident {
   Id id = none, account = none, home = 0, employer = none, jobSite = none;
@@ -373,6 +390,8 @@ struct Item {
   int quantity = 1;
   Money askingPrice = 0;
   Id seller = none;
+  Id storedAt = none, sharedWith = none;
+  int storageSlot = -1;
 };
 enum class VehicleKind { Bicycle, Scooter, CompactCar, DeliveryVan };
 struct Vehicle {
@@ -576,6 +595,14 @@ struct Household {
   std::set<Id> members;
   std::map<Id, double> invitations;
 };
+struct StorageLease {
+  Id id = none, facility = none, holder = none, custodian = none, household = none;
+  int slot = 0;
+  Money dailyRent = 500, arrears = 0;
+  double paidUntil = 0;
+  bool active = true, released = false, open = false;
+  std::vector<Id> items;
+};
 struct Message {
   Id from = none, to = none;
   double time = 0;
@@ -620,6 +647,7 @@ struct Incident {
   std::vector<Testimony> witnesses;
   Vec3 scene{};
   bool sceneLocated = false;
+  bool remoteProperty = false;
 };
 struct Project {
   Id id = none, owner = none, facility = none, worker = none, escrow = none;
@@ -780,6 +808,28 @@ public:
   bool educationDecision(Id actor);
   float jobSkill(Id actor, Role role) const;
   void validateEducation() const;
+  std::vector<StorageLease> storageLeases;
+  std::map<Id, std::set<Id>> storageByAccount, storageByHousehold, storageByItemOwner;
+  void rebuildStorage();
+  Vec3 storagePosition(Id lease) const;
+  Vec3 storedItemPosition(Id lease, int slot) const;
+  bool storagePermission(Id actor, Id lease) const;
+  bool storageItemAllowed(Id actor, Id item) const;
+  bool storageFacilityBusy(Id facility) const;
+  Id rentStorage(Id actor, Id facility, Id household = none);
+  void setStorageOpen(Id actor, Id lease, bool open);
+  void depositStorage(Id actor, Id lease, Id item, bool share = false);
+  void withdrawStorage(Id actor, Id item, bool steal = false);
+  void payStorageArrears(Id actor, Id lease);
+  void releaseStorage(Id actor, Id lease);
+  void settleStorageLease(Id lease);
+  void storageTick();
+  void validateStorage() const;
+  int storedPossessions(Id actor, ItemKind kind) const;
+  int sharedStoredMeals(Id group, Id actor = none) const;
+  bool storageDecision(Id actor, bool urgent = false);
+  bool storageDepartureDecision(Id actor);
+  void finishStorageVisit(Id actor, TaskKind task, Id target);
   std::vector<Household> households;
   std::map<Id, Id> householdMembership; // reconstructed from groups, never grants property rights
   Id householdOf(Id actor) const;
@@ -948,6 +998,15 @@ public:
   void beginStructuralWork(Id worker, Id work);
   Vec3 structuralDestination(Id worker, Id work) const;
   std::vector<Obstacle> wallSegments(const InteriorWall &) const;
+  std::vector<CrewContract> crewContracts;
+  Id assignCrewContract(Id actor, Id team, CrewContractKind kind, Id work);
+  void cancelCrewContract(Id actor, Id contract);
+  Id crewContractFor(Id worker) const;
+  Vec3 crewContractDestination(Id worker, Id contract) const;
+  void beginCrewContractWork(Id worker, Id contract);
+  bool crewContractDecision(Id worker);
+  void crewContractTick();
+  void validateCrewContracts() const;
   bool builderCommitted(Id worker) const;
   void validateStructures() const;
   void checkPartition(Id wall);
@@ -991,6 +1050,7 @@ public:
   Money expansionQuote(int floor, int width, int depth) const;
   Id commissionExpansion(Id actor, int floor, int width, int depth);
   void assignExpansion(Id worker, Id expansion);
+  Vec3 expansionDestination(Id expansion) const;
   void beginExpansionWork(Id worker, Id expansion);
   void workExpansion(Id expansion, double seconds);
   struct CrowdBody {

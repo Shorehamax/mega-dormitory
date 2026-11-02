@@ -34,6 +34,9 @@ Id World::commissionExpansion(Id actor, int floor, int width, int depth) {
   p.id = Id(expansions.size());
   p.owner = payer;
   p.contractor = facilities[workshop].owner;
+  p.workshop = workshop;
+  p.supplied = false;
+  p.materials = std::max(1, int(std::ceil(double(quote) / 3500 / 256)));
   p.floor = floor;
   p.width = width;
   p.depth = depth;
@@ -58,15 +61,25 @@ void World::assignExpansion(Id worker, Id id) {
   clockOut(worker);
   p.worker = worker;
   r.employer = p.contractor;
-  travel(worker, p.site, TaskKind::None, none);
+  travel(worker, expansionDestination(id), TaskKind::None, none);
+}
+Vec3 World::expansionDestination(Id id) const {
+  const auto &p = expansions.at(id);
+  if (!p.supplied) {
+    if (p.material == none)
+      return facilities.at(p.workshop).pos + Vec3{0, 0, 1.6f};
+    if (items.at(p.material).carrier != p.worker)
+      return items.at(p.material).pos;
+  }
+  return p.site;
 }
 void World::beginExpansionWork(Id worker, Id id) {
   auto &p = expansions.at(id);
   auto &r = residents.at(worker);
-  if (p.complete || p.worker != worker || !r.alive || !r.present || !near(worker, p.site, 2) ||
-      !onShift(worker))
+  if (p.complete || p.worker != worker || !r.alive || !r.present ||
+      !near(worker, expansionDestination(id), 2) || !onShift(worker))
     throw std::runtime_error("Reach the construction site during your working shift");
-  if (p.workAt < 0)
+  if (p.workAt < 0 && p.supplied)
     p.workAt = time;
   r.activity = Activity::Working;
 }
@@ -78,8 +91,47 @@ void World::workExpansion(Id id, double seconds) {
     return;
   auto &r = residents[p.worker];
   if (!r.alive || !r.present || r.role != Role::Builder || !onShift(r.id) ||
-      !near(r.id, p.site, 2) || r.activity != Activity::Working) {
+      !near(r.id, expansionDestination(id), 2) || r.activity != Activity::Working) {
     p.workAt = -1;
+    return;
+  }
+  if (!p.supplied) {
+    p.workAt = -1;
+    if (p.material == none) {
+      auto &source = facilities.at(p.workshop);
+      Money cost = Money(p.materials) * 20000;
+      if (!operational(source.id) || source.stock < p.materials || r.carrying != none ||
+          accounts[p.escrow].balance < cost)
+        return;
+      pay(p.escrow, source.owner, cost, "expansion-materials");
+      p.paid += cost;
+      source.stock -= p.materials;
+      Item material;
+      material.id = Id(items.size());
+      material.kind = ItemKind::Materials;
+      material.owner = p.owner;
+      material.carrier = r.id;
+      material.pos = position(r.id);
+      material.reservedAt = p.workshop;
+      p.material = material.id;
+      items.push_back(material);
+      r.carrying = material.id;
+      travel(r.id, p.site, TaskKind::None, none);
+    } else if (items[p.material].carrier != r.id) {
+      auto &material = items[p.material];
+      if (material.consumed || material.carrier != none || r.carrying != none)
+        return;
+      material.carrier = r.id;
+      r.carrying = material.id;
+      travel(r.id, p.site, TaskKind::None, none);
+    } else if (near(r.id, p.site, 2)) {
+      auto &material = items[p.material];
+      material.pos = p.site;
+      material.carrier = none;
+      r.carrying = none;
+      p.supplied = true;
+      p.workAt = time;
+    }
     return;
   }
   if (p.workAt < 0) {
@@ -90,15 +142,19 @@ void World::workExpansion(Id id, double seconds) {
   p.workAt = time;
   p.remaining = std::max(0.0, p.remaining - seconds);
   Money earned = p.remaining == 0 ? p.budget : Money(p.budget * (1 - p.remaining / p.totalWork));
-  Money payout = earned - p.paid;
+  Money payout = std::max(Money(0), earned - p.paid);
   pay(p.escrow, p.contractor, payout, "construction-progress");
-  p.paid = earned;
+  p.paid += payout;
   Money wage = std::min(accounts[p.contractor].balance, Money(seconds / 3600 * r.hourlyWage));
   pay(p.contractor, r.account, wage, "construction-wage");
   if (p.remaining == 0) {
     floorPlans.at(p.floor).width = p.width;
     floorPlans.at(p.floor).depth = p.depth;
     p.complete = true;
+    if (p.material != none) {
+      items[p.material].consumed = true;
+      items[p.material].reservedAt = none;
+    }
     r.activity = Activity::Idle;
     invalidateGeometry(p.floor);
     log("construction.expanded", r.id, p.floor);
@@ -114,7 +170,8 @@ Id World::commissionFacility(Id owner, FacilityKind kind, int floor, Vec3 pos, i
                              Id company) {
   auto &r = residents.at(owner);
   if (!r.alive || !r.present || floor < 0 || floor >= config.floors || stations < 1 ||
-      stations > 16 || kind < FacilityKind::Food || kind > FacilityKind::Washbasin)
+      stations > 16 || kind < FacilityKind::Food ||
+      (kind > FacilityKind::Washbasin && kind != FacilityKind::Locker))
     throw std::runtime_error("Invalid facility construction plan");
   if (!std::isfinite(pos.x) || !std::isfinite(pos.z))
     throw std::runtime_error("Invalid construction location");
@@ -159,6 +216,8 @@ Id World::commissionFacility(Id owner, FacilityKind kind, int floor, Vec3 pos, i
             : kind == FacilityKind::Toilet                               ? 15
             : kind == FacilityKind::Shop                                 ? 800
                                                                          : 100;
+  if (kind == FacilityKind::Locker)
+    f.price = 500;
   f.duration = kind == FacilityKind::Food     ? 210
                : kind == FacilityKind::Water  ? 40
                : kind == FacilityKind::Toilet ? 270

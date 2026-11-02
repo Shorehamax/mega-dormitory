@@ -17,11 +17,14 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(StructuralWork, id, actor, payer
                                                 team, wall, material, hauler, floor, kind, state,
                                                 site, budget, spent, remaining, total, workedAt,
                                                 supplied, attendance, blocked, transport)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(CrewContract, id, team, work, kind, active,
+                                                attendance, workshop)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ConstructionTeam, id, workshop, foreman, work,
-                                                members)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Expansion, id, owner, contractor, worker, escrow, floor, width,
-                                   depth, budget, paid, remaining, totalWork, complete, site,
-                                   workAt)
+                                                members, contract)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Expansion, id, owner, contractor, worker, escrow,
+                                                floor, width, depth, budget, paid, remaining,
+                                                totalWork, complete, site, workAt, workshop,
+                                                material, materials, supplied)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Account, balance, name)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Transfer, time, from, to, amount, reason)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Waypoint, p, time)
@@ -59,7 +62,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Facility, id, owner, manager, ki
                                                 demolished, fuelStock, fuelPrice)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Item, id, owner, carrier, kind, pos, consumed,
                                                 order, cleanliness, durability, reservedAt, look,
-                                                stolenFrom, quantity, askingPrice, seller)
+                                                stolenFrom, quantity, askingPrice, seller, storedAt,
+                                                sharedWith, storageSlot)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Order, id, buyer, shop, courier, item, escrow, product, price,
                                    deliveryFee, state, placed, delivered)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Freight, id, facility, worker, item, escrow,
@@ -98,13 +102,17 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Relationship, a, b, trust, lastT
                                                 lastAid, conversations)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Education, skills, lessons, answers, subject, seed,
                                                 lastDay, school)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(StorageLease, id, facility, holder, custodian,
+                                                household, slot, dailyRent, arrears, paidUntil,
+                                                active, released, open, items)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Household, id, founder, members, invitations)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ResidentPlan, nextShopping, nextCareer,
                                                 nextBusiness, nextListing, tradeDeadline,
                                                 lastCareer, reserve, spentToday, tradePrice, day,
                                                 tradeRetries, order, tradeItem, seller,
                                                 lastBusiness, wanted, action, nextHousehold,
-                                                helpDeadline, helpTarget, helpRetries)
+                                                helpDeadline, helpTarget, helpRetries, storageItem,
+                                                storageDeadline, nextStorage, storageGroup)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Message, from, to, time, text, read)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Vehicle, id, owner, dealer, driver, bay, kind, pos,
                                                 yaw, speed, condition, askingPrice, originalPrice,
@@ -138,7 +146,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Incident, id, offender, victim, 
                                                 time, resolved, threat, reported, inspected,
                                                 discovered, suspect, item, reporter, confidence,
                                                 lastKnown, seenAt, reportedAt, witnesses,
-                                                searchAfter, scene, sceneLocated)
+                                                searchAfter, scene, sceneLocated, remoteProperty)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Project, id, owner, facility, worker, escrow, state,
                                                 budget, spent, compensation, remaining, affected,
                                                 consented, demolition, offer, newConstruction,
@@ -176,6 +184,7 @@ void World::save(const std::filesystem::path &path) const {
             {"interiorWalls", interiorWalls},
             {"structuralWorks", structuralWorks},
             {"constructionTeams", constructionTeams},
+            {"crewContracts", crewContracts},
             {"expansions", expansions},
             {"time", time},
             {"rng", rng},
@@ -230,6 +239,7 @@ void World::save(const std::filesystem::path &path) const {
             {"messages", messages},
             {"relationships", relationships},
             {"households", households},
+            {"storageLeases", storageLeases},
             {"education", education},
             {"incidents", incidents},
             {"evidenceReceipts", evidenceReceipts},
@@ -514,6 +524,8 @@ static World readSave(const std::filesystem::path &path) {
     j.at("structuralWorks").get_to(w.structuralWorks);
   if (j.contains("constructionTeams"))
     j.at("constructionTeams").get_to(w.constructionTeams);
+  if (j.contains("crewContracts"))
+    j.at("crewContracts").get_to(w.crewContracts);
   if (j.contains("residentPlans"))
     j.at("residentPlans").get_to(w.residentPlans);
   if (j.contains("freight"))
@@ -540,6 +552,9 @@ static World readSave(const std::filesystem::path &path) {
   if (j.contains("households"))
     j.at("households").get_to(w.households);
   w.rebuildHouseholds();
+  if (j.contains("storageLeases"))
+    j.at("storageLeases").get_to(w.storageLeases);
+  w.rebuildStorage();
   if (j.contains("education"))
     j.at("education").get_to(w.education);
   READ(incidents);

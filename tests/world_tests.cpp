@@ -1105,8 +1105,16 @@ int main() {
     w.workExpansion(id, 3600);
     require(w.expansions[id].remaining == w.expansions[id].totalWork,
             "Remote worker built the floor");
-    place(w, 0, w.expansions[id].site);
-    w.beginExpansionWork(0, id);
+    auto &extension=w.expansions[id];
+    w.facilities[extension.workshop].staffNeeded=0;
+    w.facilities[extension.workshop].opensAt=0;
+    w.facilities[extension.workshop].openHours=24;
+    place(w,0,w.expansionDestination(id));
+    w.beginExpansionWork(0,id);w.workExpansion(id,60);
+    require(extension.material!=none && !extension.supplied && w.residents[0].carrying==extension.material,"No physical expansion shipment");
+    place(w, 0, extension.site);
+    w.beginExpansionWork(0, id);w.workExpansion(id,60);
+    require(extension.supplied && w.items[extension.material].carrier==none,"Expansion shipment not delivered");
     w.time += 10;
     w.workExpansion(id, 3600);
     require(w.expansions[id].totalWork - w.expansions[id].remaining == 10,
