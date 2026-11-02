@@ -76,7 +76,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Repair, id, facility, worker, es
                                                 complete)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Fire, id, facility, worker, station, payer, escrow,
                                                 heat, smoke, fuel, started, updated, budget, paid,
-                                                contained, out)
+                                                contained, out, spreadExposure)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FireSpray, fire, item, workedAt)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PersonalUse, item, ingredient, remaining, workedAt, origin)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LooseBody, velocity, pusher, justified, updated)
@@ -95,12 +95,16 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(OfficeOrder, id, facility, worke
                                                 submitted, quality, submission, client, employer,
                                                 liveRequests, tickets, dispatched, outcomes)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Relationship, a, b, trust, lastTalk, sharedInterest,
-                                                lastAid)
+                                                lastAid, conversations)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Education, skills, lessons, answers, subject, seed,
+                                                lastDay, school)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Household, id, founder, members, invitations)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ResidentPlan, nextShopping, nextCareer,
                                                 nextBusiness, nextListing, tradeDeadline,
                                                 lastCareer, reserve, spentToday, tradePrice, day,
                                                 tradeRetries, order, tradeItem, seller,
-                                                lastBusiness, wanted, action)
+                                                lastBusiness, wanted, action, nextHousehold,
+                                                helpDeadline, helpTarget, helpRetries)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Message, from, to, time, text, read)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Vehicle, id, owner, dealer, driver, bay, kind, pos,
                                                 yaw, speed, condition, askingPrice, originalPrice,
@@ -125,9 +129,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Testimony, witness, offenderPosi
                                                 confidence, identifies, filed, bodyOnly, seenScene)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(EvidenceReceipt, id, item, incident, owner, carrier,
                                                 locker, claimed)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(PrisonRescue, target, tool, incident, workedAt,
+                                                progress)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(CustodyRecord, resident, guard, jail, bookedAt,
                                                 sentenceUntil, escapeAt, escapeProgress, active,
-                                                escaped, charges, careAt)
+                                                escaped, charges, careAt, cuffed)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Incident, id, offender, victim, warden, kind, pos,
                                                 time, resolved, threat, reported, inspected,
                                                 discovered, suspect, item, reporter, confidence,
@@ -223,9 +229,12 @@ void World::save(const std::filesystem::path &path) const {
             {"lastEconomyDay", lastEconomyDay},
             {"messages", messages},
             {"relationships", relationships},
+            {"households", households},
+            {"education", education},
             {"incidents", incidents},
             {"evidenceReceipts", evidenceReceipts},
             {"custodyRecords", custodyRecords},
+            {"prisonRescues", prisonRescues},
             {"projects", projects},
             {"videos", videos},
             {"news", news}};
@@ -528,6 +537,11 @@ static World readSave(const std::filesystem::path &path) {
   READ(messages);
   if (j.contains("relationships"))
     j.at("relationships").get_to(w.relationships);
+  if (j.contains("households"))
+    j.at("households").get_to(w.households);
+  w.rebuildHouseholds();
+  if (j.contains("education"))
+    j.at("education").get_to(w.education);
   READ(incidents);
   for (std::size_t i = 0; i < w.incidents.size(); ++i)
     if (!j.at("incidents").at(i).contains("suspect")) {
@@ -552,6 +566,8 @@ static World readSave(const std::filesystem::path &path) {
     j.at("evidenceReceipts").get_to(w.evidenceReceipts);
   if (j.contains("custodyRecords"))
     j.at("custodyRecords").get_to(w.custodyRecords);
+  if (j.contains("prisonRescues"))
+    j.at("prisonRescues").get_to(w.prisonRescues);
   READ(projects);
   READ(videos);
   READ(news);

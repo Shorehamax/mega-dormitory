@@ -910,6 +910,177 @@ int main() {
     require(w.canEnforce(w.incidents[c]), "Awake witness could not report after waking");
     w.validate();
   });
+
+  test("Freeing a prisoner requires reach, active custody and personally owned tools", [] {
+    auto w = small();
+    scene(w);
+    auto &r = w.residents[1];
+    r.activity = Activity::Jailed;
+    r.target = jail(w);
+    r.releaseAt = w.time + 86400;
+    CustodyRecord c;
+    c.resident = 1;
+    c.jail = r.target;
+    c.bookedAt = c.careAt = w.time;
+    c.sentenceUntil = r.releaseAt;
+    w.custodyRecords[1] = c;
+    rejects([&] { w.startPrisonRescue(0, 1); });
+    Id tool = phone(w, 0);
+    w.items[tool].kind = ItemKind::Tools;
+    place(w, 0, {160, 0, 150});
+    rejects([&] { w.startPrisonRescue(0, 1); });
+    place(w, 0, {151, 0, 150});
+    w.startPrisonRescue(0, 1);
+    require(w.itemInUse(tool) && w.residents[1].activity == Activity::Jailed,
+            "Rescue skipped actual work");
+    w.validate();
+  });
+  test("A sustained physical intervention frees a prisoner and retains criminal consequences", [] {
+    auto w = small();
+    scene(w);
+    auto &r = w.residents[1];
+    r.activity = Activity::Jailed;
+    r.target = jail(w);
+    r.releaseAt = w.time + 86400;
+    CustodyRecord c;
+    c.resident = 1;
+    c.jail = r.target;
+    c.bookedAt = c.careAt = w.time;
+    c.sentenceUntil = r.releaseAt;
+    w.custodyRecords[1] = c;
+    Id tool = phone(w, 0);
+    w.items[tool].kind = ItemKind::Tools;
+    Vec3 actual = w.position(1);
+    w.startPrisonRescue(0, 1);
+    Id attempt = w.prisonRescues[0].incident;
+    require(!w.incidents[attempt].reported, "Secret attempt broadcast a suspect");
+    for (int n = 0; n < 5; ++n) {
+      w.time += 60;
+      w.securityTick();
+    }
+    require(w.prisonRescues.empty() && !w.custodyRecords[1].active && !w.custodyRecords[1].cuffed &&
+                w.custodyRecords[1].escaped && w.residents[1].activity == Activity::Idle &&
+                length(w.position(1) - actual) < .001f,
+            "Physical release failed or teleported prisoner");
+    require(w.items[tool].durability < 1 && w.incidents[attempt].kind == CrimeKind::Obstruction &&
+                std::any_of(
+                    w.incidents.begin(), w.incidents.end(),
+                    [&](const Incident &c) { return c.suspect == 1 && w.canEnforce(c); }),
+            "Rescue erased consequences or used no tools");
+    w.validate();
+  });
+  test("An actual alert warden stops a rescue and identifies the rescuer", [] {
+    auto w = small();
+    scene(w);
+    guard(w, 2);
+    place(w, 2, {152, 0, 150});
+    auto &r = w.residents[1];
+    r.activity = Activity::Jailed;
+    r.target = jail(w);
+    r.releaseAt = w.time + 86400;
+    CustodyRecord c;
+    c.resident = 1;
+    c.jail = r.target;
+    c.bookedAt = c.careAt = w.time;
+    c.sentenceUntil = r.releaseAt;
+    w.custodyRecords[1] = c;
+    Id tool = phone(w, 0);
+    w.items[tool].kind = ItemKind::Tools;
+    w.startPrisonRescue(0, 1);
+    Id attempt = w.prisonRescues[0].incident;
+    w.time += 60;
+    w.securityTick();
+    require(w.prisonRescues.empty() && w.custodyRecords[1].active &&
+                w.incidents[attempt].reported && w.incidents[attempt].suspect == 0,
+            "Alert warden failed to intervene with evidence");
+    w.validate();
+  });
+  test("A wall prevents a remote guard from interrupting hidden physical work", [] {
+    auto w = small();
+    scene(w);
+    guard(w, 2);
+    place(w, 2, {153, 0, 150});
+    w.interiorWalls.push_back({0, w.dormAccount, 0, {152, 0, 145}, {152, 0, 155}, false, true});
+    w.invalidateGeometry(0);
+    auto &r = w.residents[1];
+    r.activity = Activity::Jailed;
+    r.target = jail(w);
+    r.releaseAt = w.time + 86400;
+    CustodyRecord c;
+    c.resident = 1;
+    c.jail = r.target;
+    c.bookedAt = c.careAt = w.time;
+    c.sentenceUntil = r.releaseAt;
+    w.custodyRecords[1] = c;
+    Id tool = phone(w, 0);
+    w.items[tool].kind = ItemKind::Tools;
+    w.startPrisonRescue(0, 1);
+    w.time += 60;
+    w.securityTick();
+    require(w.prisonRescues.contains(0) && w.prisonRescues[0].progress == 60,
+            "Guard could see through wall");
+    w.validate();
+  });
+  test("Moving away or losing the tools cancels prisoner intervention", [] {
+    auto w = small();
+    scene(w);
+    auto &r = w.residents[1];
+    r.activity = Activity::Jailed;
+    r.target = jail(w);
+    r.releaseAt = w.time + 86400;
+    CustodyRecord c;
+    c.resident = 1;
+    c.jail = r.target;
+    c.bookedAt = c.careAt = w.time;
+    c.sentenceUntil = r.releaseAt;
+    w.custodyRecords[1] = c;
+    Id tool = phone(w, 0);
+    w.items[tool].kind = ItemKind::Tools;
+    w.startPrisonRescue(0, 1);
+    place(w, 0, {160, 0, 150});
+    w.time += 60;
+    w.securityTick();
+    require(w.prisonRescues.empty() && w.custodyRecords[1].active, "Remote rescue continued");
+    place(w, 0, {151, 0, 150});
+    w.startPrisonRescue(0, 1);
+    w.items[tool].durability = 0;
+    w.time += 60;
+    w.securityTick();
+    require(w.prisonRescues.empty() && w.custodyRecords[1].active, "Broken tools continued rescue");
+    w.validate();
+  });
+  test("Unfinished rescue work and physical cuffs persist through native saves", [] {
+    auto w = small();
+    scene(w);
+    auto &r = w.residents[1];
+    r.activity = Activity::Jailed;
+    r.target = jail(w);
+    r.releaseAt = w.time + 86400;
+    CustodyRecord c;
+    c.resident = 1;
+    c.jail = r.target;
+    c.bookedAt = c.careAt = w.time;
+    c.sentenceUntil = r.releaseAt;
+    w.custodyRecords[1] = c;
+    Id tool = phone(w, 0);
+    w.items[tool].kind = ItemKind::Tools;
+    w.startPrisonRescue(0, 1);
+    w.time += 60;
+    w.securityTick();
+    auto path = std::filesystem::temp_directory_path() / "mega-prison-rescue.mdsave";
+    w.save(path);
+    auto v = World::load(path);
+    require(v.prisonRescues[0].progress == 60 && v.custodyRecords[1].cuffed,
+            "Rescue state was lost");
+    for (int n = 0; n < 4; ++n) {
+      v.time += 60;
+      v.securityTick();
+    }
+    require(!v.custodyRecords[1].active && v.prisonRescues.empty(), "Restored rescue failed");
+    v.validate();
+    std::filesystem::remove(path);
+    std::filesystem::remove(path.string() + ".meta.json");
+  });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

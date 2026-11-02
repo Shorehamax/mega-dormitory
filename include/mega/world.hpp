@@ -126,9 +126,11 @@ enum class TaskKind {
   Evacuate,
   TradeMeet,
   ShoppingTerminal,
-  LeaveService
+  LeaveService,
+  HouseholdMeet,
+  PrisonRescue
 };
-enum class CrimeKind { QueueCutting, Assault, ExcessiveForce, Murder, Theft, Escape };
+enum class CrimeKind { QueueCutting, Assault, ExcessiveForce, Murder, Theft, Escape, Obstruction };
 enum class ProjectState { Proposed, AwaitingConsent, Funded, Working, Completed, Disputed };
 struct Config {
   int floors = 2000;
@@ -232,7 +234,9 @@ enum class AutonomyAction {
   TradeCancelled,
   Received,
   Cancelled,
-  ParcelLost
+  ParcelLost,
+  HouseholdErrand,
+  Founded
 };
 struct ResidentPlan {
   double nextShopping = 0, nextCareer = 0, nextBusiness = 0, nextListing = 0;
@@ -242,6 +246,9 @@ struct ResidentPlan {
   Id order = none, tradeItem = none, seller = none, lastBusiness = none;
   ItemKind wanted = ItemKind::Food;
   AutonomyAction action = AutonomyAction::Saving;
+  double nextHousehold = 0, helpDeadline = 0;
+  Id helpTarget = none;
+  int helpRetries = 0;
 };
 struct Resident {
   Id id = none, account = none, home = 0, employer = none, jobSite = none;
@@ -492,6 +499,7 @@ struct Fire {
   double started = 0, updated = 0;
   Money budget = 18000, paid = 0;
   bool contained = false, out = false;
+  std::map<Id, double> spreadExposure;
 };
 struct FireSpray {
   Id fire = none, item = none;
@@ -554,6 +562,19 @@ struct Relationship {
   float trust = 0;
   double lastTalk = -3600, lastAid = -86400;
   int sharedInterest = 0;
+  int conversations = 0;
+};
+struct Education {
+  std::array<float, 3> skills{};
+  std::array<int, 3> lessons{};
+  std::array<int, 3> answers{-1, -1, -1};
+  int subject = 0, seed = 0, lastDay = -1;
+  Id school = none;
+};
+struct Household {
+  Id id = none, founder = none;
+  std::set<Id> members;
+  std::map<Id, double> invitations;
 };
 struct Message {
   Id from = none, to = none;
@@ -577,8 +598,12 @@ struct EvidenceReceipt {
 struct CustodyRecord {
   Id resident = none, guard = none, jail = none;
   double bookedAt = 0, sentenceUntil = 0, escapeAt = -1, escapeProgress = 0, careAt = 0;
-  bool active = true, escaped = false;
+  bool active = true, escaped = false, cuffed = true;
   std::vector<Id> charges;
+};
+struct PrisonRescue {
+  Id target = none, tool = none, incident = none;
+  double workedAt = 0, progress = 0;
 };
 struct Incident {
   Id id = none, offender = none, victim = none, warden = none;
@@ -746,6 +771,29 @@ public:
   std::vector<ParkingBay> parking;
   std::vector<Order> orders;
   std::map<Id, ResidentPlan> residentPlans;
+  std::map<Id, Education> education;
+  void enrollLesson(Id actor, Id school, int subject);
+  void prepareLesson(Id actor, Id school);
+  std::array<int, 4> lessonChoices(Id actor, int question) const;
+  void answerLesson(Id actor, int question, int choice);
+  void completeLesson(Id actor, Id school);
+  bool educationDecision(Id actor);
+  float jobSkill(Id actor, Role role) const;
+  void validateEducation() const;
+  std::vector<Household> households;
+  std::map<Id, Id> householdMembership; // reconstructed from groups, never grants property rights
+  Id householdOf(Id actor) const;
+  Id createHousehold(Id actor);
+  void inviteHousehold(Id actor, Id other);
+  void acceptHousehold(Id actor, Id group);
+  void leaveHousehold(Id actor);
+  void rebuildHouseholds();
+  void householdTick();
+  void householdSocial(Id a, Id b);
+  int householdMealDeficit(Id actor) const;
+  bool householdDecision(Id actor);
+  void finishHouseholdVisit(Id actor);
+  void validateHouseholds() const;
   std::set<Id> itemOffers; // live resale advertisements; rebuilt from saved items
   void rebuildItemOffers();
   static Money productPrice(ItemKind);
@@ -821,6 +869,7 @@ public:
   double nextAccidentAt = 0;
   Id ignite(Id facility, float intensity = .35f);
   void triggerFire(Id actor, Id facility);
+  void spreadFireTick(const std::map<Id, double> &elapsed);
   float dangerAt(Vec3 position) const;
   void requestFireResponse(Id actor, Id fire);
   Id issueExtinguisher(Id actor, Id station);
@@ -861,6 +910,11 @@ public:
   bool bodyVisible(Id observer, Id remains) const;
   void discoverDeaths();
   void beginCustody(Id guard, Id suspect, Id jail);
+  std::map<Id, PrisonRescue> prisonRescues;
+  void startPrisonRescue(Id actor, Id prisoner);
+  void stopPrisonRescue(Id actor);
+  void prisonRescueTick();
+  void validatePrisonRescues() const;
   void startEscape(Id resident);
   void stopEscape(Id resident);
   void escapeCustody(Id resident);

@@ -16,12 +16,7 @@ float lengthOf(VehicleKind k) {
   return k <= VehicleKind::Scooter ? 1.7f : k == VehicleKind::CompactCar ? 4.2f : 5.1f;
 }
 float boxSeparation(Vec3 pos, float yaw, float hw, float hl, const Obstacle &o) {
-  float c = std::cos(yaw), s = std::sin(yaw);
-  Vec3 middle = (o.min + o.max) * .5f, ext = (o.max - o.min) * .5f, d = middle - pos;
-  return std::max({std::abs(d.x) - ext.x - hw * std::abs(c) - hl * std::abs(s),
-                   std::abs(d.z) - ext.z - hw * std::abs(s) - hl * std::abs(c),
-                   std::abs(d.x * c + d.z * s) - hw - ext.x * std::abs(c) - ext.z * std::abs(s),
-                   std::abs(-d.x * s + d.z * c) - hl - ext.x * std::abs(s) - ext.z * std::abs(c)});
+  return obstacleSeparation(orientedObstacle(pos, {hw * 2, 1, hl * 2}, yaw), o);
 }
 bool boxContact(Vec3 pos, float yaw, float hw, float hl, const Obstacle &o) {
   return boxSeparation(pos, yaw, hw, hl, o) <= 0;

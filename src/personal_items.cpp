@@ -4,6 +4,9 @@ namespace mega {
 bool World::itemInUse(Id item) const {
   if (item < 0 || std::size_t(item) >= items.size())
     return false;
+  for (const auto &[actor, rescue] : prisonRescues)
+    if (rescue.tool == item)
+      return true;
   auto found = personalUses.find(items[item].carrier);
   return found != personalUses.end() &&
          (found->second.item == item || found->second.ingredient == item);

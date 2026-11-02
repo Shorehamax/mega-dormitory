@@ -16,9 +16,11 @@ layout(std430,binding=6) readonly buffer Instances { Instance instances[]; };
 void main(){
  if(pc.ui<-.5){
   Instance i=instances[gl_InstanceIndex];
-  vec3 p=inPosition*i.scale.xyz+i.position.xyz;
+  float c=cos(i.position.w),s=sin(i.position.w);
+  mat3 rotation=mat3(c,0,s,0,1,0,-s,0,c);
+  vec3 p=rotation*(inPosition*i.scale.xyz)+i.position.xyz;
   gl_Position=pc.mvp*vec4(p,1);color=inColor*i.tint;uv=inUV;
-  normal=normalize(inNormal/i.scale.xyz);depth=gl_Position.w;worldPosition=p;material=inMaterial;
+  normal=normalize(rotation*(inNormal/i.scale.xyz));depth=gl_Position.w;worldPosition=p;material=inMaterial;
   return;
  }
 gl_Position=pc.mvp*vec4(inPosition,1);color=inColor;uv=inUV;normal=inNormal;depth=gl_Position.w;worldPosition=inPosition;material=inMaterial;}

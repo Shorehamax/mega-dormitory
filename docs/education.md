@@ -1,0 +1,11 @@
+# Attended learning
+
+Open **My life → Learning & qualifications**. Choose programming/logic, video production or administration/logistics. A course needs an accessible operating school, tuition, stock, a seat and an actual teacher on site and on shift. New modern worlds have sparse classrooms on commercial floors; existing saves keep their original layout and can build schools through ordinary funded construction.
+
+Residents physically walk to the queue tail and then their seat. Lessons require at least thirty game minutes, pause when teaching stops, and pay the school operator only on successful completion. Leaving, unaffordable tuition or death grants no new knowledge. One completed course per resident per day earns credit. Membership of a household does not waive school fees.
+
+The focused learning screen supplies three numeric exercises for the chosen discipline: filtering/deduplication/transformation, clip durations/overlaps, or stock/budget/staff planning. Answers require the student's real seat during active teaching. Finishing a lesson grants one skill point for attendance and one per correct exercise, up to 100. Automatic students answer using their existing knowledge and interests, rather than receiving universal perfect marks. Skills shorten corresponding future office contracts by up to 30% and influence career fit; they do not create revenue or waive the work/minigame submission requirements.
+
+Automatic children aged six or older seek affordable weekday daytime lessons. Interested adults train on staggered weekdays outside their work and sleep needs, protecting rent/necessity reserves. Night workers may be asleep during available daytime classes. New worlds still generate adults; full childhood, family care, curricula, diplomas and promotion systems remain unfinished.
+
+Subjects, exercises, skills, daily credits and paused service progress persist. Older native saves default to no invented qualifications. Study, teaching, aid handovers and restraint work use separate blended procedural poses; classroom desks, notebooks, pens and board belong to the existing facility. Imported animation clips, contact IK and final production art/audio remain outstanding.

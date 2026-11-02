@@ -159,7 +159,7 @@ int main() {
     require(!w.interiorWalls[0].active, "Proposal changed collision");
     w.config.mode = Mode::Survival;
     rejects([&] { w.proposePartition(2, 0, {80, 0, 100}, {88, 0, 100}, true); });
-    rejects([&] { w.proposePartition(w.dormOwner, 0, {70, 0, 100}, {78, 0, 108}, true); });
+    rejects([&] { w.proposePartition(w.dormOwner, 0, {70, 0, 100}, {71, 0, 101}, true); });
     w.accounts[w.dormAccount].balance = 0;
     rejects([&] { w.fundStructuralWork(w.dormOwner, p); });
     require(w.structuralWorks[p].state == StructuralState::Proposed, "Unfunded project advanced");
@@ -621,6 +621,74 @@ int main() {
     w.residents[9].activity = Activity::Walking;
     finish(w, p);
     require(w.interiorWalls[0].active, "Unrelated traffic prevented construction");
+  });
+
+  test("An angled wall requires real funded labor and uses its actual thin footprint", [] {
+    auto w = small();
+    rich(w);
+    Id p = w.proposePartition(w.dormOwner, 0, {70, 0, 100}, {78, 0, 108}, false);
+    Id team = crew(w, w.structuralWorks[p].workshop);
+    require(w.clearPosition({72, 0, 102}), "Proposal built an unfunded wall");
+    w.fundStructuralWork(w.dormOwner, p);
+    w.assignStructuralTeam(w.dormOwner, p, team);
+    supply(w, p);
+    finish(w, p);
+    require(!w.clearPosition({72, 0, 102}), "Diagonal wall has no collision");
+    require(w.clearPosition({70.5f, 0, 107}), "Diagonal wall blocks its whole enclosing rectangle");
+    require(!w.lineOfSight({71, 1.4f, 104}, {74, 1.4f, 101}), "Sight passes through angled wall");
+    auto route = w.floorPath({70.5f, 0, 107}, {77, 0, 107.5f});
+    require(!route.empty(), "Navigation could not go around angled wall");
+    w.validate();
+  });
+  test("An angled doorway stays open to people and sight", [] {
+    auto w = small();
+    rich(w);
+    Id p = w.proposePartition(w.dormOwner, 0, {70, 0, 100}, {78, 0, 108}, true);
+    Id team = crew(w, w.structuralWorks[p].workshop);
+    w.fundStructuralWork(w.dormOwner, p);
+    w.assignStructuralTeam(w.dormOwner, p, team);
+    supply(w, p);
+    finish(w, p);
+    Vec3 n = normalized(Vec3{-1, 0, 1}), mid{74, 0, 104};
+    require(w.clearPosition(mid), "Angled doorway filled by a broad-phase box");
+    require(w.lineOfSight(mid - n * 2 + Vec3{0, 1.4f, 0}, mid + n * 2 + Vec3{0, 1.4f, 0}),
+            "Angled doorway blocked sight");
+    Vec3 moved = w.moveCapsule(0, mid - n, n * 2, false);
+    require(length(moved - (mid + n)) < .05f, "Capsule cannot traverse angled doorway");
+    w.validate();
+  });
+  test("Capsules cannot cross a diagonal solid wall or deepen an existing overlap", [] {
+    auto w = small();
+    InteriorWall wall{
+        Id(w.interiorWalls.size()), w.dormAccount, 0, {70, 0, 100}, {78, 0, 108}, false, true};
+    w.interiorWalls.push_back(wall);
+    w.invalidateGeometry(0);
+    Vec3 n = normalized(Vec3{-1, 0, 1}), mid{74, 0, 104};
+    auto moved = w.moveCapsule(0, mid - n, n * 3, false);
+    require(dot(moved - mid, n) < -.3f, "Capsule penetrated diagonal wall");
+    Vec3 inside = mid + n * .1f;
+    auto retreat = w.moveCapsule(0, inside, n * .5f, false);
+    require(dot(retreat - mid, n) > .3f, "Overlapped capsule could not leave wall");
+    auto deeper = w.moveCapsule(0, inside, n * -.08f, false);
+    require(length(deeper - inside) < .001f, "Existing contact let a body deepen overlap");
+  });
+  test("Reversed diagonal endpoints preserve doorway geometry through save and reload", [] {
+    auto w = small();
+    rich(w);
+    Id p = w.proposePartition(w.dormOwner, 0, {78, 0, 108}, {70, 0, 100}, true);
+    Id team = crew(w, w.structuralWorks[p].workshop);
+    w.fundStructuralWork(w.dormOwner, p);
+    w.assignStructuralTeam(w.dormOwner, p, team);
+    supply(w, p);
+    finish(w, p);
+    auto path = std::filesystem::temp_directory_path() / "mega-angled-room.mdsave";
+    w.save(path);
+    auto v = World::load(path);
+    require(v.clearPosition({74, 0, 104}) && !v.clearPosition({71, 0, 101}),
+            "Saved angle or doorway was lost");
+    v.validate();
+    std::filesystem::remove(path);
+    std::filesystem::remove(path.string() + ".meta.json");
   });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;

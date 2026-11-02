@@ -50,7 +50,9 @@ std::string World::availability(Id fid) const {
     return "facility.fire";
   if (f.condition < .1f)
     return "facility.broken";
-  if (staffOnDuty(fid) < f.staffNeeded)
+  if ((f.kind == FacilityKind::School && f.staffRole != Role::Teacher) ||
+      staffOnDuty(fid) <
+          (f.kind == FacilityKind::School ? std::max(1, f.staffNeeded) : f.staffNeeded))
     return "facility.unstaffed";
   return "facility.ready";
 }

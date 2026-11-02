@@ -414,15 +414,9 @@ Vec3 World::moveCapsule(Id id, Vec3 p, Vec3 delta, bool people) const {
   Vec3 step = delta * (1.f / steps);
   auto blocked = [&](Vec3 q) {
     int floor = std::clamp(int(std::floor((q.y + .02f) / 3)), 0, config.floors - 1);
-    auto clearance = [](Vec3 a, const Obstacle &o) {
-      float dx = std::max({o.min.x - a.x, 0.f, a.x - o.max.x});
-      float dz = std::max({o.min.z - a.z, 0.f, a.z - o.max.z});
-      if (dx > 0 || dz > 0)
-        return std::hypot(dx, dz);
-      return -std::min({a.x - o.min.x, o.max.x - a.x, a.z - o.min.z, o.max.z - a.z});
-    };
     for (const auto &o : floorObstacles(floor))
-      if (overlaps(q, o) && (!overlaps(p, o) || clearance(q, o) <= clearance(p, o) + .000001f))
+      if (overlaps(q, o) &&
+          (!overlaps(p, o) || obstacleClearance(q, o) <= obstacleClearance(p, o) + .000001f))
         return true;
     for (const auto &v : vehicles)
       if (v.driver != id && std::abs(q.y - v.pos.y) < 1.7f) {

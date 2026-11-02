@@ -4,11 +4,11 @@ Open **Management → Interior & structural works**. Dormitory owners can commis
 
 ## Interior layouts
 
-Set the starting X/Z coordinates, orientation and length to create connected partitions and rooms. Segments are axis-aligned, 2.5–64 metres long, 18 cm thick and 2.7 metres tall. The optional central passage is 1.6 metres wide and 2.15 metres high. It is an open doorway, not an animated lockable door.
+Set the starting X/Z coordinates, angle in degrees and length to create connected partitions and rooms. Segments can face any horizontal angle and are 2.5–64 metres long, 18 cm thick and 2.7 metres tall. The optional central passage is 1.6 metres wide and 2.15 metres high. It is an open doorway, not an animated lockable door.
 
 Placement protects bed footprints, facility service/queue space, ladder access and routes from homes, businesses and people to a ladder. Wall junctions are allowed; sealing someone inside is rejected. Construction rechecks the layout before completion and waits if someone occupies the installation footprint. Changed routes are invalidated rather than allowing residents to walk through the finished wall. Unrelated ladder traffic does not block construction. Close meshes, distant instances, navigation, capsule contacts and line of sight use the same wall segments.
 
-Select an existing partition to propose its removal. Beds and facilities continue to use their funded construction/removal contracts and arbitrary clear X/Z plots. General angled walls, partial floor cutouts and moving an entire furnished business intact are not included.
+Select an existing partition to propose its removal. Beds and facilities continue to use their funded construction/removal contracts and arbitrary clear X/Z plots. Partial floor cutouts and moving an entire furnished business intact are not included. Angled segments retain a true oriented footprint: empty corners of their enclosing rectangle remain usable. Junctions are checked against the shared collision geometry, and room egress is still protected. Both nearby meshes and distant GPU instances rotate positions and normals to match the physical wall. Vehicles use the same oriented contact geometry.
 
 ## Crews and foremen
 

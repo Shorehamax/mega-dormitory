@@ -31,6 +31,7 @@ std::string World::talk(Id speaker, Id listener, int topic) {
   bond.a = std::min(speaker, listener);
   bond.b = std::max(speaker, listener);
   bond.lastTalk = time;
+  bond.conversations = std::min(1000000, bond.conversations + 1);
   int interest =
       int(std::max_element(b.interests.begin(), b.interests.end()) - b.interests.begin());
   bond.sharedInterest = interest;
@@ -71,6 +72,7 @@ std::string World::talk(Id speaker, Id listener, int topic) {
   }
   if (topic == 5)
     reply = shareFood(listener, speaker) ? "talk.meal_shared" : "talk.no_spare";
+  householdSocial(speaker, listener);
   log(reply, listener, speaker);
   return reply;
 }

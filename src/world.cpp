@@ -109,6 +109,11 @@ World World::generate(const Config &cfg) {
                  : kind == FacilityKind::Toilet ? 270
                  : kind == FacilityKind::Shop   ? 90
                                                 : 180;
+    if (kind == FacilityKind::School) {
+      v.duration = 1800;
+      v.price = 1500;
+      v.stations = std::max(1, int(std::ceil(12 * cfg.scarcity)));
+    }
     v.askingPrice = 2000000;
     if (kind == FacilityKind::Elevator) {
       v.price = 90;
@@ -128,6 +133,8 @@ World World::generate(const Config &cfg) {
       addFacility(FacilityKind::Office, std::min(f + 5, cfg.floors - 1), 4);
       addFacility(FacilityKind::Terminal, std::min(f + 9, cfg.floors - 1), 5);
       addFacility(FacilityKind::Workshop, std::min(f + 5, cfg.floors - 1), 6);
+      if (cfg.layoutVersion > 1)
+        addFacility(FacilityKind::School, std::min(f + 9, cfg.floors - 1), 7);
     }
     if (f % 50 == 0) {
       addFacility(FacilityKind::Infirmary, f, 7);
@@ -429,8 +436,11 @@ void World::travel(Id id, Vec3 dest, TaskKind task, Id target) {
   r.ladderExit = false;
   if (target >= 0 && std::size_t(target) < facilities.size() &&
       (task == TaskKind::Service || task == TaskKind::Work))
-    dest = task == TaskKind::Service ? serviceApproach(target)
-                                     : facilities[target].pos + Vec3{0, 0, -1.6f};
+    dest = task == TaskKind::Service
+               ? serviceApproach(target)
+               : facilities[target].pos + (facilities[target].kind == FacilityKind::School
+                                               ? Vec3{-1.5f, 0, -.6f}
+                                               : Vec3{0, 0, -1.6f});
   if (task != TaskKind::LiftWait && planLift(id, dest, task, target)) {
     stopPersonalUse(id);
     return;
@@ -491,6 +501,12 @@ void World::decide(Id id, bool scheduleNext) {
     schedule(time + 180 + random() * 120, EventKind::Decide, id);
   if (looseBodies.contains(id))
     return;
+  if (prisonRescues.contains(id)) {
+    if (r.hunger > .85f || r.thirst > .85f || r.energy < .2f)
+      stopPrisonRescue(id);
+    else
+      return;
+  }
   if (r.task == TaskKind::Escort && r.escort != none)
     return;
   if (!r.automatic || r.vehicle != none || r.lift != none || r.ambulance != none ||
@@ -721,6 +737,10 @@ void World::decide(Id id, bool scheduleNext) {
   if (!workWindow && r.activity == Activity::Idle && r.route.empty() && r.hunger < .85f &&
       r.thirst < .65f && r.bladder < .75f && r.hygiene >= .35f && r.energy > .3f &&
       autonomyDecision(id))
+    return;
+  if (!workWindow && r.activity == Activity::Idle && r.route.empty() && r.hunger < .57f &&
+      r.thirst < .65f && r.bladder < .75f && r.hygiene >= .35f && r.energy > .4f &&
+      educationDecision(id))
     return;
   if (r.role == Role::Warden && workWindow) {
     wardenRespond(id);
@@ -1043,7 +1063,8 @@ void World::dispatch(const Event &e) {
       return;
     if (crowd.contains(e.other) && !residents[e.other].route.empty() &&
         length(position(e.other) - residents[e.other].route.back().p) > .08f) {
-      it->until = time + f.duration;
+      it->until =
+          time + (f.kind == FacilityKind::School ? std::max(1800., f.duration) : f.duration);
       schedule(it->until, EventKind::FinishService, e.id, e.other);
       return;
     }
@@ -1069,6 +1090,8 @@ void World::dispatch(const Event &e) {
       r.route.clear();
       if (f.kind == FacilityKind::Food || f.kind == FacilityKind::Cafe)
         r.hunger = std::max(0.f, r.hunger - .55f);
+      if (f.kind == FacilityKind::School)
+        completeLesson(r.id, f.id);
       if (f.kind == FacilityKind::Water)
         r.thirst = std::max(0.f, r.thirst - .7f);
       if (f.kind == FacilityKind::Infirmary)
@@ -1128,8 +1151,10 @@ void World::dispatch(const Event &e) {
       r.activity = Activity::Idle;
       r.surrendered = false;
       r.escort = none;
-      if (custodyRecords.contains(r.id))
+      if (custodyRecords.contains(r.id)) {
         custodyRecords[r.id].active = false;
+        custodyRecords[r.id].cuffed = false;
+      }
       log("custody.released", r.id);
     }
     return;
@@ -1171,6 +1196,7 @@ void World::dispatch(const Event &e) {
         clockIn(r.id);
     }
     healthTick();
+    householdTick();
     socialTick();
     economyTick();
     governanceTick();
@@ -1179,9 +1205,9 @@ void World::dispatch(const Event &e) {
 }
 void World::arrive(Id id) {
   auto &r = residents.at(id);
-  float arrivalRadius = r.task == TaskKind::Investigate                           ? 2.5f
-                        : r.task == TaskKind::Service || r.task == TaskKind::Work ? .68f
-                                                                                  : .08f;
+  float arrivalRadius = r.task == TaskKind::Investigate || r.task == TaskKind::HouseholdMeet ? 2.5f
+                        : r.task == TaskKind::Service || r.task == TaskKind::Work            ? .68f
+                                                                                             : .08f;
   if (r.task == TaskKind::None && !r.route.empty() && crowd.contains(id))
     for (Id other : nearbyResidents)
       if (other != id && residents[other].alive && residents[other].present &&
@@ -1224,7 +1250,9 @@ void World::arrive(Id id) {
       else
         travel(id, serviceApproach(target), TaskKind::Service, target);
     }
-  } else if (task == TaskKind::TradeMeet)
+  } else if (task == TaskKind::HouseholdMeet)
+    finishHouseholdVisit(id);
+  else if (task == TaskKind::TradeMeet)
     finishAutonomyTrade(id);
   else if (task == TaskKind::ShoppingTerminal) {
     // Availability can change while walking. A busy computer is normal, not a failed task.
@@ -1354,6 +1382,8 @@ void World::joinQueue(Id id, Id fId) {
     throw std::runtime_error("Cannot afford service");
   if (f.queue.size() >= 64)
     throw std::runtime_error("The waiting area is full");
+  if (f.kind == FacilityKind::School)
+    prepareLesson(id, fId);
   clockOut(id);
   stopPersonalUse(id);
   r.pos = position(id);
@@ -1370,6 +1400,8 @@ void World::leaveQueue(Id id) {
   if (r.queuedAt == none)
     return;
   auto &f = facilities[r.queuedAt];
+  if (f.kind == FacilityKind::School && education.contains(id))
+    education[id].school = none;
   r.pos = position(id);
   r.route.clear();
   ++r.routeVersion;
@@ -1468,7 +1500,8 @@ void World::serve(Id fId) {
     }
 
     double arrival = r.route.back().time;
-    double until = arrival + f.duration;
+    double until =
+        arrival + (f.kind == FacilityKind::School ? std::max(1800., f.duration) : f.duration);
     f.serving.push_back({id, until, 0, f.price, station});
     schedule(until, EventKind::FinishService, fId, id);
   }

@@ -762,6 +762,21 @@ int main() {
             "The driver failed to slow down and complete a clear right-angle route");
     w.validate();
   });
+
+  test("Vehicles contact a diagonal partition without blocking its enclosing empty corners", [] {
+    auto w = small();
+    w.interiorWalls.push_back(
+        {Id(w.interiorWalls.size()), w.dormAccount, 0, {70, 0, 100}, {86, 0, 116}, false, true});
+    w.invalidateGeometry(0);
+    Vehicle v;
+    v.id = Id(w.vehicles.size());
+    v.kind = VehicleKind::CompactCar;
+    v.owner = w.residents[0].account;
+    v.pos = {64, 0, 100};
+    w.vehicles.push_back(v);
+    require(w.vehicleFits(v.id, {71, 0, 112}, 0, false), "Diagonal barrier blocks an empty corner");
+    require(!w.vehicleFits(v.id, {78, 0, 108}, 0, false), "Vehicle penetrates angled wall");
+  });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

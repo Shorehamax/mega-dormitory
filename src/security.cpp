@@ -346,6 +346,7 @@ double World::sentenceHours(Id suspect) const {
                               : c.kind == CrimeKind::ExcessiveForce ? 24.
                               : c.kind == CrimeKind::Theft          ? 16.
                               : c.kind == CrimeKind::Escape         ? 24.
+                              : c.kind == CrimeKind::Obstruction    ? 16.
                                                                     : 8.);
   return hours;
 }
@@ -440,6 +441,7 @@ void World::escapeCustody(Id id) {
   r.releaseAt = 0;
   c.active = false;
   c.escaped = true;
+  c.cuffed = false;
   c.escapeAt = -1;
   Id victim = guard != none
                   ? guard
@@ -458,6 +460,7 @@ void World::escapeCustody(Id id) {
 }
 void World::securityTick() {
   discoverDeaths();
+  prisonRescueTick();
   for (auto &r : residents)
     if (r.alive && r.present && r.surrendered && r.activity == Activity::Surrendered &&
         r.surrenderUntil <= time &&
@@ -561,7 +564,8 @@ void World::securityTick() {
     }
     Id watching = none;
     for (const auto &g : residents)
-      if (g.id != id && g.role == Role::Warden && guardReady(*this, g.id) && onShift(g.id) &&
+      if (g.id != id && g.role == Role::Warden && guardReady(*this, g.id) &&
+          g.activity != Activity::Fighting && g.activity != Activity::Sleeping && onShift(g.id) &&
           near(g.id, position(id), 4) && sees(*this, g.id, position(id), 4)) {
         watching = g.id;
         break;
@@ -589,11 +593,12 @@ void World::securityTick() {
   }
 }
 void World::validateSecurity() const {
+  validatePrisonRescues();
   auto resident = [&](Id id) { return id >= 0 && std::size_t(id) < residents.size(); };
   auto facility = [&](Id id) { return id >= 0 && std::size_t(id) < facilities.size(); };
   for (std::size_t n = 0; n < incidents.size(); ++n) {
     const auto &c = incidents[n];
-    if (c.id != Id(n) || int(c.kind) < 0 || int(c.kind) > int(CrimeKind::Escape) ||
+    if (c.id != Id(n) || int(c.kind) < 0 || int(c.kind) > int(CrimeKind::Obstruction) ||
         !resident(c.offender) || !resident(c.victim) ||
         (c.suspect != none && !resident(c.suspect)) ||
         (c.reporter != none && !resident(c.reporter)) ||

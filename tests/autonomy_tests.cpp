@@ -591,6 +591,220 @@ int main() {
             "Career change abandoned a funded construction contract");
     conserved(w);
   });
+
+  test("Household invitations require consent and do not merge personal property or money", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 60});
+    place(w, 1, {51, 0, 60});
+    w.relationships[1] = {0, 1, .7f, -3600, 0};
+    Money money = w.accounts[w.residents[0].account].balance;
+    auto home = w.residentHomes[1];
+    Id group = w.createHousehold(0);
+    rejects([&] { w.acceptHousehold(1, group); });
+    w.inviteHousehold(0, 1);
+    require(w.householdOf(1) == none, "Invitation silently enrolled the resident");
+    w.acceptHousehold(1, group);
+    require(w.householdOf(0) == group && w.householdOf(1) == group &&
+                w.accounts[w.residents[0].account].balance == money && w.residentHomes[1] == home,
+            "Membership merged property or money");
+    conserved(w);
+  });
+  test("Strangers, remote invitations and expired offers cannot create membership", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 60});
+    place(w, 1, {51, 0, 60});
+    Id group = w.createHousehold(0);
+    rejects([&] { w.inviteHousehold(0, 1); });
+    w.relationships[1] = {0, 1, .7f, -3600, 0};
+    place(w, 1, {70, 0, 60});
+    rejects([&] { w.inviteHousehold(0, 1); });
+    place(w, 1, {51, 0, 60});
+    w.inviteHousehold(0, 1);
+    w.households[group].invitations[1] = w.time - 1;
+    rejects([&] { w.acceptHousehold(1, group); });
+    conserved(w);
+  });
+  test("Household membership and a pending invitation survive saves", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 60});
+    place(w, 1, {51, 0, 60});
+    w.relationships[1] = {0, 1, .7f, -3600, 0};
+    Id group = w.createHousehold(0);
+    w.inviteHousehold(0, 1);
+    auto path = std::filesystem::temp_directory_path() / "mega-household.mdsave";
+    w.save(path);
+    auto v = World::load(path);
+    require(v.householdOf(0) == group && v.households[group].invitations.contains(1),
+            "Household state was lost");
+    v.acceptHousehold(1, group);
+    conserved(v);
+    std::filesystem::remove(path);
+    std::filesystem::remove(path.string() + ".meta.json");
+  });
+  test("Trusted adults form households after repeated real conversations", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 60});
+    place(w, 1, {51, 0, 60});
+    w.residents[0].automatic = w.residents[1].automatic = true;
+    w.residents[0].aggression = w.residents[1].aggression = .1f;
+    w.relationships[1] = {0, 1, .8f, w.time - 3600, 0};
+    w.relationships[1].conversations = 7;
+    w.talk(0, 1, 1);
+    require(w.householdOf(0) != none && w.householdOf(1) == w.householdOf(0),
+            "Trusted acquaintances never formed a household");
+    conserved(w);
+  });
+  test("Manual residents are never automatically enrolled by conversation", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 60});
+    place(w, 1, {51, 0, 60});
+    w.residents[1].automatic = true;
+    w.relationships[1] = {0, 1, .8f, w.time - 3600, 0};
+    w.relationships[1].conversations = 20;
+    w.talk(0, 1, 1);
+    require(w.householdOf(0) == none && w.householdOf(1) == none,
+            "Conversation commandeered a manual resident");
+    conserved(w);
+  });
+  test("A housemate walks over and physically transfers a spare meal", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 60});
+    place(w, 1, {51, 0, 60});
+    w.residents[0].aggression = .1f;
+    w.relationships[1] = {0, 1, .7f, -3600, 0};
+    auto group = w.createHousehold(0);
+    w.inviteHousehold(0, 1);
+    w.acceptHousehold(1, group);
+    Id retained = add(w, 0, ItemKind::Food), gift = add(w, 0, ItemKind::Food);
+    w.residents[1].hunger = .8f;
+    place(w, 1, {65, 0, 60});
+    arm(w);
+    require(w.householdDecision(0), "Housemate did not plan a real errand");
+    require(w.residents[0].task == TaskKind::HouseholdMeet && w.items[gift].carrier == 0,
+            "Household meal teleported");
+    w.advance(w.residents[0].route.back().time - w.time + .01);
+    require(w.items[gift].owner == w.residents[1].account && w.items[gift].carrier == 1 &&
+                w.items[retained].carrier == 0,
+            "Meal handover failed or took the donor's last meal");
+    conserved(w);
+  });
+  test("Leaving a household cancels a pending gift without confiscating it", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 60});
+    place(w, 1, {51, 0, 60});
+    w.residents[0].aggression = .1f;
+    w.relationships[1] = {0, 1, .7f, -3600, 0};
+    auto group = w.createHousehold(0);
+    w.inviteHousehold(0, 1);
+    w.acceptHousehold(1, group);
+    add(w, 0, ItemKind::Food);
+    Id gift = add(w, 0, ItemKind::Food);
+    w.residents[1].hunger = .8f;
+    place(w, 1, {65, 0, 60});
+    arm(w);
+    require(w.householdDecision(0), "No gift journey");
+    double until = w.residents[0].route.back().time;
+    w.leaveHousehold(1);
+    w.advance(until - w.time + .01);
+    require(w.items[gift].carrier == 0 && w.residentPlans[0].helpTarget == none,
+            "Departed member kept access to belongings");
+    conserved(w);
+  });
+  test("Household shortages motivate budgeted purchases and count pending parcels", [] {
+    auto w = small();
+    Id f = shop(w);
+    courier(w, f);
+    place(w, 0, w.facilities[f].pos + Vec3{4, 0, 5});
+    place(w, 1, w.position(0) + Vec3{1, 0, 0});
+    w.relationships[1] = {0, 1, .7f, -3600, 0};
+    auto group = w.createHousehold(0);
+    w.inviteHousehold(0, 1);
+    w.acceptHousehold(1, group);
+    add(w, 0, ItemKind::Food);
+    w.residents[0].hunger = .1f;
+    w.residents[1].hunger = .8f;
+    arm(w);
+    w.householdShopping(0);
+    require(w.orders.size() == 1 && w.orders[0].product == ItemKind::Food &&
+                w.householdMealDeficit(0) == 0,
+            "Household needs or already-purchased supplies ignored");
+    conserved(w);
+  });
+  test("Household membership does not authorize customizing someone else's possessions", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 60});
+    place(w, 1, {51, 0, 60});
+    w.relationships[1] = {0, 1, .7f, -3600, 0};
+    auto group = w.createHousehold(0);
+    w.inviteHousehold(0, 1);
+    w.acceptHousehold(1, group);
+    Id item = add(w, 1, ItemKind::Clothes);
+    rejects([&] { w.listItem(0, item, 100); });
+    require(w.items[item].owner == w.residents[1].account, "Membership seized private property");
+    conserved(w);
+  });
+  test("Households preserve a successor and remove dead or departing members", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 60});
+    place(w, 1, {51, 0, 60});
+    w.relationships[1] = {0, 1, .7f, -3600, 0};
+    auto group = w.createHousehold(0);
+    w.inviteHousehold(0, 1);
+    w.acceptHousehold(1, group);
+    w.kill(0);
+    w.householdTick();
+    require(w.householdOf(0) == none && w.households[group].founder == 1,
+            "Death orphaned household leadership");
+    w.leaveHousehold(1);
+    require(w.households[group].members.empty() && w.households[group].founder == none,
+            "Last departure left a phantom member");
+    conserved(w);
+  });
+  test("Malformed duplicate household membership is rejected", [] {
+    auto w = small();
+    Id a = w.createHousehold(0), b = w.createHousehold(1);
+    w.households[b].members.insert(0);
+    rejects([&] { w.rebuildHouseholds(); });
+    w.households[b].members.erase(0);
+    w.rebuildHouseholds();
+    w.households[a].invitations[999999] = w.time + 100;
+    rejects([&] { w.validate(); });
+  });
+  test("Autonomous founders fund a real vacant office without spending protected rent", [] {
+    auto w = small();
+    Id actor = 0;
+    for (; actor < 40; ++actor) {
+      bool owns = false;
+      for (const auto &c : w.companies)
+        owns |= c.owner == actor;
+      if (!owns)
+        break;
+    }
+    Id office = w.nearestAt({0, 0, 0}, FacilityKind::Office);
+    for (auto &f : w.facilities)
+      f.askingPrice = 0;
+    w.facilities[office].employees.clear();
+    w.offerWorkspace(w.facilities[office].manager, office, 3000);
+    w.residents[actor].interests[6] = 1;
+    place(w, actor, w.facilities[office].pos + Vec3{4, 0, 5});
+    w.pay(0, w.residents[actor].account, 1000000, "test-founders-savings");
+    arm(w, actor);
+    w.residentPlans[actor].nextBusiness = w.time;
+    auto before = w.companies.size();
+    Id landlord = w.facilities[office].owner;
+    Money cash = w.accounts[landlord].balance;
+    w.businessDecision(actor);
+    require(w.companies.size() == before + 1 && w.leasedWorkspaces.contains(office),
+            "Founder did not create a funded tenant company");
+    require(w.accounts[landlord].balance == cash + 3000 &&
+                w.accounts[w.residents[actor].account].balance >= w.householdReserve(actor) &&
+                w.facilities[office].owner == landlord,
+            "Formation invented rent or seized the office");
+    w.residentPlans[actor].nextBusiness = w.time;
+    w.businessDecision(actor);
+    require(w.companies.size() == before + 1, "Founder spawned repeated empty companies");
+    conserved(w);
+  });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

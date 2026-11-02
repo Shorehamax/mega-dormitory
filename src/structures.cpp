@@ -30,8 +30,7 @@ void manager(const World &w, Id actor) {
     throw std::runtime_error("structure.error.permission");
 }
 bool intersects(const Obstacle &a, const Obstacle &b, float margin = 0) {
-  return a.min.x < b.max.x + margin && a.max.x > b.min.x - margin && a.min.z < b.max.z + margin &&
-         a.max.z > b.min.z - margin;
+  return obstacleSeparation(a, b) < margin;
 }
 bool crossesWall(const World &w, const Resident &r, const InteriorWall &wall) {
   auto parts = w.wallSegments(wall);
@@ -44,24 +43,7 @@ bool crossesWall(const World &w, const Resident &r, const InteriorWall &wall) {
     for (const auto &part : parts) {
       if (part.min.y > from.p.y + 1.75f)
         continue;
-      float lo = 0, hi = 1;
-      for (int axis = 0; axis < 2; ++axis) {
-        float a = axis == 0 ? from.p.x : from.p.z;
-        float d = axis == 0 ? to.p.x - from.p.x : to.p.z - from.p.z;
-        float minimum = (axis == 0 ? part.min.x : part.min.z) - .3f;
-        float maximum = (axis == 0 ? part.max.x : part.max.z) + .3f;
-        if (std::abs(d) < .00001f) {
-          if (a < minimum || a > maximum)
-            hi = -1;
-        } else {
-          float near = (minimum - a) / d, far = (maximum - a) / d;
-          if (near > far)
-            std::swap(near, far);
-          lo = std::max(lo, near);
-          hi = std::min(hi, far);
-        }
-      }
-      if (lo <= hi)
+      if (segmentHitsObstacle(from.p + Vec3{0, .8f, 0}, to.p + Vec3{0, .8f, 0}, part, .3f))
         return true;
     }
   }
@@ -92,14 +74,13 @@ bool World::structuralFloorLocked(int floor) const {
 }
 std::vector<Obstacle> World::wallSegments(const InteriorWall &w) const {
   Vec3 middle = (w.a + w.b) * .5f;
-  bool alongX = std::abs(w.b.x - w.a.x) > .01f;
   float span = length(w.b - w.a);
+  Vec3 direction = (w.b - w.a) * (1 / span);
+  float yaw = std::atan2(direction.z, direction.x);
   std::vector<Obstacle> out;
   auto add = [&](float from, float to, float bottom, float height) {
-    Vec3 center = middle + (alongX ? Vec3{(from + to) / 2, bottom + height / 2, 0}
-                                   : Vec3{0, bottom + height / 2, (from + to) / 2});
-    Vec3 size = alongX ? Vec3{to - from, height, .18f} : Vec3{.18f, height, to - from};
-    out.push_back({center - size * .5f, center + size * .5f});
+    Vec3 center = middle + direction * ((from + to) / 2) + Vec3{0, bottom + height / 2, 0};
+    out.push_back(orientedObstacle(center, {to - from, height, .18f}, yaw));
   };
   if (w.door) {
     add(-span / 2, -.8f, 0, 2.7f);
@@ -119,17 +100,13 @@ void World::checkPartition(Id id) {
       for (const auto &existing : floorObstacles(wall.floor))
         if (intersects(segment, existing, .08f)) {
           bool joint = false;
-          float overlapX =
-              std::min(segment.max.x, existing.max.x) - std::max(segment.min.x, existing.min.x);
-          float overlapZ =
-              std::min(segment.max.z, existing.max.z) - std::max(segment.min.z, existing.min.z);
-          if (overlapX <= .35f && overlapZ <= .35f)
-            for (const auto &other : interiorWalls)
-              if (other.id != wall.id && other.active && other.floor == wall.floor)
-                for (const auto &part : wallSegments(other))
-                  if (length(part.min - existing.min) < .001f &&
-                      length(part.max - existing.max) < .001f)
-                    joint = true;
+          for (const auto &other : interiorWalls)
+            if (other.id != wall.id && other.active && other.floor == wall.floor)
+              for (const auto &part : wallSegments(other))
+                if (length(part.min - existing.min) < .001f &&
+                    length(part.max - existing.max) < .001f &&
+                    std::abs(part.yaw - existing.yaw) < .001f)
+                  joint = true;
           if (!joint)
             throw std::runtime_error("structure.error.plot");
         }
@@ -144,7 +121,7 @@ void World::checkPartition(Id id) {
         continue;
       int steps = std::max(1, int(length(segment.max - segment.min) * 3));
       for (int i = 0; i <= steps; ++i) {
-        Vec3 at = segment.min + (segment.max - segment.min) * (float(i) / steps);
+        Vec3 at = obstacleWorld({obstacleHalf(segment).x * (2.f * i / steps - 1), 0, 0}, segment);
         at.y = wall.floor * 3.f;
         if (!layout(wall.floor).supported(at))
           throw std::runtime_error("structure.error.plot");
@@ -187,14 +164,15 @@ Id World::proposePartition(Id actor, int floor, Vec3 a, Vec3 b, bool door) {
   auto p = plan(*this, actor, floor, StructuralKind::Partition);
   a.y = b.y = floor * 3.f;
   if (!std::isfinite(a.x) || !std::isfinite(a.z) || !std::isfinite(b.x) || !std::isfinite(b.z) ||
-      (std::abs(a.x - b.x) > .01f && std::abs(a.z - b.z) > .01f) || length(b - a) < 2.5f ||
-      length(b - a) > 64 || !floorPlans[floor].deck || structuralFloorLocked(floor))
+      length(b - a) < 2.5f || length(b - a) > 64 || !floorPlans[floor].deck ||
+      structuralFloorLocked(floor))
     throw std::runtime_error("structure.error.plot");
   InteriorWall wall{Id(interiorWalls.size()), p.payer, floor, a, b, door, false};
   interiorWalls.push_back(wall);
   try {
     checkPartition(wall.id);
-    Vec3 normal = std::abs(a.x - b.x) > .01f ? Vec3{0, 0, 1.5f} : Vec3{1.5f, 0, 0};
+    Vec3 direction = normalized(b - a);
+    Vec3 normal{-direction.z * 1.5f, 0, direction.x * 1.5f};
     p.site = accessible((a + b) * .5f + normal);
   } catch (...) {
     interiorWalls.pop_back();
@@ -819,7 +797,6 @@ void World::validateStructures() const {
         w.floor >= config.floors || !std::isfinite(w.a.x) || !std::isfinite(w.a.z) ||
         !std::isfinite(w.b.x) || !std::isfinite(w.b.z) || w.a.y != w.floor * 3.f ||
         w.b.y != w.a.y || length(w.b - w.a) < 2.5f || length(w.b - w.a) > 64 ||
-        (std::abs(w.a.x - w.b.x) > .01f && std::abs(w.a.z - w.b.z) > .01f) ||
         (w.active && !floorPlans[w.floor].deck) || std::abs(w.a.x) >= layout(w.floor).halfWidth() ||
         std::abs(w.b.x) >= layout(w.floor).halfWidth() ||
         std::abs(w.a.z) >= layout(w.floor).halfDepth() ||

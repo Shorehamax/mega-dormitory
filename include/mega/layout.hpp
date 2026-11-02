@@ -120,12 +120,78 @@ struct Layout {
   }
 };
 struct Obstacle {
-  Vec3 min, max;
+  Vec3 min, max; // world-space broad-phase bounds
+  Vec3 half{};   // optional oriented half-extents; zero keeps legacy AABB geometry
+  float yaw = 0;
 };
+inline Vec3 obstacleHalf(const Obstacle &o) {
+  return o.half.x > 0 ? o.half : (o.max - o.min) * .5f;
+}
+inline Vec3 obstacleLocal(Vec3 p, const Obstacle &o) {
+  p = p - (o.min + o.max) * .5f;
+  float c = std::cos(o.yaw), s = std::sin(o.yaw);
+  return {p.x * c + p.z * s, p.y, -p.x * s + p.z * c};
+}
+inline Vec3 obstacleWorld(Vec3 p, const Obstacle &o) {
+  float c = std::cos(o.yaw), s = std::sin(o.yaw);
+  return (o.min + o.max) * .5f + Vec3{p.x * c - p.z * s, p.y, p.x * s + p.z * c};
+}
+inline Obstacle orientedObstacle(Vec3 center, Vec3 size, float yaw) {
+  Vec3 h = size * .5f;
+  float c = std::abs(std::cos(yaw)), s = std::abs(std::sin(yaw));
+  Vec3 bounds{h.x * c + h.z * s, h.y, h.x * s + h.z * c};
+  return {center - bounds, center + bounds, h, yaw};
+}
+inline float obstacleClearance(Vec3 p, const Obstacle &o) {
+  p = obstacleLocal(p, o);
+  Vec3 h = obstacleHalf(o);
+  float dx = std::abs(p.x) - h.x, dz = std::abs(p.z) - h.z;
+  return std::hypot(std::max(0.f, dx), std::max(0.f, dz)) + std::min(0.f, std::max(dx, dz));
+}
 inline bool overlaps(Vec3 p, const Obstacle &b, float radius = .29f, float height = 1.75f) {
   if (p.y + height <= b.min.y || p.y >= b.max.y)
     return false;
-  float x = std::clamp(p.x, b.min.x, b.max.x), z = std::clamp(p.z, b.min.z, b.max.z);
-  return (p.x - x) * (p.x - x) + (p.z - z) * (p.z - z) < radius * radius;
+  return obstacleClearance(p, b) < radius;
+}
+inline float obstacleSeparation(const Obstacle &a, const Obstacle &b) {
+  Vec3 d = (b.min + b.max - a.min - a.max) * .5f;
+  Vec3 ha = obstacleHalf(a), hb = obstacleHalf(b);
+  Vec3 axes[] = {{std::cos(a.yaw), 0, std::sin(a.yaw)},
+                 {-std::sin(a.yaw), 0, std::cos(a.yaw)},
+                 {std::cos(b.yaw), 0, std::sin(b.yaw)},
+                 {-std::sin(b.yaw), 0, std::cos(b.yaw)}};
+  float gap = -1e30f;
+  for (auto axis : axes) {
+    float da = std::abs(axis.x * axes[0].x + axis.z * axes[0].z) * ha.x +
+               std::abs(axis.x * axes[1].x + axis.z * axes[1].z) * ha.z;
+    float db = std::abs(axis.x * axes[2].x + axis.z * axes[2].z) * hb.x +
+               std::abs(axis.x * axes[3].x + axis.z * axes[3].z) * hb.z;
+    gap = std::max(gap, std::abs(d.x * axis.x + d.z * axis.z) - da - db);
+  }
+  return gap;
+}
+inline bool segmentHitsObstacle(Vec3 from, Vec3 to, const Obstacle &box, float margin = 0) {
+  from = obstacleLocal(from, box);
+  to = obstacleLocal(to, box);
+  Vec3 delta = to - from, h = obstacleHalf(box) + Vec3{margin, margin, margin};
+  float lo = 0, hi = 1;
+  for (int axis = 0; axis < 3; ++axis) {
+    float a = axis == 0 ? from.x : axis == 1 ? from.y : from.z;
+    float d = axis == 0 ? delta.x : axis == 1 ? delta.y : delta.z;
+    float ext = axis == 0 ? h.x : axis == 1 ? h.y : h.z;
+    if (std::abs(d) < .00001f) {
+      if (a < -ext || a > ext)
+        return false;
+    } else {
+      float near = (-ext - a) / d, far = (ext - a) / d;
+      if (near > far)
+        std::swap(near, far);
+      lo = std::max(lo, near);
+      hi = std::min(hi, far);
+      if (lo > hi)
+        return false;
+    }
+  }
+  return hi > 0 && lo < 1;
 }
 } // namespace mega

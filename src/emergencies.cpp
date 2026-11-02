@@ -22,8 +22,8 @@ static void releaseResponder(World &w, Fire &fire) {
 }
 Id World::ignite(Id fid, float intensity) {
   auto &f = facilities.at(fid);
-  if (!f.open || f.demolished || activeFires.contains(fid) || !std::isfinite(intensity) ||
-      intensity <= 0 || intensity > 1)
+  if (f.demolished || activeFires.contains(fid) || !std::isfinite(intensity) || intensity <= 0 ||
+      intensity > 1)
     throw std::runtime_error("fire.error.site");
   Fire fire;
   fire.id = Id(fires.size());
@@ -265,11 +265,13 @@ void World::emergencyTick() {
   extinguishTick();
   std::vector<Id> finished;
   double exposureSeconds = 0;
+  std::map<Id, double> elapsed;
   for (const auto &[fid, id] : activeFires) {
     auto &fire = fires[id];
     auto &f = facilities[fid];
     double dt = std::min(60.0, std::max(0.0, time - fire.updated));
     fire.updated = time;
+    elapsed[id] = dt;
     exposureSeconds = std::max(exposureSeconds, dt);
     if (!fire.contained) {
       fire.fuel = std::max(0.f, fire.fuel - float(dt / 10800));
@@ -349,6 +351,7 @@ void World::emergencyTick() {
     }
   for (Id fid : finished)
     activeFires.erase(fid);
+  spreadFireTick(elapsed);
 }
 void World::validateEmergencies() const {
   auto resident = [&](Id id) { return id >= 0 && std::size_t(id) < residents.size(); };
@@ -374,6 +377,10 @@ void World::validateEmergencies() const {
                               accounts[f.escrow].balance != (f.out ? 0 : f.budget - f.paid))) ||
         (f.escrow == none && (f.payer != none || f.paid != 0)))
       throw std::runtime_error("Invalid fire emergency");
+    for (auto [target, exposure] : f.spreadExposure)
+      if (!facility(target) || target == f.facility || !std::isfinite(exposure) || exposure < 0 ||
+          exposure > 300)
+        throw std::runtime_error("Invalid fire exposure");
     if (!f.out && !active.emplace(f.facility, f.id).second)
       throw std::runtime_error("Duplicate active fire");
     if (!f.out && f.worker != none && !assigned.insert(f.worker).second)

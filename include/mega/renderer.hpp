@@ -22,7 +22,7 @@ struct Vertex {
 };
 struct Instance {
   Vec3 position{};
-  float padding = 0;
+  float yaw = 0;
   Vec3 scale{1, 1, 1};
   float reserved = 0;
   Color tint{};
@@ -174,6 +174,7 @@ private:
   void submit();
 };
 void box(std::vector<Vertex> &, Vec3 centre, Vec3 size, Color color);
+void orientedBox(std::vector<Vertex> &, Vec3 centre, Vec3 size, Color color, float yaw);
 void cylinder(std::vector<Vertex> &, Vec3 from, Vec3 to, float radius, Color, int segments = 8);
 void sphere(std::vector<Vertex> &, Vec3 centre, Vec3 radius, Color, int rings = 6, int sectors = 8);
 } // namespace mega

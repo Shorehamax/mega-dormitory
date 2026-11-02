@@ -1,0 +1,7 @@
+# Spreading fire and belongings
+
+Rare seeded accidents and the existing supplied/firefighter response continue to apply. An uncontained strong fire now accumulates exposure at nearby combustible businesses on the same floor, within 18 metres and with direct line of sight. Nearby condition and distance affect heating; exposure must build before ignition. Solid walls block direct heat. Closing a shop does not make its contents fireproof. Wet utilities and transport shafts are excluded from this first spread model. Containment clears further spread exposure; blocked targets cool rather than keeping permanent progress.
+
+Direct heat within eight metres damages real personal possessions at their actual position, or the carrier's actual position. Smoke alone does not destroy them. Ruined belongings retain their owner and physical identity, lose sale listings and cannot be consumed or used as working devices. Metal tools/tableware resist heat more than clothing, food and medicine. Extinguisher durability represents pressure and is not treated as casing condition. Bulk freight/construction materials need a separate contents-damage model and are currently excluded.
+
+Exposure persists across saves. New ignitions are deferred until existing fire traversal finishes, avoiding duplicate outbreaks and invalidating live references. This is local radiant spread, not fluid fire/smoke simulation, cross-floor chimney spread, ammunition explosions, structural collapse or a complete insurance/property-repair system.

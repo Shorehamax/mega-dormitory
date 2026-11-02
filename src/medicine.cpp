@@ -543,7 +543,7 @@ void World::consumeItem(Id id, Id item) {
   auto &r = residents.at(id);
   auto &i = items.at(item);
   if (!r.alive || !r.present || i.owner != r.account || i.carrier != id || i.consumed ||
-      i.reservedAt != none || itemInUse(item))
+      i.durability <= 0 || i.reservedAt != none || itemInUse(item))
     throw std::runtime_error("Item is not available in your inventory");
   if (i.kind == ItemKind::Food) {
     ++r.personalWaste;

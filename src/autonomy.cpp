@@ -127,6 +127,8 @@ void World::householdShopping(Id id) {
     desired = ItemKind::Medicine;
   else if (!held(*this, id, ItemKind::Food) && r.hunger > .3f)
     desired = ItemKind::Food;
+  else if (householdMealDeficit(id) > 0 && held(*this, id, ItemKind::Food) < 3)
+    desired = ItemKind::Food;
   else if (!held(*this, id, ItemKind::Phone) && !held(*this, id, ItemKind::Laptop))
     desired = ItemKind::Phone;
   else if (held(*this, id, ItemKind::Clothes) < 2 &&
@@ -372,7 +374,8 @@ void World::careerDecision(Id id) {
                          : candidate == Role::Courier     ? 5
                          : candidate == Role::Chef        ? 0
                                                           : 1;
-          double fit = offer * (1 + .25 * r.interests[interest]) - commute * 5;
+          double fit = offer * (1 + .25 * r.interests[interest] + .15 * jobSkill(id, candidate)) -
+                       commute * 5;
           if (fit > score) {
             best = fid;
             role = candidate;
@@ -442,6 +445,44 @@ void World::businessDecision(Id id) {
     } catch (const std::runtime_error &) {
       p.action = AutonomyAction::Saving;
     }
+  if (best != none || !hasDevice(id) || r.interests[6] < .65f)
+    return;
+  // Found only when a real, vacant, advertised office can be funded. Existing
+  // tenants and employees cannot be displaced by an autonomous investment.
+  for (const auto &company : companies)
+    if (company.owner == id)
+      return;
+  Id office = none;
+  Money rent = 0;
+  for (auto [fid, asking] : workspaceOffers) {
+    const auto &f = facilities[fid];
+    if (f.kind != FacilityKind::Office || !f.open || f.demolished || f.condition < .7f ||
+        leasedWorkspaces.contains(fid) || activeFires.contains(fid) ||
+        !local(*this, id, f.pos, 4, 120))
+      continue;
+    bool busy = std::any_of(f.employees.begin(), f.employees.end(), [&](Id worker) {
+      return residents[worker].alive && residents[worker].present &&
+             residents[worker].jobSite == fid;
+    });
+    busy = busy || std::any_of(projects.begin(), projects.end(), [&](const Project &job) {
+             return job.facility == fid && job.state != ProjectState::Completed;
+           });
+    Money capital = std::max<Money>(200000, asking * 14 + f.wageOffer * 24);
+    if (!busy && cash - reserve >= capital + 200000 && (office == none || asking < rent)) {
+      office = fid;
+      rent = asking;
+    }
+  }
+  if (office == none)
+    return;
+  Money capital = std::max<Money>(200000, rent * 14 + facilities[office].wageOffer * 24);
+  Id company = foundCompany(id, "Studio " + std::to_string(companies.size() + 1), capital);
+  leaseWorkspace(id, company, office);
+  companies[company].autoExpand = true;
+  facilities[office].hiring = true;
+  p.lastBusiness = office;
+  p.action = AutonomyAction::Founded;
+  log("autonomy.founded", id, company);
 }
 bool World::autonomyDecision(Id id) {
   if (!canPlan(*this, id))
@@ -505,6 +546,8 @@ bool World::autonomyDecision(Id id) {
       }
     }
   }
+  if (householdDecision(id))
+    return true;
   householdShopping(id);
   if (!r.route.empty())
     return true;
@@ -645,8 +688,9 @@ std::string autonomyKey(AutonomyAction action) {
       "autonomy.waiting",     "autonomy.connection",   "autonomy.trading",
       "autonomy.job_seeking", "autonomy.job_accepted", "autonomy.invested",
       "autonomy.no_supply",   "autonomy.shared",       "autonomy.trade_cancelled",
-      "autonomy.received",    "autonomy.cancelled",    "autonomy.parcel_lost"};
-  static_assert(std::size(keys) == std::size_t(AutonomyAction::ParcelLost) + 1);
+      "autonomy.received",    "autonomy.cancelled",    "autonomy.parcel_lost",
+      "household.errand",     "autonomy.founded"};
+  static_assert(std::size(keys) == std::size_t(AutonomyAction::Founded) + 1);
   if (int(action) < 0 || std::size_t(action) >= std::size(keys))
     throw std::runtime_error("Invalid resident decision");
   return keys[int(action)];
@@ -658,16 +702,19 @@ void World::validateAutonomy() const {
     };
     if (id < 0 || std::size_t(id) >= residents.size() || !ref(p.order, orders.size()) ||
         !ref(p.tradeItem, items.size()) || !ref(p.seller, residents.size()) ||
-        !ref(p.lastBusiness, facilities.size()) || p.reserve < 0 || p.reserve > 1000000000000LL ||
-        p.spentToday < 0 || p.spentToday > 1000000000 || p.tradePrice < 0 ||
-        p.tradePrice > 100000000 || p.day < -1 || p.day > int(time / 86400) || p.tradeRetries < 0 ||
-        p.tradeRetries > 3 || int(p.wanted) < 0 || int(p.wanted) > int(ItemKind::RiceCooker) ||
-        int(p.action) < 0 || int(p.action) > int(AutonomyAction::ParcelLost) ||
-        !std::isfinite(p.nextShopping) || p.nextShopping < 0 || !std::isfinite(p.nextCareer) ||
-        p.nextCareer < 0 || !std::isfinite(p.nextBusiness) || p.nextBusiness < 0 ||
-        !std::isfinite(p.nextListing) || p.nextListing < 0 || !std::isfinite(p.tradeDeadline) ||
-        p.tradeDeadline < 0 || !std::isfinite(p.lastCareer) || p.lastCareer < -86400 ||
-        p.lastCareer > time || (p.order != none && orders[p.order].buyer != id) ||
+        !ref(p.lastBusiness, facilities.size()) || !ref(p.helpTarget, residents.size()) ||
+        !std::isfinite(p.nextHousehold) || p.nextHousehold < 0 || !std::isfinite(p.helpDeadline) ||
+        p.helpDeadline < 0 || p.helpRetries < 0 || p.helpRetries > 3 || p.reserve < 0 ||
+        p.reserve > 1000000000000LL || p.spentToday < 0 || p.spentToday > 1000000000 ||
+        p.tradePrice < 0 || p.tradePrice > 100000000 || p.day < -1 || p.day > int(time / 86400) ||
+        p.tradeRetries < 0 || p.tradeRetries > 3 || int(p.wanted) < 0 ||
+        int(p.wanted) > int(ItemKind::RiceCooker) || int(p.action) < 0 ||
+        int(p.action) > int(AutonomyAction::Founded) || !std::isfinite(p.nextShopping) ||
+        p.nextShopping < 0 || !std::isfinite(p.nextCareer) || p.nextCareer < 0 ||
+        !std::isfinite(p.nextBusiness) || p.nextBusiness < 0 || !std::isfinite(p.nextListing) ||
+        p.nextListing < 0 || !std::isfinite(p.tradeDeadline) || p.tradeDeadline < 0 ||
+        !std::isfinite(p.lastCareer) || p.lastCareer < -86400 || p.lastCareer > time ||
+        (p.order != none && orders[p.order].buyer != id) ||
         ((p.tradeItem == none) != (p.seller == none)))
       throw std::runtime_error("Invalid resident plan");
   }

@@ -34,6 +34,10 @@ enum class CharacterPose {
   Surrender,
   Fall,
   Push,
+  Study,
+  Teach,
+  Rescue,
+  Handover,
   Count
 };
 struct CharacterStyle {

@@ -10,7 +10,7 @@ bool World::hasGun(Id id) const {
       continue;
     if (i.kind == ItemKind::Handgun && i.durability > 0)
       gun = true;
-    if (i.kind == ItemKind::Ammunition && i.quantity > 0)
+    if (i.kind == ItemKind::Ammunition && i.quantity > 0 && i.durability > 0)
       ammo = true;
   }
   return gun && ammo;
@@ -18,39 +18,10 @@ bool World::hasGun(Id id) const {
 bool World::lineOfSight(Vec3 from, Vec3 to) const {
   if (std::abs(from.y - to.y) > 2.5f)
     return false;
-  Vec3 delta = to - from;
   int floor = std::clamp(int(std::floor(from.y / 3)), 0, config.floors - 1);
-  for (auto &box : floorObstacles(floor)) {
-    float lo = 0, hi = 1;
-    for (int axis = 0; axis < 3; ++axis) {
-      float a = axis == 0   ? from.x
-                : axis == 1 ? from.y
-                            : from.z,
-            d = axis == 0   ? delta.x
-                : axis == 1 ? delta.y
-                            : delta.z;
-      float minimum = axis == 0   ? box.min.x
-                      : axis == 1 ? box.min.y
-                                  : box.min.z,
-            maximum = axis == 0   ? box.max.x
-                      : axis == 1 ? box.max.y
-                                  : box.max.z;
-      if (std::abs(d) < .00001f) {
-        if (a < minimum || a > maximum) {
-          lo = 2;
-          break;
-        }
-      } else {
-        float x = (minimum - a) / d, y = (maximum - a) / d;
-        if (x > y)
-          std::swap(x, y);
-        lo = std::max(lo, x);
-        hi = std::min(hi, y);
-      }
-    }
-    if (lo <= hi && hi > 0 && lo < 1)
+  for (const auto &box : floorObstacles(floor))
+    if (segmentHitsObstacle(from, to, box))
       return false;
-  }
   return true;
 }
 void World::shoot(Id attacker, Id victim) {

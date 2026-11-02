@@ -54,6 +54,7 @@ Id World::officeOrder(Id id) {
   o.brief = company != none && companies[company].assignments.contains(id)
                 ? companies[company].assignments.at(id)
                 : int(random() * 3);
+  o.total = o.remaining = 5400 * (1 - .3 * jobSkill(id, r.role));
   o.due = time + 2 * 86400;
   if (o.role == Role::Administrator)
     prepareAdministration(o);

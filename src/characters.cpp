@@ -47,7 +47,7 @@ PoseDescription describe(CharacterPose pose, float phase, float motion) {
       thigh.x = -side * stride * .53f * motion;
       calf.x = std::max(0.f, side * stride) * .7f * motion;
     }
-    if (pose == CharacterPose::Sit || pose == CharacterPose::Eat) {
+    if (pose == CharacterPose::Sit || pose == CharacterPose::Eat || pose == CharacterPose::Study) {
       thigh.x = -1.55f;
       calf.x = 1.5f;
       arm.x = -.3f;
@@ -77,6 +77,31 @@ PoseDescription describe(CharacterPose pose, float phase, float motion) {
     if (pose == CharacterPose::Work) {
       arm = {-.6f - std::sin(phase + side) * .15f, 0, -side * 1.18f};
       elbow.x = -.85f;
+    }
+    if (pose == CharacterPose::Study) {
+      d.rotations["spine_02"] = {.12f, 0, 0};
+      d.rotations["Head"] = {.18f, 0, 0};
+      arm = {-.85f + (side < 0 ? std::sin(phase * 1.5f) * .06f : 0), 0, -side * 1.15f};
+      elbow.x = -1.05f;
+    }
+    if (pose == CharacterPose::Teach) {
+      arm = {side < 0 ? -1.5f : -.65f, std::sin(phase * .3f) * .15f, -side * .9f};
+      elbow.x = side < 0 ? -.3f : -1.2f;
+      d.rotations["Head"] = {0, std::sin(phase * .2f) * .22f, 0};
+    }
+    if (pose == CharacterPose::Rescue) {
+      d.lower = -.2f;
+      d.rotations["spine_02"] = {.3f, 0, 0};
+      d.rotations["Head"] = {.25f, 0, 0};
+      arm = {-.7f + std::sin(phase * 1.6f + side) * .08f, 0, -side * 1.15f};
+      elbow.x = -1.3f;
+      thigh.x = -.45f;
+      calf.x = .85f;
+    }
+    if (pose == CharacterPose::Handover) {
+      float reach = std::sin(std::clamp(phase, 0.f, 3.1415927f));
+      arm = {-.8f - reach * .4f, 0, -side * 1.16f};
+      elbow.x = -1.2f + reach * .65f;
     }
     if (pose == CharacterPose::Fight) {
       float punch = side == -1 ? std::max(0.f, std::sin(phase)) : 0;

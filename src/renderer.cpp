@@ -1253,6 +1253,17 @@ void box(std::vector<Vertex> &v, Vec3 c, Vec3 s, Color col) {
       v.push_back({p[f[i]], col, 0, 0, n});
   }
 }
+void orientedBox(std::vector<Vertex> &v, Vec3 center, Vec3 size, Color color, float yaw) {
+  auto first = v.size();
+  box(v, {0, 0, 0}, size, color);
+  float c = std::cos(yaw), s = std::sin(yaw);
+  auto rotate = [&](Vec3 p) { return Vec3{p.x * c - p.z * s, p.y, p.x * s + p.z * c}; };
+  for (auto i = first; i < v.size(); ++i) {
+    v[i].p = center + rotate(v[i].p);
+    v[i].normal = rotate(v[i].normal);
+  }
+}
+
 void cylinder(std::vector<Vertex> &v, Vec3 a, Vec3 b, float radius, Color c, int segments) {
   Vec3 axis = normalized(b - a),
        u = normalized(cross(axis, std::abs(axis.y) > .9f ? Vec3{1, 0, 0} : Vec3{0, 1, 0})),

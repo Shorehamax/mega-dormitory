@@ -95,7 +95,7 @@ public:
   std::string floorWidth = "512", floorDepth = "512", lobbyWidth = "640", lobbyDepth = "640";
   float networkScroll = 0, helpScroll = 0;
   int customCategory = 0, buildKind = 1, cheatStat = 0;
-  bool householdOpen = false;
+  bool householdOpen = false, educationOpen = false;
   std::string cheatValue = "100";
   bool savesOpen = false, savingSlots = false, savesWasPaused = false, savesEscapeHeld = false;
   int overwriteSlot = 0;
@@ -120,13 +120,14 @@ public:
   std::string companyName;
   Id lethalConfirm = none;
   std::string buildX = "54", buildZ = "0", buildStations = "1";
-  bool structuralOpen = false, wallAlongX = true, wallDoor = true;
-  std::string wallLength = "8", relocationCounter = "50000";
+  bool structuralOpen = false, wallDoor = true;
+  std::string wallAngle = "0", wallLength = "8", relocationCounter = "50000";
   std::string roadEndFloor = "2", roadLength = "24", driveX = "80", driveZ = "110",
               driveFloor = "2";
   Id selectedTeam = none;
   std::map<Id, std::array<std::string, 3>> relocationInputs;
-  std::map<Id, float> closetAnimation, characterHeading, walkBlend, liftDoorAnimation;
+  std::map<Id, float> closetAnimation, curtainAnimation, characterHeading, walkBlend,
+      liftDoorAnimation;
   struct PoseTransition {
     CharacterPose previous = CharacterPose::Idle, current = CharacterPose::Idle;
     float blend = 1;
@@ -448,7 +449,8 @@ public:
     world = std::make_unique<World>(std::move(w));
     selected = world->player;
     savesOpen = importOpen = importSummary = false;
-    securityScreen = emergencyScreen = companyScreen = companyConstruction = cheatOpen = false;
+    educationOpen = securityScreen = emergencyScreen = companyScreen = companyConstruction =
+        cheatOpen = false;
     securityPage = 0;
     selectedCompany = video = office = customVehicle = lethalConfirm = none;
     companyPage = companyMarketPage = 0;
@@ -462,6 +464,7 @@ public:
     walkBlend.clear();
     characterPoses.clear();
     closetAnimation.clear();
+    curtainAnimation.clear();
     liftDoorAnimation.clear();
     mouseLocked = false;
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -1045,6 +1048,16 @@ public:
           y += 42;
         }
       }
+    if (w.prisonRescues.contains(selected)) {
+      y = ui.wrap(x, y, width,
+                  t("security.rescue_progress") + " " +
+                      std::to_string(int(w.prisonRescues.at(selected).progress)) + " / 300",
+                  14, hex(0xe5bd8c)) +
+          12;
+      if (control && ui.button("cancelRescue", {x, y, width, 32}, t("security.cancel_rescue")))
+        act([&] { w.stopPrisonRescue(selected); });
+      y += 40;
+    }
     std::vector<Id> visible;
     for (auto it = w.incidents.rbegin(); it != w.incidents.rend(); ++it) {
       bool witness = std::any_of(it->witnesses.begin(), it->witnesses.end(),
@@ -1064,8 +1077,9 @@ public:
       scrollOffset = 0;
     }
     y += 42;
-    static const char *kinds[] = {"security.queue",  "security.assault", "security.excessive",
-                                  "security.murder", "security.theft",   "security.escape"};
+    static const char *kinds[] = {"security.queue",      "security.assault", "security.excessive",
+                                  "security.murder",     "security.theft",   "security.escape",
+                                  "security.obstruction"};
     for (int n = securityPage * 8; n < std::min(int(visible.size()), securityPage * 8 + 8); ++n) {
       Id id = visible[n];
       const auto &c = w.incidents[id];
@@ -1170,7 +1184,82 @@ public:
         }
     return y;
   }
+  float educationPanel(float x, float y, float width) {
+    auto &w = *world;
+    auto &r = w.residents[selected];
+    ui.text(x, y, t("education.title"), 23, hex(0xe6e8df));
+    y += 40;
+    if (ui.button("learningBack", {x, y, width, 31}, t("fire.back"))) {
+      educationOpen = false;
+      scrollOffset = 0;
+    }
+    y += 43;
+
+    auto record = w.education.find(selected);
+    bool activeClass = record != w.education.end() && record->second.school != none &&
+                       r.queuedAt == record->second.school;
+    y = ui.wrap(x, y, width, t(activeClass ? "education.active_help" : "education.explain"), 12,
+                hex(0x9fb4b7)) +
+        16;
+    for (int subject = 0; subject < 3; ++subject) {
+      if (activeClass && subject != record->second.subject)
+        continue;
+      int skill = record == w.education.end() ? 0 : int(record->second.skills[subject] * 100);
+      y = ui.wrap(x, y, width,
+                  t("education.subject" + std::to_string(subject)) + " · " + std::to_string(skill) +
+                      " / 100",
+                  14, hex(0xb8c8c9)) +
+          8;
+      Id school = w.serviceChoice(selected, FacilityKind::School);
+      if (!activeClass && school != none &&
+          ui.button("enroll" + std::to_string(subject), {x, y, width, 30},
+                    t("education.enroll") + " · " + money(w.facilities[school].price)))
+        act([&] {
+          w.enrollLesson(selected, school, subject);
+          paused = false;
+        });
+      if (!activeClass)
+        y += 38;
+    }
+    if (record != w.education.end() && record->second.school != none &&
+        r.queuedAt == record->second.school && r.activity == Activity::Using) {
+      const auto &lesson = record->second;
+      int k = lesson.seed + 1;
+      for (int q = 0; q < 3; ++q) {
+        y = ui.wrap(x, y, width,
+                    t("education.q" + std::to_string(lesson.subject) + std::to_string(q)), 13,
+                    hex(0xc1cbb7)) +
+            8;
+        std::string data;
+        if (lesson.subject == 0)
+          data = q == 2
+                     ? std::to_string(k) + ", " + std::to_string(k + 1) + ", " + std::to_string(k)
+                     : "-2, 0, " + std::to_string(k) + ", " + std::to_string(k + 1);
+        else if (lesson.subject == 1)
+          data = q == 0 ? std::to_string(k) + ", " + std::to_string(k + 2) + ", " +
+                              std::to_string(k + 1)
+                        : std::to_string(q == 1 ? k + 1 : k) + ", " +
+                              std::to_string(q == 1 ? k + 3 : k + 2);
+        else
+          data = q == 0   ? std::to_string(k) + ", " + std::to_string(k + 3)
+                 : q == 1 ? std::to_string(k + 3)
+                          : std::to_string(k) + ", " + std::to_string(2 * k + 3);
+        y = ui.wrap(x, y, width, data, 14, hex(0xb8c8c9)) + 8;
+        auto choices = w.lessonChoices(selected, q);
+        for (int option = 0; option < 4; ++option) {
+          if (ui.button("lesson" + std::to_string(q) + "_" + std::to_string(option),
+                        {x + option * (width / 4), y, width / 4 - 4, 30},
+                        std::to_string(choices[option]), lesson.answers[q] == option))
+            act([&] { w.answerLesson(selected, q, option); });
+        }
+        y += 40;
+      }
+    }
+    return y;
+  }
   float lifePanel(float x, float y, float width) {
+    if (educationOpen)
+      return educationPanel(x, y, width);
     if (securityScreen)
       return securityPanel(x, y, width);
     if (emergencyScreen)
@@ -1284,8 +1373,43 @@ public:
           });
         y += 42;
       }
+      Id group = w.householdOf(selected);
+      y = ui.wrap(x, y, width, t("household.title"), 15, hex(0xc1cbb7)) + 10;
+      if (group == none) {
+        if (ui.button("createHousehold", {x, y, width, 32}, t("household.create")))
+          act([&] { w.createHousehold(selected); });
+        y += 40;
+        for (const auto &h : w.households)
+          if (h.invitations.contains(selected) && h.invitations.at(selected) >= w.time) {
+            if (ui.button("acceptHousehold" + std::to_string(h.id), {x, y, width, 32},
+                          t("household.join") + " · " + w.displayName(h.founder, locale.language)))
+              act([&] { w.acceptHousehold(selected, h.id); });
+            y += 40;
+          }
+      } else {
+        for (Id member : w.households[group].members)
+          y = ui.wrap(x, y, width,
+                      w.displayName(member, locale.language) + " · " + t("talk.trust") + " " +
+                          std::to_string(int(w.trust(selected, member) * 100)),
+                      13, hex(0xa5bfc4)) +
+              8;
+        y = ui.wrap(x, y, width,
+                    t("household.shortage") + " " +
+                        std::to_string(w.householdMealDeficit(selected)),
+                    13, hex(0xc1cbb7)) +
+            12;
+        if (ui.button("leaveHousehold", {x, y, width, 32}, t("household.leave")))
+          act([&] { w.leaveHousehold(selected); });
+        y += 40;
+      }
+      y = ui.wrap(x, y, width, t("household.explain"), 12, hex(0x8da5aa)) + 12;
       y = ui.wrap(x, y, width, t("autonomy.explain"), 12, hex(0x8da5aa)) + 20;
     }
+    if (ui.button("educationOpen", {x, y, width, 36}, t("education.title"))) {
+      educationOpen = true;
+      scrollOffset = 0;
+    }
+    y += 44;
     for (Id item : r.items)
       if (!w.items[item].consumed && w.items[item].carrier == selected &&
           (w.items[item].kind == ItemKind::Food || w.items[item].kind == ItemKind::Medicine)) {
@@ -1380,6 +1504,20 @@ public:
                       t("talk.topic" + std::to_string(topic))))
           act([&] { notify(t(w.talk(selected, nearby, topic))); });
         y += 38;
+      }
+      if (w.householdOf(selected) != none && w.householdOf(nearby) == none) {
+        if (ui.button("inviteHousehold", {x, y, width, 32}, t("household.invite")))
+          act([&] { w.inviteHousehold(selected, nearby); });
+        y += 40;
+      }
+      if (w.custodyRecords.contains(nearby) && w.custodyRecords.at(nearby).active) {
+        if (ui.button("freePrisoner", {x, y, width, 32}, t("security.rescue")))
+          act([&] {
+            w.startPrisonRescue(selected, nearby);
+            paused = false;
+          });
+        y += 40;
+        y = ui.wrap(x, y, width, t("security.rescue_warning"), 12, hex(0xe5bd8c)) + 12;
       }
       if (ui.button("punchNearby", {x, y, width / 2 - 5, 34}, t("combat.attack")))
         act([&] {
@@ -2332,8 +2470,8 @@ public:
     ui.text(x, y, t("structure.length"), 13, hex(0xb8c8c9));
     y += 24;
     ui.input("wallLength", {x, y, 90, 32}, wallLength, true);
-    if (ui.button("wallAxis", {x + 100, y, width - 100, 32}, wallAlongX ? "X →" : "Z →"))
-      wallAlongX = !wallAlongX;
+    ui.text(x + 100, y - 21, t("structure.angle"), 12, hex(0xb8c8c9));
+    ui.input("wallAngle", {x + 100, y, width - 100, 32}, wallAngle, true);
     y += 42;
     if (ui.button("wallDoor", {x, y, width, 32}, t(wallDoor ? "structure.door" : "structure.solid"),
                   wallDoor))
@@ -2342,8 +2480,8 @@ public:
     if (ui.button("wallPropose", {x, y, width, 34}, t("structure.partition")))
       act([&] {
         Vec3 a{std::stof(buildX), currentFloor * 3.f, std::stof(buildZ)};
-        Vec3 b = a + (wallAlongX ? Vec3{std::stof(wallLength), 0, 0}
-                                 : Vec3{0, 0, std::stof(wallLength)});
+        float angle = std::stof(wallAngle) * .01745329252f;
+        Vec3 b = a + Vec3{std::cos(angle), 0, std::sin(angle)} * std::stof(wallLength);
         w.proposePartition(w.player, currentFloor, a, b, wallDoor);
       });
     y += 44;
@@ -4104,7 +4242,9 @@ public:
     int nearLast = currentFloor + (firstPerson ? 5 : 1);
     std::vector<Instance> instances;
     instances.reserve(std::size_t(range) * 400);
-    auto add = [&](Vec3 p, Vec3 size, Color color) { instances.push_back({p, 0, size, 0, color}); };
+    auto add = [&](Vec3 p, Vec3 size, Color color, float yaw = 0) {
+      instances.push_back({p, yaw, size, 0, color});
+    };
     for (int floor = first; floor < last; ++floor) {
       if (floor >= nearFirst && floor < nearLast)
         continue;
@@ -4128,7 +4268,7 @@ public:
       for (const auto &wall : world->interiorWalls)
         if (wall.active && wall.floor == floor)
           for (const auto &part : world->wallSegments(wall))
-            add((part.min + part.max) * .5f, part.max - part.min, hex(0x64787a));
+            add((part.min + part.max) * .5f, obstacleHalf(part) * 2, hex(0x64787a), part.yaw);
       for (const auto &piece : l.slabs(floor))
         add(piece.center, piece.size, slab);
       for (int side : {-1, 1})
@@ -4220,7 +4360,8 @@ public:
         for (const auto &wall : world->interiorWalls)
           if (wall.active && wall.floor == f)
             for (const auto &part : world->wallSegments(wall))
-              box(v, (part.min + part.max) * .5f, part.max - part.min, hex(0x64787a));
+              orientedBox(v, (part.min + part.max) * .5f, obstacleHalf(part) * 2, hex(0x64787a),
+                          part.yaw);
       for (int side : {-1, 1}) {
         for (float z = -l.shaftDepth(); z <= l.shaftDepth(); z += 4) {
           cylinder(v, {side * (l.shaftWidth() + .05f), y, z},
@@ -4270,8 +4411,23 @@ public:
                 box(v, {x, by, z}, {1.05f, .14f, 2.45f}, linen);
                 box(v, {x, by + .12f, z - .86f}, {.85f, .15f, .52f}, hex(0xd4d5c8));
                 box(v, {x, by + .13f, z + .45f}, {1.0f, .12f, 1.1f}, palette(decor.blanket));
-                if (decor.curtain)
-                  box(v, {x + .62f, by + .52f, z}, {.025f, .8f, 2.35f}, palette(decor.blanket));
+                float curtainOpen = float(decor.curtain);
+                if (world) {
+                  Id homeId = Id(visibleHomes.at({f, level * l.tierSize() + base}) -
+                                 &world->housing.front());
+                  auto [curtain, inserted] = curtainAnimation.try_emplace(homeId, curtainOpen);
+                  curtain->second +=
+                      (curtainOpen - curtain->second) * (1 - std::exp(-sceneDelta * 8));
+                  curtainOpen = curtain->second;
+                }
+                if (curtainOpen > .01f) {
+                  float span = .18f + 2.17f * curtainOpen;
+                  for (int fold = 0; fold < 8; ++fold)
+                    box(v,
+                        {x + .62f + std::sin(fold * 1.5708f) * .025f, by + .52f,
+                         z - 1.17f + span * (fold + .5f) / 8},
+                        {.018f, .8f, span / 8 + .004f}, palette(decor.blanket));
+                }
                 cylinder(v, {x - .56f, by + .28f, z - 1.2f}, {x - .56f, by + .28f, z + 1.2f}, .033f,
                          frame, 5);
                 cylinder(v, {x + .56f, by + .28f, z - 1.2f}, {x + .56f, by + .28f, z + 1.2f}, .033f,
@@ -4372,6 +4528,19 @@ public:
                                     std::cos(realTime * 1.7f + bubble) * .09f},
                        {.025f, .015f, .025f}, hex(0xd8e4df), 3, 5);
             }
+          } else if (f.kind == FacilityKind::School) {
+            box(v, p + Vec3{0, .72f, -.42f}, {.65f, .055f, .42f}, hex(0x8c8270));
+            for (float side : {-.27f, .27f})
+              cylinder(v, p + Vec3{side, 0, -.42f}, p + Vec3{side, .7f, -.42f}, .022f, rail, 5);
+            box(v, p + Vec3{0, .4f, .1f}, {.38f, .055f, .35f}, hex(0x52636b));
+            for (float side : {-.15f, .15f})
+              cylinder(v, p + Vec3{side, 0, .1f}, p + Vec3{side, .4f, .1f}, .018f, rail, 5);
+            box(v, p + Vec3{-.06f, .754f, -.4f}, {.22f, .008f, .28f}, hex(0xd3d5c9));
+            for (int line = 0; line < 5; ++line)
+              box(v, p + Vec3{-.06f, .76f, -.49f + line * .04f}, {.16f, .002f, .003f},
+                  hex(0x71838a));
+            cylinder(v, p + Vec3{.14f, .76f, -.45f}, p + Vec3{.2f, .76f, -.32f}, .006f,
+                     hex(0xd9b067), 5);
           } else if (f.kind == FacilityKind::Laundry) {
             Vec3 machine = p + Vec3{0, 0, -.65f};
             box(v, machine + Vec3{0, .45f, 0}, {.65f, .9f, .55f}, ceramic);
@@ -4736,6 +4905,35 @@ public:
     for (auto &facility : w.facilities)
       if (facility.floor == currentFloor && facility.kind == FacilityKind::Infirmary)
         assets.append(v, "wheelchair_01", facility.pos + Vec3{0, 0, 2}, 1, 0);
+    for (const auto &f : w.facilities)
+      if (f.kind == FacilityKind::School && f.floor >= first && f.floor < last) {
+        box(v, f.pos + Vec3{0, 1.3f, -.55f}, {1.85f, 1.1f, .06f}, hex(0x263d3c));
+        for (int row = 0; row < 4; ++row)
+          box(v, f.pos + Vec3{-.2f + row * .08f, 1.6f - row * .19f, -.512f},
+              {1.2f - row * .16f, .014f, .006f}, hex(0xbbc6af));
+      }
+    std::map<Id, std::pair<Id, float>> handovers;
+    float gestureDuration = float(1440 / w.config.dayMinutes) * 1.3f;
+    int recent = 0;
+    for (auto it = w.news.rbegin(); it != w.news.rend() && recent++ < 256; ++it) {
+      if (w.time - it->time > gestureDuration)
+        break;
+      if (it->key != "autonomy.meal_shared" || it->subject < 0 || it->other < 0 ||
+          std::size_t(it->subject) >= w.residents.size() ||
+          std::size_t(it->other) >= w.residents.size() || !w.residents[it->subject].alive ||
+          !w.residents[it->other].alive)
+        continue;
+      float phase = float((w.time - it->time) / gestureDuration) * 3.1415927f;
+      handovers[it->subject] = {it->other, phase};
+      handovers[it->other] = {it->subject, phase};
+      Vec3 a = w.position(it->subject), b = w.position(it->other);
+      if (std::abs(a.y - floorY) < 6.1f && length(a - b) < 3) {
+        float blend = std::clamp(float((w.time - it->time) / gestureDuration), 0.f, 1.f);
+        Vec3 parcel =
+            a * (1 - blend) + b * blend + Vec3{0, 1.05f + std::sin(blend * 3.1415927f) * .08f, 0};
+        box(v, parcel, {.2f, .08f, .16f}, hex(0xb8c49f));
+      }
+    }
     int count = 0;
     std::vector<Id> visible;
     for (const auto &r : w.residents)
@@ -4789,7 +4987,9 @@ public:
                    {.035f, .06f, .035f}, hex(0xc2d3c9), 3, 5);
         }
       }
-      bool moving = (!r.route.empty() && length(p - r.route.back().p) > .03f) || r.ladder >= 0;
+      float poseArrival = r.activity == Activity::Using && r.queuedAt != none ? .12f : .03f;
+      bool moving =
+          (!r.route.empty() && length(p - r.route.back().p) > poseArrival) || r.ladder >= 0;
       bool climbing = w.climbing(r.id);
       auto [blend, newBlend] = walkBlend.try_emplace(r.id, moving ? 1.f : 0.f);
       if (!paused && !newBlend)
@@ -4814,6 +5014,12 @@ public:
       if (r.task == TaskKind::FireResponse && r.target >= 0 &&
           std::size_t(r.target) < w.fires.size() && r.activity == Activity::Working)
         direction = w.facilities[w.fires[r.target].facility].pos - p;
+      else if (r.role == Role::Teacher && r.activity == Activity::Working)
+        direction = {0, 0, 1};
+      else if (w.prisonRescues.contains(r.id))
+        direction = w.position(w.prisonRescues.at(r.id).target) - p;
+      else if (handovers.contains(r.id))
+        direction = w.position(handovers.at(r.id).first) - p;
       else if (r.opponent != none && r.activity == Activity::Fighting)
         direction = w.position(r.opponent) - p;
       else if (!r.route.empty()) {
@@ -4861,13 +5067,20 @@ public:
       else if (!moving && usingPersonal)
         pose = CharacterPose::Eat;
       else if (!moving && r.activity == Activity::Working)
-        pose = CharacterPose::Work;
-      else if (!moving && r.activity == Activity::Using && r.queuedAt != none) {
+        pose = w.prisonRescues.contains(r.id) ? CharacterPose::Rescue
+               : r.role == Role::Teacher      ? CharacterPose::Teach
+                                              : CharacterPose::Work;
+      else if (!moving && handovers.contains(r.id)) {
+        pose = CharacterPose::Handover;
+        phase = handovers.at(r.id).second;
+      } else if (!moving && r.activity == Activity::Using && r.queuedAt != none) {
         auto kind = w.facilities[r.queuedAt].kind;
         if (kind == FacilityKind::Infirmary)
           pose = CharacterPose::Sleep;
         else if (kind == FacilityKind::Food || kind == FacilityKind::Cafe)
           pose = CharacterPose::Eat;
+        else if (kind == FacilityKind::School)
+          pose = CharacterPose::Study;
         else if (kind == FacilityKind::Toilet || kind == FacilityKind::Cinema ||
                  kind == FacilityKind::Terminal)
           pose = CharacterPose::Sit;
@@ -5378,7 +5591,13 @@ int runApplication(int argc, char **argv) {
     int frames = 0, maxFrames = 0;
     bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false,
          playConstruction = false, playVehicles = false, playCompany = false, playSecurity = false,
-         playCrowd = false, playQueueFlow = false, playDiscovery = false;
+         playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
+         playRescue = false, playFire = false, playAngled = false;
+    Id lifeSchool = none, lifeGift = none, rescueJail = none, spreadTarget = none, burntItem = none;
+    int lifeStage = 0, lifeFinish = -1, rescueStage = 0, rescueFinish = -1, fireFinish = -1;
+    bool lifeCapture = false, rescueCapture = false;
+    Vec3 lifePrior{};
+    float lifeMaxStep = 0;
     Id playCourier = none, constructionJob = none;
     Id capitalCompany = none, capitalOffice = none, capitalOffer = none, capitalOrder = none;
     int capitalStage = 0, capitalFinish = 0;
@@ -5409,7 +5628,25 @@ int runApplication(int argc, char **argv) {
           throw std::runtime_error("Missing argument value");
         return std::string(argv[++i]);
       };
-      if (arg == "--playtest-autonomy") {
+      if (arg == "--playtest-daily-life" || arg == "--playtest-rescue" ||
+          arg == "--playtest-fire-spread") {
+        playLife = arg == "--playtest-daily-life";
+        playRescue = arg == "--playtest-rescue";
+        playFire = arg == "--playtest-fire-spread";
+        demo = animate = true;
+        panel = playLife ? "daily-life" : playRescue ? "prison-rescue" : "spreading-fire";
+        app.config.population = 80;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-angled-construction") {
+        playAngled = playConstruction = demo = animate = true;
+        panel = "construction";
+        app.config.population = 600;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-autonomy") {
         playAutonomy = demo = animate = true;
         panel = "autonomy";
         app.config.population = 600;
@@ -5515,7 +5752,7 @@ int runApplication(int argc, char **argv) {
         app.renderer->skinVertexBudget = std::stoull(value());
     }
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
-        playCrowd || playQueueFlow || playDiscovery) {
+        playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
@@ -5544,6 +5781,131 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
+      if (panel == "daily-life" || panel == "prison-rescue" || panel == "spreading-fire") {
+        auto &w = *app.world;
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.automatic = false;
+          r.route.clear();
+          ++r.routeVersion;
+          r.task = TaskKind::None;
+          r.activity = Activity::Idle;
+          r.role = Role::Unemployed;
+          r.jobSite = r.employer = none;
+          r.age = 30;
+          r.hunger = r.thirst = r.bladder = .1f;
+          r.energy = r.hygiene = 1;
+          r.needsAt = w.time;
+        }
+        w.crowd.clear();
+        auto place = [&](Id id, Vec3 p) { w.residents[id].pos = w.accessible(p); };
+        auto item = [&](ItemKind kind, Id carrier, Vec3 p, float condition = 1.f) {
+          Item i;
+          i.id = Id(w.items.size());
+          i.kind = kind;
+          i.owner = w.residents[0].account;
+          i.carrier = carrier;
+          i.pos = p;
+          i.durability = condition;
+          w.items.push_back(i);
+          if (carrier != none)
+            w.residents[carrier].items.push_back(i.id);
+          return i.id;
+        };
+        if (playLife) {
+          lifeSchool = w.nearestAt({0, 0, 0}, FacilityKind::School);
+          auto &school = w.facilities[lifeSchool];
+          school.opensAt = 0;
+          school.openHours = 24;
+          w.chooseJob(2, Role::Teacher, lifeSchool);
+          auto &teacher = w.residents[2];
+          teacher.automatic = true;
+          teacher.routine.shiftStart = 0;
+          teacher.routine.shiftHours = 24;
+          teacher.routine.daysOff = 0;
+          teacher.routine.sleepStart = 22;
+          teacher.routine.sleepHours = 8;
+          place(2, school.pos + Vec3{-7, 0, -5});
+          place(0, school.pos + Vec3{7, 0, 18});
+          place(1, school.pos + Vec3{7, 0, 4});
+          w.households.push_back({0, 0, {0, 1}, {}});
+          w.rebuildHouseholds();
+          w.relationships[1] = {0, 1, .8f, w.time - 3600, 0};
+          w.relationships[1].conversations = 12;
+          w.residents[0].aggression = .1f;
+          w.residents[0].automatic = true;
+          w.residents[1].hunger = .8f;
+          item(ItemKind::Food, 0, w.position(0));
+          lifeGift = item(ItemKind::Food, 0, w.position(0));
+          auto &p = w.residentPlans[0];
+          p.nextShopping = p.nextCareer = p.nextBusiness = p.nextListing = w.time + 86400;
+          p.nextHousehold = w.time;
+          lifePrior = w.position(0);
+          w.schedule(w.time + 1, EventKind::Decide, 0);
+          w.schedule(w.time + 1, EventKind::Decide, 2);
+          app.householdOpen = app.educationOpen = true;
+          app.tab = 0;
+          app.scrollOffset = 0;
+          app.currentFloor = school.floor;
+          app.cameraFocus = (w.position(0) + school.pos) * .5f;
+          std::cout << "LIFE PLAYTEST: hungry housemate, stocked donor, teacher walking to class\n";
+        } else if (playRescue) {
+          rescueJail = w.nearestAt({0, 0, 0}, FacilityKind::Jail);
+          Vec3 intake = w.facilities[rescueJail].pos + Vec3{2, 0, 3};
+          place(1, intake);
+          place(0, intake + Vec3{8, 0, 2});
+          auto &prisoner = w.residents[1];
+          prisoner.activity = Activity::Jailed;
+          prisoner.target = rescueJail;
+          prisoner.releaseAt = w.time + 86400;
+          CustodyRecord c;
+          c.resident = 1;
+          c.jail = rescueJail;
+          c.bookedAt = c.careAt = w.time;
+          c.sentenceUntil = prisoner.releaseAt;
+          w.custodyRecords[1] = c;
+          item(ItemKind::Tools, 0, w.position(0));
+          w.travel(0, w.position(1) + Vec3{1.2f, 0, 0}, TaskKind::None, none);
+          app.currentFloor = w.facilities[rescueJail].floor;
+          app.cameraFocus = w.position(1);
+          app.securityScreen = true;
+          app.tab = 0;
+          std::cout
+              << "RESCUE PLAYTEST: walking to an unattended restrained prisoner with owned tools\n";
+        } else {
+          Id source = w.nearestAt({0, 0, 0}, FacilityKind::Food);
+          spreadTarget = w.nearestAt({0, 0, 0}, FacilityKind::Shop);
+          for (auto [id, p] :
+               {std::pair{source, Vec3{150, 0, 160}}, std::pair{spreadTarget, Vec3{160, 0, 160}}}) {
+            auto &f = w.facilities[id];
+            std::erase(w.floorFacilities[f.floor], id);
+            f.floor = 0;
+            f.pos = p;
+            f.manager = none;
+            f.stock = 1000;
+            w.floorFacilities[0].push_back(id);
+          }
+          w.invalidateGeometry(0);
+          place(0, {155, 0, 180});
+          burntItem = item(ItemKind::Phone, none, {151, 0, 160}, .01f);
+          w.ignite(source, 1);
+          app.currentFloor = 0;
+          app.cameraFocus = {155, 0, 160};
+          app.emergencyScreen = true;
+          app.tab = 0;
+          std::cout
+              << "FIRE PLAYTEST: growing flames, exposed business and a physical possession\n";
+        }
+        app.setFirstPerson(false);
+        app.selected = 0;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.observerHeight = 0;
+        app.distance = 15;
+        app.pitch = .38f;
+        app.orbit = .4f;
+      }
       if (panel == "queue-flow") {
         auto &w = *app.world;
         flowWorkplace = w.residents[226].jobSite;
@@ -5761,7 +6123,8 @@ int runApplication(int argc, char **argv) {
         std::cout << "VEHICLE PLAYTEST: walking from actual home to buy a car at the dealership\n";
       } else if (panel == "construction") {
         auto &w = *app.world;
-        constructionJob = w.proposePartition(w.player, 0, {70, 0, 160}, {78, 0, 160}, true);
+        constructionJob = w.proposePartition(w.player, 0, {70, 0, 160},
+                                             {78, 0, playAngled ? 168.f : 160.f}, true);
         auto &job = w.structuralWorks[constructionJob];
         if (w.accounts[job.payer].balance < job.budget)
           w.pay(0, job.payer, job.budget - w.accounts[job.payer].balance,
@@ -6180,7 +6543,7 @@ int runApplication(int argc, char **argv) {
     if (demo && animate) {
       app.paused = false;
       if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
-          playCrowd || playQueueFlow || playDiscovery)
+          playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire)
         app.speed = 6;
     }
     if (computeTest) {
@@ -6283,6 +6646,75 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playLife) {
+        auto &w = *app.world;
+        lifeMaxStep = std::max(lifeMaxStep, length(w.position(0) - lifePrior));
+        lifePrior = w.position(0);
+        if (lifeStage == 0 && w.items[lifeGift].carrier == 1 && w.operational(lifeSchool)) {
+          w.residents[0].automatic = false;
+          w.enrollLesson(0, lifeSchool, 0);
+          lifeStage = 1;
+          app.cameraFocus = w.facilities[lifeSchool].pos;
+          app.distance = 8;
+          std::cout << "LIFE PLAYTEST: physical meal handover; teacher on site, walking to class\n";
+        }
+        if (lifeStage == 1 && w.residents[0].activity == Activity::Using &&
+            w.residents[0].queuedAt == lifeSchool &&
+            w.near(0, w.servicePosition(lifeSchool, 0), .08f) && w.operational(lifeSchool)) {
+          for (int q = 0; q < 3; ++q)
+            w.answerLesson(0, q, (w.education[0].seed + q) % 4);
+          if (!lifeCapture) {
+            lifeCapture = true;
+            app.scrollOffset = 0;
+            if (!capture.empty())
+              frameCapture = capture.parent_path() / (capture.stem().string() + "-classroom.ppm");
+          }
+        }
+        if (lifeStage == 1 && w.education.contains(0) && w.education[0].lessons[0] > 0) {
+          lifeStage = 2;
+          lifeFinish = frames;
+          std::cout << "LIFE PLAYTEST: attended lesson and exercises completed; skill "
+                    << w.jobSkill(0, Role::Programmer) << "\n";
+        }
+        if (lifeFinish >= 0 && frames >= lifeFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
+      if (playRescue) {
+        auto &w = *app.world;
+        if (rescueStage == 0 && w.near(0, w.position(1), 2)) {
+          w.startPrisonRescue(0, 1);
+          rescueStage = 1;
+        }
+        if (rescueStage == 1 && w.prisonRescues.contains(0) && !rescueCapture &&
+            w.prisonRescues[0].progress >= 60) {
+          rescueCapture = true;
+          if (!capture.empty())
+            frameCapture = capture.parent_path() / (capture.stem().string() + "-working.ppm");
+        }
+        if (rescueStage == 1 && w.custodyRecords[1].escaped) {
+          rescueStage = 2;
+          rescueFinish = frames;
+        }
+        if (rescueFinish >= 0 && frames >= rescueFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
+      if (playFire) {
+        auto &w = *app.world;
+        if (fireFinish < 0 && w.activeFires.contains(spreadTarget) &&
+            w.items[burntItem].durability == 0)
+          fireFinish = frames;
+        if (fireFinish >= 0 && frames >= fireFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playQueueFlow) {
         auto &w = *app.world;
         auto actual = w.position(226);
@@ -6571,6 +7003,37 @@ int runApplication(int argc, char **argv) {
       app.frame(dt, frameCapture);
       ++frames;
     }
+    if (playLife) {
+      auto &w = *app.world;
+      w.validate();
+      if (lifeStage != 2 || w.items[lifeGift].carrier != 1 ||
+          w.householdOf(0) != w.householdOf(1) || w.education[0].lessons[0] != 1 ||
+          w.jobSkill(0, Role::Programmer) < .039f || lifeMaxStep > 2)
+        throw std::runtime_error(
+            "Household/class playthrough failed physical handover or attended learning");
+      std::cout << "LIFE PLAYTEST PASS: physical household aid, actual teacher commute, paid "
+                   "lesson, exercises and continuous movement; max step "
+                << lifeMaxStep << " m\n";
+    }
+    if (playRescue) {
+      auto &w = *app.world;
+      w.validate();
+      if (rescueStage != 2 || w.custodyRecords[1].active || w.custodyRecords[1].cuffed ||
+          !w.hasWarrant(1))
+        throw std::runtime_error(
+            "Prison rescue did not free actual restraints with escape consequences");
+      std::cout << "RESCUE PLAYTEST PASS: actual approach, timed tool use, freed prisoner and "
+                   "retained wanted consequences\n";
+    }
+    if (playFire) {
+      auto &w = *app.world;
+      w.validate();
+      if (fireFinish < 0 || !w.activeFires.contains(spreadTarget) ||
+          w.items[burntItem].durability > 0)
+        throw std::runtime_error("Fire did not spread or damage physical property");
+      std::cout << "FIRE PLAYTEST PASS: progressive exposed-business ignition, ruined possession, "
+                   "rendered flames and smoke\n";
+    }
     if (playAutonomy) {
       app.world->validate();
       if (playStage != 3) {
@@ -6664,7 +7127,8 @@ int runApplication(int argc, char **argv) {
       w.validate();
       const auto &job = w.structuralWorks[constructionJob];
       if (constructionStage != 3 || !w.interiorWalls[job.wall].active ||
-          !w.clearPosition({74, 0, 160}) || w.clearPosition({71, 0, 160}) ||
+          !w.clearPosition({74, 0, playAngled ? 164.f : 160.f}) ||
+          w.clearPosition({71, 0, playAngled ? 161.f : 160.f}) ||
           w.accounts[job.escrow].balance != 0) {
         if (!capture.empty())
           w.save(capture.string() + ".mdsave");

@@ -12,7 +12,7 @@ Id World::report(CrimeKind kind, Id offender, Id victim, bool threat, bool publi
   c.kind = kind;
   c.offender = offender;
   c.victim = victim;
-  c.pos = position(victim);
+  c.pos = position(kind == CrimeKind::Obstruction ? offender : victim);
   c.scene = c.pos;
   c.sceneLocated = published;
   c.time = time;
@@ -419,6 +419,8 @@ void World::validate() const {
   validatePersonalUses();
   validatePhysics();
   validateAutonomy();
+  validateHouseholds();
+  validateEducation();
   if (!std::isfinite(time) || time < 0 || accounts.size() < 2 || residents.size() < 2 ||
       residents.size() > 500000 || names.size() != residents.size() ||
       residentHomes.size() != residents.size() || player < 0 ||
@@ -562,7 +564,7 @@ void World::validate() const {
   if (!residentValid(dormOwner) || !accountValid(dormAccount))
     throw std::runtime_error("Invalid owner");
   for (const auto &r : residents) {
-    if (int(r.task) < 0 || int(r.task) > int(TaskKind::LeaveService) ||
+    if (int(r.task) < 0 || int(r.task) > int(TaskKind::PrisonRescue) ||
         ((r.task == TaskKind::Service || r.task == TaskKind::Work || r.task == TaskKind::Escort ||
           r.task == TaskKind::ShoppingTerminal || r.task == TaskKind::LeaveService) &&
          !facilityValid(r.target)) ||
@@ -583,7 +585,9 @@ void World::validate() const {
         (r.task == TaskKind::Investigate &&
          (r.target < 0 || std::size_t(r.target) >= incidents.size())))
       throw std::runtime_error("Invalid resident task");
-    if (r.task == TaskKind::TradeMeet && !residentValid(r.target))
+    if ((r.task == TaskKind::TradeMeet || r.task == TaskKind::HouseholdMeet ||
+         r.task == TaskKind::PrisonRescue) &&
+        !residentValid(r.target))
       throw std::runtime_error("Invalid trade destination");
     if ((r.jobSite != none && !facilityValid(r.jobSite)) ||
         (r.employer != none && !accountValid(r.employer)) ||
@@ -676,7 +680,7 @@ void World::validate() const {
   for (auto &[id, j] : liftJourneys)
     if (!residentValid(id) || j.lift < 0 || std::size_t(j.lift) >= lifts.size() ||
         !std::isfinite(j.goal.x) || !std::isfinite(j.goal.y) || !std::isfinite(j.goal.z) ||
-        int(j.task) < 0 || int(j.task) > int(TaskKind::LeaveService) ||
+        int(j.task) < 0 || int(j.task) > int(TaskKind::PrisonRescue) ||
         j.task == TaskKind::LiftWait)
       throw std::runtime_error("Invalid lift journey");
   for (auto &r : residents)
@@ -690,7 +694,8 @@ void World::validate() const {
     if (!residentValid(b.a) || !residentValid(b.b) || b.a >= b.b ||
         key != ((std::uint64_t(b.a) << 32) | std::uint32_t(b.b)) || !std::isfinite(b.trust) ||
         b.trust < -1 || b.trust > 1 || !std::isfinite(b.lastTalk) || !std::isfinite(b.lastAid) ||
-        b.lastAid > time || b.sharedInterest < 0 || b.sharedInterest > 7)
+        b.lastAid > time || b.sharedInterest < 0 || b.sharedInterest > 7 || b.conversations < 0 ||
+        b.conversations > 1000000)
       throw std::runtime_error("Invalid relationship");
   for (std::size_t i = 0; i < housingWorks.size(); ++i) {
     const auto &p = housingWorks[i];
