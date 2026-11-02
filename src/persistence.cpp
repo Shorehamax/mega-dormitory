@@ -47,7 +47,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Ambulance, id, provider, patient
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Remains, resident, carrier, storage, worker,
                                                 destination, ambulance, lift, pos, diedAt,
                                                 burnUntil, cremated, lost, burnRemaining,
-                                                burnWorkedAt)
+                                                burnWorkedAt, look)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LocalName, en, fr, zh)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(HousingUnit, owner, tenant, floor, bed, rent, price,
                                                 listed, active, decor, paidUntil, arrears, custom,
@@ -165,7 +165,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Governance, askingPrice, success
                                                 reviewedDay)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(VideoJob, id, worker, client, employer, escrow, timeline, score,
                                    submitted, budget, deadline)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(News, time, key, subject, other)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(News, time, key, subject, other, serial)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Event, time, seq, kind, id, other, version)
 static std::uint32_t frameTag(const char *p) {
   return std::uint32_t(static_cast<unsigned char>(p[0])) |
@@ -192,6 +192,7 @@ void World::save(const std::filesystem::path &path) const {
             {"time", time},
             {"rng", rng},
             {"sequence", sequence},
+            {"newsSequence", newsSequence},
             {"player", player},
             {"dormOwner", dormOwner},
             {"governance", governance},
@@ -432,6 +433,7 @@ static World readSave(const std::filesystem::path &path) {
   READ(time);
   READ(rng);
   READ(sequence);
+  w.newsSequence = j.value("newsSequence", std::uint64_t(0));
   READ(player);
   READ(dormOwner);
   if (j.contains("governance"))
@@ -595,6 +597,21 @@ static World readSave(const std::filesystem::path &path) {
   READ(projects);
   READ(videos);
   READ(news);
+  for (auto &entry : w.news)
+    w.newsSequence = std::max(w.newsSequence, entry.serial);
+  for (auto &entry : w.news)
+    if (entry.serial == 0)
+      entry.serial = ++w.newsSequence;
+  if (j.contains("remains"))
+    for (std::size_t i = 0; i < w.remains.size(); ++i) {
+      auto &body = w.remains[i];
+      if (!j.at("remains").at(i).contains("look") && body.resident >= 0 &&
+          std::size_t(body.resident) < w.residents.size()) {
+        Id outfit = w.residents[body.resident].outfit;
+        if (outfit >= 0 && std::size_t(outfit) < w.items.size())
+          body.look = w.items[outfit].look;
+      }
+    }
 #undef READ
   for (auto &e : j.at("events").get<std::vector<Event>>()) {
     if (!std::isfinite(e.time) || e.time < w.time || e.seq >= w.sequence || int(e.kind) < 0 ||

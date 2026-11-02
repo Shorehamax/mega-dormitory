@@ -90,7 +90,34 @@ int main() {
     font.width(name, 20);
     require(!font.dirty, "unchanged names repeatedly rebuild the GPU atlas");
     UI ui(font);
+    for (const auto &language : {"en", "fr", "zh"}) {
+      locale.language = language;
+      auto hint = locale("hud.controls") + " · " + name;
+      for (float width : {220.f, 420.f, 720.f}) {
+        ui.begin(1000, 720, 30, 30, false, .016f);
+        float measured = ui.wrappedHeight(width, hint, 14);
+        float end = ui.wrap(20, 50, width, hint, 14, hex(0xffffff));
+        require(measured > 0 && std::abs(end - 50 - measured) < .01f,
+                "Multilingual prompt background does not match rendered wrapping");
+        ui.end();
+      }
+    }
     ui.begin(1000, 720, 30, 30, true, .016f);
+    ui.enabled = false;
+    require(!ui.button("disabled", {20, 20, 100, 34}, "Disabled") && ui.activations == 0,
+            "Disabled button emitted an activation");
+    ui.enabled = true;
+    ui.clip({100, 100, 100, 100});
+    require(!ui.button("clipped", {20, 20, 100, 34}, "Clipped") && ui.activations == 0,
+            "Hidden button emitted an activation");
+    ui.clip({0, 0, 1000, 720});
+    require(ui.button("active", {20, 20, 100, 34}, "Active") && ui.activations == 1,
+            "Enabled button failed to emit exactly one activation");
+    require(!ui.button("overlap", {20, 20, 100, 34}, "Overlap") && ui.activations == 1,
+            "A consumed click emitted a second activation");
+    ui.end();
+    ui.begin(1000, 720, 30, 30, true, .016f);
+    require(ui.activations == 0, "Button feedback carried into another frame");
     std::string input = "Long world name with many letters to test cursor visibility";
     ui.input("name", {20, 20, 160, 34}, input);
     ui.end();

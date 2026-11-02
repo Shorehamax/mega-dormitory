@@ -10,7 +10,7 @@ Ranges, joint bounds, storage limits and overlapping dispatches are checked. If 
 
 ## Verification
 
-`--skin-test --frames 1` compares readback against the original CPU implementation for all twelve activity poses, including falling and a two-handed shove, both body models, both detail levels and all three clothing patterns, including blended poses. It checks 3,887,028 vertices and all 16 packed vertex components. Hardware RTX and lavapipe both reported a maximum component difference of `9.53674e-07` in those cases. An additional multi-character batch checks separate palettes/output ranges, high-floor coordinates and rejection of overlapping output ranges.
+`--skin-test --frames 1` compares readback against the original CPU implementation for all eighteen activity poses, including pickup and static remains, both body models, both detail levels and all three clothing patterns, including blended poses. The original twelve-pose checkpoint checked 3,887,028 vertices and all 16 packed vertex components, with a maximum component difference of `9.53674e-07` on hardware RTX and lavapipe; the expanded oracle also covers the later activity poses. An additional multi-character batch checks separate palettes/output ranges, high-floor coordinates and rejection of overlapping output ranges.
 
 Display-dependent integration checks are optional:
 
@@ -27,3 +27,5 @@ A fixed 120-frame 600-person crowd sequence at 1200 × 800 on the development RT
 The changed asset/UI paths pass address, undefined-behavior and leak checking. Vulkan palette/readback and live rendering also passed address/undefined-behavior checks with driver leak detection disabled; graphics-driver allocations are outside that leak check. A forced tiny storage budget verifies automatic CPU fallback. This remains a procedural posing system: imported animation clips, retargeting, cloth simulation, contact IK and broader geometry streaming are unfinished.
 
 The falling pose braces the knees and recoils with asymmetric arms. A shove extends both hands with a brief torso lean, driven by the actual impulse/cooldown time. Asset checks verify both hands extend in front of the idle body and every pose retains finite bounds and normalized normals for both source and LOD meshes. This visual pass leaves the saved physics and collision rules unchanged.
+
+Nearby remains use the same weighted meshes and death-time appearance as living residents, with a still lying pose and a short freshly observed collapse. Pickup feedback blends a reach/knee bend without moving the collision capsule or first-person eye. The concrete floor now uses the existing opaque texture-tint blend to soften high-contrast aggregate while retaining its downloaded normal/roughness data. Negative normal strength selects this texture-tint material path for clothing and floors.

@@ -302,7 +302,13 @@ void World::deliverMaterials(Id worker, Id id) {
   item.pos = facilities[p.facility].pos;
   r.carrying = none;
   p.materialsDelivered = true;
-  beginProjectWork(worker, id);
+  // Finishing a physical delivery after clock-off does not start an unpaid work shift.
+  if (onShift(worker))
+    beginProjectWork(worker, id);
+  else {
+    p.workAt = -1;
+    r.activity = Activity::Idle;
+  }
 }
 void World::beginProjectWork(Id worker, Id id) {
   auto &p = projects.at(id);

@@ -37,6 +37,7 @@ class UI {
   bool clicked = false;
   std::map<std::string, float> hover;
   std::string activeInput;
+  std::vector<std::string> wrapLines(float, const std::string &, float);
   std::vector<unsigned int> characters;
   bool backspace = false;
   bool enter = false;
@@ -47,6 +48,7 @@ public:
   int width = 1440, height = 900;
   float dt = .016f;
   bool enabled = true;
+  unsigned activations = 0;
   double scroll = 0;
   explicit UI(Font &f) : font(f) {}
   void begin(int, int, double, double, bool, float);
@@ -58,6 +60,7 @@ public:
   void text(float x, float y, const std::string &, float size, Color);
   float textWidth(const std::string &s, float size) const { return font.width(s, size); }
   float wrap(float, float, float, const std::string &, float, Color);
+  float wrappedHeight(float, const std::string &, float);
   bool button(const std::string &id, Rect, const std::string &, bool primary = false,
               bool selected = false);
   bool input(const std::string &id, Rect, std::string &, bool numeric = false);

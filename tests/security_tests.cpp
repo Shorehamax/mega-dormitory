@@ -1081,6 +1081,84 @@ int main() {
     std::filesystem::remove(path);
     std::filesystem::remove(path.string() + ".meta.json");
   });
+  test("Custody reserves escorted prisoners and uses another jail when the closest is full", [] {
+    auto w = small();
+    scene(w);
+    guard(w, 3);
+    place(w, 3, {150, 0, 152});
+    Id first = jail(w);
+    for (auto &f : w.facilities)
+      if (f.kind == FacilityKind::Jail && f.id != first)
+        f.open = false;
+    w.facilities[first].stations = 4;
+    for (Id id = 10; id < 14; ++id) {
+      auto &r = w.residents[id];
+      r.activity = id == 13 ? Activity::Escorted : Activity::Jailed;
+      r.target = first;
+      r.surrendered = true;
+      r.releaseAt = w.time + 86400;
+      place(w, id, w.facilities[first].pos + Vec3{float(id - 10), 0, 2});
+    }
+    // Selection also counts the escort reservation, before the final booking.
+    require(w.availableJail(3) == none, "In-transit custody did not reserve capacity");
+    auto other = w.facilities[first];
+    other.id = Id(w.facilities.size());
+    other.floor = 0;
+    other.pos = {155, 0, 160};
+    other.employees.clear();
+    w.facilities.push_back(other);
+    w.floorFacilities[0].push_back(other.id);
+    w.invalidateGeometry(0);
+    require(w.availableJail(3) == other.id, "Full nearest jail masked available detention");
+    w.report(CrimeKind::Assault, 0, 1);
+    w.surrender(0);
+    w.apprehend(3, 0);
+    require(w.residents[0].target == other.id && w.residents[3].escort == 0 &&
+                !w.residents[3].route.empty(),
+            "Officer did not physically escort to the available jail");
+    // The artificial occupancy above has no matching escort records; selection is the oracle here.
+  });
+  test("Full detention defers automatic booking without dropping charges or adding blocked actions",
+       [] {
+         for (bool arrival : {false, true}) {
+           auto w = small();
+           scene(w);
+           guard(w, 3);
+           place(w, 3, {150, 0, 152});
+           Id f = jail(w);
+           for (auto &facility : w.facilities)
+             if (facility.kind == FacilityKind::Jail && facility.id != f)
+               facility.open = false;
+           w.facilities[f].stations = 4;
+           for (Id id = 10; id < 14; ++id) {
+             auto &r = w.residents[id];
+             r.activity = Activity::Jailed;
+             r.target = f;
+             r.releaseAt = w.time + 86400;
+           }
+           Id c = w.report(CrimeKind::Assault, 0, 1);
+           w.surrender(0);
+           Vec3 before = w.position(0);
+           if (arrival)
+             w.investigateArrival(3, c);
+           else
+             w.wardenRespond(3);
+           require(!w.incidents[c].resolved && w.hasWarrant(0) &&
+                       w.incidents[c].searchAfter > w.time && w.residents[3].escort == none &&
+                       w.residents[0].activity == Activity::Surrendered &&
+                       length(before - w.position(0)) < .001f,
+                   "Unavailable detention dropped charges, teleported or booked the suspect");
+           require(w.news.back().key == "security.capacity_wait",
+                   "Capacity wait became an interrupted action");
+           w.residents[10].activity = Activity::Idle;
+           w.residents[10].target = none;
+           w.time += 301;
+           w.wardenRespond(3);
+           require(w.residents[3].escort == 0 && w.residents[0].target == f,
+                   "Booking did not resume after a physical place became available");
+           w.validate();
+         }
+       });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

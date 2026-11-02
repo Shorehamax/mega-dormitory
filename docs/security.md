@@ -35,3 +35,7 @@ Successful release keeps the actual prisoner position, removes the active custod
 ## Limits
 
 Jails still use a capacity-limited intake footprint, not individually constructed lockable cells. The system has deterministic real observations and custody receipts, not fingerprints, cameras, false testimony, a court/trial system, or a complete forensic evidence model. Discovery is local to real nearby actors; officers do not yet perform broad search grids or travel to every distant unfiled witness. Broad civilian search behavior and a complete forensic determination of cause of death remain unfinished. Standalone restraint equipment and its complete physical constraints, deliberate prison assaults, richer rescue coordination and full witness-protection behavior remain unfinished. Severe crimes currently change sentence length rather than implementing a complete justice policy editor.
+
+## Capacity during booking
+
+New arrests select the nearest open, undamaged and safe jail with an unreserved place; opening hours are respected. Residents already jailed or being escorted reserve capacity. A warden bringing a prisoner provides the officer presence, so destination selection does not require the jail desk to be staffed before the escort arrives. If all safe places are full, automatic officers retain the warrant and defer another booking attempt for five game minutes, without teleporting or claiming to detain the suspect. They may resume when real capacity opens. This is aggregate jail capacity, not individual lockable cells or a court system.

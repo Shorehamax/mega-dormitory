@@ -311,6 +311,33 @@ void World::estateTick() {
     }
   }
 }
+Vec3 World::belongingApproach(Id actor, Id id) const {
+  Vec3 target = items.at(id).pos, start = position(actor), direction = start - target;
+  direction.y = 0;
+  if (length(direction) < .01f)
+    direction = {1, 0, 0};
+  else
+    direction = normalized(direction);
+  float angle = std::atan2(direction.z, direction.x);
+  for (int step : {0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6}) {
+    float a = angle + step * .5235987756f;
+    Vec3 goal = target + Vec3{std::cos(a) * 1.2f, 0, std::sin(a) * 1.2f};
+    goal.y = std::round(target.y / 3) * 3;
+    if (!clearPosition(goal, .31f))
+      continue;
+    if (!lineOfSight(goal + Vec3{0, 1.4f, 0}, target + Vec3{0, .3f, 0}) &&
+        !lineOfSight(goal + Vec3{0, .35f, 0}, target + Vec3{0, .15f, 0}))
+      continue;
+    if (std::abs(start.y - goal.y) < .1f)
+      try {
+        floorPath(start, goal);
+      } catch (const std::runtime_error &) {
+        continue;
+      }
+    return goal;
+  }
+  throw std::runtime_error("estate.error.collect");
+}
 void World::collectBelonging(Id actor, Id id) {
   auto &r = residents.at(actor);
   auto &item = items.at(id);
@@ -322,7 +349,8 @@ void World::collectBelonging(Id actor, Id id) {
       item.storedAt != none || item.seller != none || item.kind == ItemKind::Materials ||
       item.kind == ItemKind::Waste || !near(actor, item.pos, 1.8f) ||
       std::abs(position(actor).y - item.pos.y) > .5f ||
-      !lineOfSight(position(actor) + Vec3{0, 1.4f, 0}, item.pos + Vec3{0, .3f, 0}) ||
+      (!lineOfSight(position(actor) + Vec3{0, 1.4f, 0}, item.pos + Vec3{0, .3f, 0}) &&
+       !lineOfSight(position(actor) + Vec3{0, .35f, 0}, item.pos + Vec3{0, .15f, 0})) ||
       (item.order != none && orders[item.order].state != OrderState::Delivered &&
        orders[item.order].state != OrderState::Lost))
     throw std::runtime_error("estate.error.collect");
@@ -365,7 +393,7 @@ bool World::estateDecision(Id actor) {
     if (near(actor, items[best].pos, 1.8f))
       collectBelonging(actor, best);
     else
-      travel(actor, accessible(items[best].pos), TaskKind::BelongingCollect, best);
+      travel(actor, belongingApproach(actor, best), TaskKind::BelongingCollect, best);
     return true;
   } catch (const std::runtime_error &) {
     return false;

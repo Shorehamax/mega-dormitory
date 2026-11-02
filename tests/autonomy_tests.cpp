@@ -805,6 +805,60 @@ int main() {
     require(w.companies.size() == before + 1, "Founder spawned repeated empty companies");
     conserved(w);
   });
+  test(
+      "A resumed transport leg for a cancelled parcel ends without phantom pickup or delivery", [] {
+        for (auto task : {TaskKind::DeliveryPickup, TaskKind::DeliveryDrop}) {
+          auto w = small();
+          Id f = shop(w);
+          courier(w, f);
+          Money before = w.accounts[w.residents[0].account].balance;
+          Id order = w.order(0, f, ItemKind::Food);
+          w.cancelOrder(order, 0);
+          auto &r = w.residents[2];
+          place(w, 2, w.facilities[f].pos + Vec3{1.6f, 0, 0});
+          r.task = task;
+          r.target = order;
+          auto news = w.newsSequence;
+          w.arrive(2);
+          require(w.orders[order].state == OrderState::Cancelled && r.carrying == none &&
+                      r.route.empty() && r.task == TaskKind::None && r.activity == Activity::Idle &&
+                      w.items[w.orders[order].item].consumed && w.newsSequence == news,
+                  "Cancelled transport leg fabricated a handover or interrupted task");
+          require(w.accounts[w.residents[0].account].balance == before &&
+                      w.accounts[w.orders[order].escrow].balance == 0,
+                  "Late cancellation handling changed the real refund");
+          rejects([&] { w.pickup(order, 2); });
+          conserved(w);
+        }
+      });
+  test("Cancelling an old parcel preserves a courier's real freight and delivery route", [] {
+    auto w = small();
+    Id f = shop(w);
+    courier(w, f);
+    Id order = w.order(0, f, ItemKind::Food);
+    Id destination = w.nearestAt({0, 0, 0}, FacilityKind::Food);
+    w.pay(0, w.operatingAccount(destination), 1000000, "test-supply-capital");
+    Id shipment = w.requestStock(w.facilities[destination].manager, destination, 100);
+    place(w, 2, w.items[w.freight[shipment].item].pos);
+    w.assignFreight(2, shipment);
+    place(w, 2, w.items[w.freight[shipment].item].pos);
+    w.collectFreight(2, shipment);
+    auto &r = w.residents[2];
+    Id cargo = r.carrying;
+    auto version = r.routeVersion;
+    w.cancelOrder(order, 0);
+    require(r.carrying == cargo && w.items[cargo].carrier == 2 && r.task == TaskKind::FreightDrop &&
+                r.target == shipment && r.routeVersion == version && !r.route.empty(),
+            "Parcel cancellation abandoned another real delivery");
+    conserved(w);
+    int stock = w.facilities[destination].stock;
+    place(w, 2, w.facilities[destination].pos + Vec3{0, 0, 1.6f});
+    w.deliverFreight(2, shipment);
+    require(w.facilities[destination].stock == stock + 100 && r.carrying == none &&
+                w.freight[shipment].state == FreightState::Delivered,
+            "Preserved freight could not actually reach its client");
+    conserved(w);
+  });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

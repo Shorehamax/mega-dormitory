@@ -162,9 +162,15 @@ void World::wardenRespond(Id id) {
     auto goal = investigationDestination(id, c.id);
     c.warden = id;
     if (canEnforce(c) && c.suspect != none && near(id, position(c.suspect), 2.5f)) {
-      if (residents[c.suspect].surrendered)
+      if (residents[c.suspect].surrendered) {
+        if (availableJail(id) == none) {
+          c.warden = none;
+          c.searchAfter = time + 300;
+          log("security.capacity_wait", id, c.id);
+          return;
+        }
         apprehend(id, c.suspect);
-      else if (time >= w.nextHit)
+      } else if (time >= w.nextHit)
         attack(id, c.suspect, false);
     } else if (canEnforce(c) && c.suspect != none && residents[c.suspect].lethalThreat &&
                hasGun(id) && near(id, position(c.suspect), 30) &&
@@ -174,6 +180,27 @@ void World::wardenRespond(Id id) {
       travel(id, goal, TaskKind::Investigate, c.id);
     return;
   }
+}
+Id World::availableJail(Id warden) const {
+  std::map<Id, int> occupied;
+  for (const auto &r : residents)
+    if (r.alive && r.present &&
+        (r.activity == Activity::Jailed || r.activity == Activity::Escorted))
+      ++occupied[r.target];
+  Id best = none;
+  float distance = std::numeric_limits<float>::max();
+  Vec3 start = position(warden);
+  for (const auto &f : facilities)
+    if (f.kind == FacilityKind::Jail && f.open && !f.demolished && f.condition >= .1f &&
+        inHours(time, f.opensAt, f.openHours) && !activeFires.contains(f.id) &&
+        dangerAt(f.pos) <= .02f && occupied[f.id] < std::max(4, f.stations)) {
+      float d = length(f.pos - start);
+      if (d < distance) {
+        best = f.id;
+        distance = d;
+      }
+    }
+  return best;
 }
 void World::apprehend(Id warden, Id suspect) {
   auto &w = residents.at(warden);
@@ -193,15 +220,9 @@ void World::apprehend(Id warden, Id suspect) {
       throw std::runtime_error("traffic.error.exit");
     exitVehicle(suspect);
   }
-  Id jail = nearest(warden, FacilityKind::Jail);
+  Id jail = availableJail(warden);
   if (jail == none)
-    throw std::runtime_error("No operational jail");
-  int occupied = 0;
-  for (auto &r : residents)
-    if ((r.activity == Activity::Jailed || r.activity == Activity::Escorted) && r.target == jail)
-      ++occupied;
-  if (occupied >= std::max(4, facilities[jail].stations))
-    throw std::runtime_error("Jail is full");
+    throw std::runtime_error("security.error.jail_capacity");
   w.escort = suspect;
   travel(warden, accessible(facilities[jail].pos + Vec3{-1.6f, 0, 1.6f}), TaskKind::Escort, jail);
   Vec3 original = position(suspect), guardStart = position(warden);
@@ -259,6 +280,7 @@ void World::kill(Id id, Id killer, bool justified) {
   clockOut(id);
   Remains body;
   body.resident = id;
+  body.look = r.outfit == none ? Appearance{} : items[r.outfit].look;
   body.pos = r.pos;
   body.diedAt = time;
   body.ambulance = r.ambulance;
@@ -799,6 +821,9 @@ void World::validate() const {
         (b.lost && (b.cremated || b.carrier != none || b.worker != none || b.storage != none ||
                     b.destination != none || b.ambulance != none || b.lift != none)))
       throw std::runtime_error("Invalid remains");
+    if (b.look.primary < 0 || b.look.primary > 7 || b.look.secondary < 0 || b.look.secondary > 7 ||
+        b.look.style < 0 || b.look.style > 2 || b.look.accessory < 0 || b.look.accessory > 2)
+      throw std::runtime_error("Invalid remains appearance");
   }
   for (std::size_t i = 0; i < ambulances.size(); ++i) {
     const auto &a = ambulances[i];

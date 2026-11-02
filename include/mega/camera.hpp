@@ -35,10 +35,11 @@ inline Vec3 observerEye(Vec3 target, float yaw, float pitch, float distance) {
          Vec3{std::sin(yaw) * horizontal, std::sin(pitch) * distance, std::cos(yaw) * horizontal};
 }
 // Shift the projected image into the uncovered viewport without rotating the camera.
-inline Mat4 observerProjection(float width, float height, float coveredWidth) {
+inline Mat4 observerProjection(float width, float height, float coveredWidth,
+                               float verticalFov = 1.02f) {
   width = std::max(1.f, width);
   height = std::max(1.f, height);
-  auto projection = perspective(1.02f, width / height, .08f, 5000);
+  auto projection = perspective(std::clamp(verticalFov, .8f, 1.8f), width / height, .08f, 5000);
   projection[8] = std::clamp(coveredWidth, 0.f, width) / width;
   return projection;
 }

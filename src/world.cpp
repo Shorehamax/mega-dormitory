@@ -68,7 +68,7 @@ void World::schedule(double at, EventKind kind, Id id, Id other, std::uint64_t v
   events.push({at, sequence++, kind, id, other, version});
 }
 void World::log(std::string key, Id id, Id other) {
-  news.push_back({time, std::move(key), id, other});
+  news.push_back({time, std::move(key), id, other, ++newsSequence});
   if (news.size() > 2000)
     news.erase(news.begin(), news.begin() + 500);
 }
@@ -1258,14 +1258,16 @@ void World::arrive(Id id) {
     resumeAfterService(id, target);
   } else if (task == TaskKind::Service) {
     auto &f = facilities[target];
-    if (f.open && f.queue.size() >= 64 && r.automatic) {
+    if (f.open && r.automatic &&
+        (f.queue.size() >= 64 || accounts[r.account].balance < f.price ||
+         !accessAllowed(id, target) || !inHours(time, f.opensAt, f.openHours))) {
       Id alternative = serviceChoice(id, f.kind);
       if (alternative != none && alternative != target)
         travel(id, facilities[alternative].pos, TaskKind::Service, alternative);
       else
         clearServiceArea(id, target);
-      // Crowded service is an expected condition, not an interrupted task.
-      // The next decision chooses a service again after the queue has advanced.
+      // Queue capacity, available funds and opening/access rules may change during travel.
+      // Replan normally; do not reserve, charge or report an interrupted service.
     } else if (f.open) {
       if (near(id, f.pos, 3) || atServiceEntrance(id, target))
         joinQueue(id, target);
@@ -1326,14 +1328,20 @@ void World::arrive(Id id) {
       schedule(std::max(time + .01, r.route.back().time), EventKind::Arrive, id, none,
                r.routeVersion);
     }
-  } else if (task == TaskKind::ConstructionPickup)
-    collectMaterials(id, target);
-  else if (task == TaskKind::ConstructionDrop)
+  } else if (task == TaskKind::ConstructionPickup) {
+    if (onShift(id))
+      collectMaterials(id, target);
+  } else if (task == TaskKind::ConstructionDrop)
     deliverMaterials(id, target);
-  else if (task == TaskKind::DeliveryPickup)
-    pickup(target, id);
-  else if (task == TaskKind::DeliveryDrop) {
+  else if (task == TaskKind::DeliveryPickup) {
+    // A cabin or vehicle journey can finish after its suspended order was cancelled.
+    const auto &o = orders.at(target);
+    if (o.state == OrderState::ToPickup && o.courier == id)
+      pickup(target, id);
+  } else if (task == TaskKind::DeliveryDrop) {
     auto &o = orders[target];
+    if (o.state != OrderState::ToCustomer || o.courier != id)
+      return;
     if (residents[o.buyer].alive && residents[o.buyer].present)
       routeDelivery(target);
     else {
@@ -1353,8 +1361,12 @@ void World::arrive(Id id) {
         });
     if (construction) {
       for (auto &p : projects)
-        if (p.worker == id && p.facility == target && p.state == ProjectState::Working)
-          beginProjectWork(id, p.id);
+        if (p.worker == id && p.facility == target && p.state == ProjectState::Working) {
+          if (p.newConstruction && (!p.materialsDelivered || !onShift(id)))
+            p.workAt = -1;
+          else
+            beginProjectWork(id, p.id);
+        }
     } else
       clockIn(id);
   } else if (task == TaskKind::Investigate) {

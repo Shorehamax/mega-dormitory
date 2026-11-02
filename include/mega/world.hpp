@@ -335,6 +335,7 @@ struct Remains {
   Vec3 pos{};
   double diedAt = 0, burnUntil = -1, burnRemaining = 1800, burnWorkedAt = -1;
   bool cremated = false, lost = false;
+  Appearance look;
 };
 struct LocalName {
   std::string en, fr, zh;
@@ -697,6 +698,7 @@ struct News {
   double time = 0;
   std::string key;
   Id subject = none, other = none;
+  std::uint64_t serial = 0;
 };
 enum class EventKind {
   Decide,
@@ -754,7 +756,7 @@ class World {
 public:
   Config config;
   double time = 6 * 3600;
-  std::uint64_t rng = 1, sequence = 0;
+  std::uint64_t rng = 1, sequence = 0, newsSequence = 0;
   Id player = 0, dormOwner = 1, dormAccount = 1;
   Governance governance;
   bool gameOver = false;
@@ -891,6 +893,7 @@ public:
   void estateTick();
   void validateEstates() const;
   void collectBelonging(Id actor, Id item);
+  Vec3 belongingApproach(Id actor, Id item) const;
   bool estateDecision(Id actor);
   std::map<Id, Id> equityHeirs; // Resident nominations, affecting company equity only.
   Id companyController(Id company) const;
@@ -1208,6 +1211,7 @@ public:
   bool lineOfSight(Vec3 from, Vec3 to) const;
   void surrender(Id);
   void wardenRespond(Id);
+  Id availableJail(Id) const;
   void apprehend(Id, Id);
   void kill(Id, Id = none, bool justified = false);
   void applyFall(Id, float, Id = none, bool justified = false);

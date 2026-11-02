@@ -163,12 +163,15 @@ void World::cancelOrder(Id oid, Id buyer) {
     plan->second.action = AutonomyAction::Cancelled;
   if (o.courier != none) {
     auto &r = residents[o.courier];
-    r.pos = position(r.id);
-    r.route.clear();
-    ++r.routeVersion;
-    r.task = TaskKind::None;
-    r.activity = Activity::Idle;
-    r.carrying = none;
+    // Cancelling an uncollected parcel must not discard another physical job or cargo.
+    // Suspended transport legs finish normally; arrive() recognizes the cancelled order.
+    if (r.task == TaskKind::DeliveryPickup && r.target == oid) {
+      r.pos = position(r.id);
+      r.route.clear();
+      ++r.routeVersion;
+      r.task = TaskKind::None;
+      r.activity = Activity::Idle;
+    }
   }
 }
 void World::chooseJob(Id id, Role role, Id fid) {

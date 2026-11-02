@@ -1,5 +1,7 @@
 #include "mega/assets.hpp"
+#include "mega/audio.hpp"
 #include "mega/camera.hpp"
+#include "mega/preferences.hpp"
 #include "mega/renderer.hpp"
 #include "mega/runtime_paths.hpp"
 #include "mega/ui.hpp"
@@ -8,11 +10,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <future>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <tuple>
 namespace mega {
 static std::string number(std::int64_t n) {
   std::string s = std::to_string(n);
@@ -80,6 +84,28 @@ public:
   float drawerSlide = 0;
   int visibleFloors = 96;
   bool gpuSkinning = true;
+  AudioEngine audio;
+  Preferences preferences, observedPreferences;
+  std::filesystem::path preferencesPath;
+  bool persistPreferences = true, preferencesDirty = false, audioEnabled = true;
+  double preferencesWriteAt = 0;
+  std::map<Id, Vec3> audioPositions;
+  struct PickupGesture {
+    double began = 0;
+    Id item = none;
+    bool storage = false;
+    Vec3 from{};
+    std::uint64_t serial = 0;
+  };
+  std::map<Id, PickupGesture> pickupGestures;
+  std::map<Id, double> deathGestures;
+  std::map<Id, Vec3> itemPresentationPositions;
+  std::vector<News> frameFeedback;
+  std::uint64_t feedbackSerial = 0;
+  unsigned pickupFrames = 0, bodyFrames = 0, audioFootstepFrames = 0;
+
+  std::map<Id, double> audioAttacks;
+
   std::vector<SkinRequest> frameSkins;
   double sceneBuildSeconds = 0;
   int instanceFloor = -1, instanceRange = -1;
@@ -173,10 +199,29 @@ public:
   float cachedHappiness = .5f;
   std::size_t cachedLiving = 0, cachedQueued = 0;
   double nextStats = 0;
-  Application(GLFWwindow *w, const RuntimePaths &paths)
+  Application(GLFWwindow *w, const RuntimePaths &paths, bool loadPrefs = true, bool persist = true,
+              bool sound = true, std::filesystem::path customPrefs = {})
       : window(w), locale(paths.assets / "locales"),
         font(paths.assets / "fonts/NotoSansCJK-Regular.ttc", locale.charset()), ui(font),
         saveRoot(paths.saves) {
+    preferencesPath = customPrefs.empty() ? paths.saves / "settings.json" : customPrefs;
+    persistPreferences = persist;
+    audioEnabled = sound;
+    if (loadPrefs) {
+      try {
+        preferences = Preferences::load(preferencesPath);
+      } catch (const std::exception &) {
+        notify(t("preferences.error.load"));
+      }
+    }
+    observedPreferences = preferences;
+    locale.language = preferences.language;
+    visibleFloors = preferences.visibleFloors;
+    gpuSkinning = preferences.gpuSkinning;
+    cutaway = preferences.cutaway;
+    audio.configure(preferences.audio);
+    if (audioEnabled)
+      audio.start();
     assets.loadDormitory(paths.assets / "models");
     renderer = std::make_unique<Renderer>(w, paths.shaders, font.atlas, font.atlasSize);
     font.dirty = false;
@@ -200,6 +245,203 @@ public:
       static_cast<Application *>(glfwGetWindowUserPointer(w))->ui.scroll += y;
     });
   }
+  ~Application() {
+    audio.stop();
+    if (persistPreferences && preferencesDirty) {
+      try {
+        preferences.save(preferencesPath);
+      } catch (const std::exception &) {
+        std::cerr << "preferences.error.save\n";
+      }
+    }
+  }
+  void syncPreferences() {
+    preferences.language = locale.language;
+    preferences.visibleFloors = visibleFloors;
+    preferences.gpuSkinning = gpuSkinning;
+    preferences.cutaway = cutaway;
+    preferences.normalize();
+    auto effective = preferences.audio;
+    if (effective.muteUnfocused && !glfwGetWindowAttrib(window, GLFW_FOCUSED))
+      effective.muted = true;
+    audio.configure(effective);
+    if (!(preferences == observedPreferences)) {
+      observedPreferences = preferences;
+      preferencesDirty = true;
+      preferencesWriteAt = glfwGetTime() + .4;
+    }
+    if (persistPreferences && preferencesDirty && glfwGetTime() >= preferencesWriteAt) {
+      preferencesDirty = false;
+      try {
+        preferences.save(preferencesPath);
+      } catch (const std::exception &) {
+        notify(t("preferences.error.save"));
+      }
+    }
+  }
+  void updateFeedback() {
+    frameFeedback.clear();
+    if (!world || menu)
+      return;
+    auto &w = *world;
+    for (auto it = w.news.rbegin(); it != w.news.rend(); ++it) {
+      if (it->serial == 0 || it->serial <= feedbackSerial)
+        continue;
+      if (it->time <
+          w.time - std::max(60.0, (1440 / w.config.dayMinutes) * std::max(1.f, speed) * .3))
+        continue;
+      if (frameFeedback.size() < 256)
+        frameFeedback.push_back(*it);
+      if (it->key == "resident.died" && it->subject >= 0)
+        deathGestures[it->subject] = glfwGetTime();
+      if ((it->key == "estate.collected" || it->key == "storage.collected") && it->subject >= 0 &&
+          it->other >= 0 && std::size_t(it->other) < w.items.size()) {
+        auto found = pickupGestures.find(it->subject);
+        if (found != pickupGestures.end() && found->second.serial > it->serial)
+          continue;
+        bool storage = it->key == "storage.collected";
+        Vec3 from = itemPresentationPositions.contains(it->other)
+                        ? itemPresentationPositions[it->other]
+                        : w.position(it->subject) + Vec3{0, storage ? .9f : .05f, -.4f};
+        pickupGestures[it->subject] = {glfwGetTime(), it->other, storage, from, it->serial};
+      }
+    }
+    feedbackSerial = w.newsSequence;
+    std::erase_if(pickupGestures,
+                  [&](const auto &g) { return glfwGetTime() - g.second.began > .8; });
+    std::erase_if(deathGestures, [&](const auto &g) { return glfwGetTime() - g.second > 1; });
+  }
+  void updateAudio() {
+    if (!audioEnabled || !audio.available()) {
+      return;
+    }
+    AudioScene scene;
+    scene.listener = cameraEye;
+    scene.right = firstPerson ? Vec3{std::cos(playerYaw), 0, std::sin(playerYaw)}
+                              : Vec3{std::cos(orbit), 0, -std::sin(orbit)};
+    scene.playing =
+        world && !menu && !paused && !helpOpen && !savesOpen && !importOpen && !world->gameOver;
+    if (!world || menu) {
+      audio.scene(scene);
+      audioPositions.clear();
+      return;
+    }
+    auto &w = *world;
+    scene.sources.push_back({1, Sound::Air, cameraEye, .4f, 2});
+    for (const auto &f : w.facilities) {
+      float distance = length(f.pos - cameraEye);
+      if (f.demolished || distance > 24 || !f.open || !w.operational(f.id))
+        continue;
+      bool usingNow = std::any_of(f.serving.begin(), f.serving.end(), [&](const Service &s) {
+        return s.until >= w.time && w.residents[s.resident].activity == Activity::Using;
+      });
+      Sound sound = Sound::Machine;
+      float gain = .35f;
+      if (f.kind == FacilityKind::Shower || f.kind == FacilityKind::Washbasin ||
+          f.kind == FacilityKind::Water) {
+        if (!usingNow)
+          continue;
+        sound = Sound::Water;
+        gain = .45f;
+      } else if (f.kind == FacilityKind::Laundry) {
+        if (!usingNow)
+          continue;
+        gain = .6f;
+      } else if (f.kind != FacilityKind::Workshop && f.kind != FacilityKind::Food &&
+                 f.kind != FacilityKind::Cafe)
+        continue;
+      if (!w.lineOfSight(cameraEye, f.pos + Vec3{0, .9f, 0}))
+        gain *= .15f;
+      scene.sources.push_back(
+          {(2ull << 56) | std::uint64_t(f.id), sound, f.pos + Vec3{0, .9f, 0}, gain, 2});
+    }
+    for (const auto &fire : w.fires)
+      if (!fire.out && fire.heat > .05f) {
+        Vec3 p = w.facilities[fire.facility].pos;
+        if (length(p - cameraEye) < 30)
+          scene.sources.push_back(
+              {(3ull << 56) | std::uint64_t(fire.id), Sound::Fire, p, std::min(.8f, fire.heat), 2});
+      }
+    for (const auto &lift : w.lifts)
+      if (lift.moving) {
+        Vec3 p = w.liftDoor(0);
+        p.y = lift.y;
+        if (length(p - cameraEye) < 25)
+          scene.sources.push_back(
+              {(4ull << 56) | std::uint64_t(lift.id), Sound::Motor, p, .45f, 2});
+      }
+    for (const auto &vehicle : w.vehicles)
+      if (std::abs(vehicle.speed) > .1f && vehicle.kind != VehicleKind::Bicycle &&
+          length(vehicle.pos - cameraEye) < 28)
+        scene.sources.push_back({(5ull << 56) | std::uint64_t(vehicle.id), Sound::Motor,
+                                 vehicle.pos, .6f, std::clamp(std::abs(vehicle.speed), .5f, 8.f)});
+    std::vector<std::pair<float, SoundSource>> steps;
+    std::map<Id, Vec3> positions;
+    auto residentSound = [&](Id id) {
+      const auto &r = w.residents[id];
+      Vec3 p = w.position(id);
+      if (!r.alive || !r.present || r.vehicle != none || r.ambulance != none || r.lift != none ||
+          r.carriedBy != none || length(p - cameraEye) > 16)
+        return;
+      positions[id] = p;
+      auto previous = audioPositions.find(id);
+      if (previous != audioPositions.end() && r.activity != Activity::Sleeping &&
+          !w.looseBodies.contains(id)) {
+        Vec3 d = p - previous->second;
+        float moved = length(d);
+        if (moved > .012f && moved < 2) {
+          bool ladder = w.climbing(id);
+          float rate = std::clamp(moved / std::max(sceneDelta, .005f) / .85f, 1.5f, 4.f);
+          float gain = w.lineOfSight(cameraEye, p + Vec3{0, .7f, 0}) ? .9f : .1f;
+          steps.push_back({length(p - cameraEye),
+                           {(std::uint64_t(ladder ? 7 : 6) << 56) | std::uint64_t(id),
+                            ladder ? Sound::Ladder : Sound::Step, p, gain, rate}});
+        }
+      }
+      auto [attack, newAttack] = audioAttacks.try_emplace(id, r.nextHit);
+      if (!newAttack && attack->second != r.nextHit && r.activity == Activity::Fighting &&
+          scene.playing && !(r.lethalThreat && w.hasGun(id))) {
+        audio.play(Sound::Hit, 1 / (1 + length(p - cameraEye) * length(p - cameraEye) * .1f));
+      }
+      attack->second = r.nextHit;
+    };
+    for (Id id : w.nearbyResidents)
+      residentSound(id);
+    if (!positions.contains(selected))
+      residentSound(selected);
+    audioPositions = std::move(positions);
+    std::erase_if(audioAttacks,
+                  [&](const auto &entry) { return !audioPositions.contains(entry.first); });
+    std::sort(steps.begin(), steps.end(),
+              [](const auto &a, const auto &b) { return a.first < b.first; });
+    if (!steps.empty())
+      ++audioFootstepFrames;
+    for (std::size_t i = 0; i < std::min<std::size_t>(8, steps.size()); ++i)
+      scene.sources.push_back(steps[i].second);
+    std::sort(scene.sources.begin(), scene.sources.end(), [&](const auto &a, const auto &b) {
+      return length(a.position - cameraEye) < length(b.position - cameraEye);
+    });
+    if (scene.sources.size() > 32)
+      scene.sources.resize(32);
+    int played = 0;
+    for (const auto &entry : frameFeedback) {
+      if (played >= 8 || entry.subject < 0 || std::size_t(entry.subject) >= w.residents.size())
+        continue;
+      Vec3 p = w.position(entry.subject);
+      float d = length(p - cameraEye);
+      if (d > 20 || !w.lineOfSight(cameraEye, p + Vec3{0, .8f, 0}))
+        continue;
+      if (entry.key == "estate.collected" || entry.key == "storage.collected" ||
+          entry.key == "delivery.completed") {
+        audio.play(Sound::Pickup, 1 / (1 + d * d * .08f));
+        ++played;
+      } else if (entry.key == "combat.shot" && scene.playing) {
+        audio.play(Sound::Shot, 1 / (1 + d * d * .04f));
+        ++played;
+      }
+    }
+    audio.scene(scene);
+  }
   std::string t(const std::string &key) { return locale(key); }
   void notify(const std::string &s) {
     toast = s;
@@ -209,6 +451,7 @@ public:
     try {
       fn();
     } catch (const std::exception &e) {
+      audio.play(Sound::Error, .6f);
       notify(t(e.what()));
     }
   }
@@ -456,6 +699,14 @@ public:
   }
   void setWorld(World &&w) {
     world = std::make_unique<World>(std::move(w));
+    audioPositions.clear();
+    feedbackSerial = world->newsSequence;
+    frameFeedback.clear();
+    pickupGestures.clear();
+    deathGestures.clear();
+    itemPresentationPositions.clear();
+    audioAttacks.clear();
+    audio.reset();
     selected = world->player;
     savesOpen = importOpen = importSummary = false;
     looseItemList.clear();
@@ -666,8 +917,9 @@ public:
       double mx, my;
       glfwGetCursorPos(window, &mx, &my);
       if (mouseLocked) {
-        playerYaw += float(mx - oldMx) * .0025f;
-        playerPitch = std::clamp(playerPitch - float(my - oldMy) * .0025f, -1.35f, 1.35f);
+        playerYaw += float(mx - oldMx) * preferences.sensitivity;
+        playerPitch =
+            std::clamp(playerPitch - float(my - oldMy) * preferences.sensitivity, -1.35f, 1.35f);
       }
       oldMx = mx;
       oldMy = my;
@@ -716,83 +968,53 @@ public:
       if (interact && !interactHeld && r.lift == none && r.ambulance == none &&
           r.carriedBy == none && r.medicalDuty == none)
         act([&] {
-          if (r.ladder >= 0) {
+          const auto target = interactionTarget();
+          if (target.kind == InteractionKind::ReleaseLadder) {
             w.releaseLadder(selected);
             return;
           }
-          if (w.nearbyLadder(selected) >= 0) {
-            w.grabLadder(selected);
-            return;
-          }
-          if (r.vehicle != none) {
+          if (target.kind == InteractionKind::ExitVehicle) {
             w.exitVehicle(selected);
             return;
           }
-          for (const auto &vehicle : w.vehicles)
-            if (vehicle.owner == r.account && w.near(selected, vehicle.pos, 2.5f)) {
-              w.enterVehicle(selected, vehicle.id);
-              return;
-            }
-          refreshLooseItems();
-          Id belonging = none;
-          float belongingDistance = 1.8f;
-          for (Id id : looseItemList) {
-            const auto &item = w.items[id];
-            if (item.owner != r.account || item.carrier != none || item.consumed ||
-                item.storedAt != none || item.reservedAt != none || item.seller != none)
-              continue;
-            if (item.order != none && w.orders[item.order].state != OrderState::Delivered &&
-                w.orders[item.order].state != OrderState::Lost)
-              continue;
-            float distance = length(item.pos - w.position(selected));
-            if (distance < belongingDistance) {
-              belonging = id;
-              belongingDistance = distance;
-            }
-          }
-          if (belonging != none) {
-            w.collectBelonging(selected, belonging);
+          if (target.kind == InteractionKind::GrabLadder) {
+            w.grabLadder(selected);
             return;
           }
-          for (auto &lift : w.lifts)
-            if (w.near(selected, w.liftDoor(currentFloor), 3) &&
-                std::find(w.facilities[lift.facility].stops.begin(),
-                          w.facilities[lift.facility].stops.end(),
-                          currentFloor) != w.facilities[lift.facility].stops.end()) {
-              tab = 1;
-              drawerOpen = true;
-              scrollOffset = 0;
-              mouseLocked = false;
-              glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-              return;
-            }
-          for (const auto &l : w.storageLeases)
-            if (!l.released && w.near(selected, w.storagePosition(l.id), 2.2f)) {
-              storageScreen = true;
-              selectedStorage = l.id;
-              selectedStorageFacility = l.facility;
-              tab = 0;
-              drawerOpen = true;
-              scrollOffset = 0;
-              mouseLocked = false;
-              glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-              return;
-            }
-          Id best = none;
-          float d = 3;
-          for (const auto &f : w.facilities) {
-            float candidate = length(facilityApproach(f) - w.position(selected));
-            if (f.open && candidate < d) {
-              d = candidate;
-              best = f.id;
-            }
-          }
-          if (best == none)
+          if (target.kind == InteractionKind::Vehicle) {
+            w.enterVehicle(selected, target.id);
             return;
+          }
+          if (target.kind == InteractionKind::Belonging) {
+            w.collectBelonging(selected, target.id);
+            return;
+          }
+          if (target.kind == InteractionKind::Lift) {
+            tab = 1;
+            drawerOpen = true;
+            scrollOffset = 0;
+            mouseLocked = false;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            return;
+          }
+          if (target.kind == InteractionKind::Storage) {
+            storageScreen = true;
+            selectedStorage = target.id;
+            selectedStorageFacility = w.storageLeases[target.id].facility;
+            tab = 0;
+            drawerOpen = true;
+            scrollOffset = 0;
+            mouseLocked = false;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            return;
+          }
+          if (target.kind != InteractionKind::Facility)
+            return;
+          Id best = target.id;
           auto &f = w.facilities[best];
           if (f.kind == FacilityKind::Reception) {
             if (!w.operational(f.id))
-              throw std::runtime_error("The reception desk is unstaffed");
+              throw std::runtime_error(w.availability(f.id));
             helpOpen = true;
             mouseLocked = false;
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -1246,6 +1468,130 @@ public:
         }
     return y;
   }
+  enum class InteractionKind {
+    None,
+    ReleaseLadder,
+    ExitVehicle,
+    GrabLadder,
+    Vehicle,
+    Belonging,
+    Lift,
+    Storage,
+    Facility
+  };
+  struct InteractionTarget {
+    InteractionKind kind = InteractionKind::None;
+    Id id = none;
+  };
+  InteractionTarget interactionTarget() {
+    auto &w = *world;
+    const auto &r = w.residents[selected];
+    if (!r.alive || !r.present || r.lift != none || r.ambulance != none || r.carriedBy != none ||
+        r.medicalDuty != none)
+      return {};
+    if (r.ladder >= 0)
+      return {InteractionKind::ReleaseLadder};
+    if (r.vehicle != none)
+      return {InteractionKind::ExitVehicle};
+    if (w.nearbyLadder(selected) >= 0)
+      return {InteractionKind::GrabLadder};
+    for (const auto &v : w.vehicles)
+      if (v.owner == r.account && w.near(selected, v.pos, 2.5f))
+        return {InteractionKind::Vehicle, v.id};
+    refreshLooseItems();
+    Id closest = none;
+    float distance = 1.8f;
+    Vec3 pos = w.position(selected);
+    for (Id id : looseItemList) {
+      const auto &item = w.items[id];
+      if (item.owner != r.account || item.carrier != none || item.consumed ||
+          item.storedAt != none || item.reservedAt != none || item.seller != none ||
+          std::abs(item.pos.y - pos.y) > .5f)
+        continue;
+      if (item.order != none && w.orders[item.order].state != OrderState::Delivered &&
+          w.orders[item.order].state != OrderState::Lost)
+        continue;
+      float d = length(item.pos - pos);
+      if (d < distance && (w.lineOfSight(pos + Vec3{0, 1.4f, 0}, item.pos + Vec3{0, .3f, 0}) ||
+                           w.lineOfSight(pos + Vec3{0, .35f, 0}, item.pos + Vec3{0, .15f, 0}))) {
+        closest = id;
+        distance = d;
+      }
+    }
+    if (closest != none)
+      return {InteractionKind::Belonging, closest};
+    for (const auto &lift : w.lifts)
+      if (w.near(selected, w.liftDoor(currentFloor), 3) &&
+          std::find(w.facilities[lift.facility].stops.begin(),
+                    w.facilities[lift.facility].stops.end(),
+                    currentFloor) != w.facilities[lift.facility].stops.end())
+        return {InteractionKind::Lift, lift.id};
+    for (const auto &l : w.storageLeases)
+      if (!l.released && w.near(selected, w.storagePosition(l.id), 2.2f))
+        return {InteractionKind::Storage, l.id};
+    closest = none;
+    distance = 3;
+    for (const auto &f : w.facilities) {
+      float d = length(facilityApproach(f) - pos);
+      if (f.open && !f.demolished && d < distance &&
+          w.lineOfSight(pos + Vec3{0, 1.4f, 0}, facilityApproach(f) + Vec3{0, 1.4f, 0})) {
+        closest = f.id;
+        distance = d;
+      }
+    }
+    return closest == none ? InteractionTarget{}
+                           : InteractionTarget{InteractionKind::Facility, closest};
+  }
+  std::string interactionPrompt() {
+    auto &w = *world;
+    const auto target = interactionTarget();
+    switch (target.kind) {
+    case InteractionKind::ReleaseLadder:
+      return t("ladder.controls");
+    case InteractionKind::ExitVehicle:
+      return "E · " + t("vehicle.exit");
+    case InteractionKind::GrabLadder:
+      return t("ladder.grab");
+    case InteractionKind::Vehicle:
+      return "E · " + t("vehicle.drive");
+    case InteractionKind::Belonging:
+      return "E · " + t("estate.collect") + " · " + t(itemLabel(w.items[target.id].kind));
+    case InteractionKind::Lift:
+      return "E · " + t("hint.lift");
+    case InteractionKind::Storage:
+      return "E · " + t("storage.open");
+    case InteractionKind::Facility: {
+      const auto &f = w.facilities[target.id];
+      std::string name = t(facilityKey(f.kind));
+      if (f.kind == FacilityKind::Reception && !w.operational(f.id))
+        return name + " · " + t(w.availability(f.id));
+      if (f.kind == FacilityKind::Reception || f.kind == FacilityKind::Locker ||
+          f.kind == FacilityKind::Elevator || f.kind == FacilityKind::Dealership ||
+          f.kind == FacilityKind::Parking || f.kind == FacilityKind::Ramp ||
+          f.kind == FacilityKind::FreightLift)
+        return "E · " + t("hint.open") + " · " + name;
+      if (!w.operational(f.id))
+        return name + " · " + t(w.availability(f.id));
+      if (!w.accessAllowed(selected, f.id) ||
+          (f.kind == FacilityKind::Office &&
+           w.residents[selected].employer != w.operatingAccount(f.id)))
+        return name + " · " + t("hint.restricted");
+      if (f.kind == FacilityKind::Terminal || f.kind == FacilityKind::Office)
+        return "E · " + t("hint.computer") + " · " +
+               preciseMoney(f.kind == FacilityKind::Office ? 0 : f.price * 30);
+      if (w.residents[selected].queuedAt == f.id)
+        return name + " · " +
+               t(w.residents[selected].activity == Activity::Using ? "hint.serving"
+                                                                   : "hint.in_queue");
+      if (f.stock <= 0)
+        return "E · " + t("hint.queue") + " · " + name + " · " + t("hint.supplies");
+      return "E · " + t("hint.queue") + " · " + name + " · " + std::to_string(f.queue.size()) +
+             " " + t("hint.waiting") + " · " + preciseMoney(f.price);
+    }
+    default:
+      return t("hud.controls");
+    }
+  }
   void refreshLooseItems() {
     if (!world)
       return;
@@ -1388,7 +1734,7 @@ public:
         if (ui.button("estateWalk" + std::to_string(item.id), {x, y, width / 2 - 4, 31},
                       t("action.walk")))
           act([&] {
-            w.travel(actor, w.accessible(item.pos), TaskKind::None, none);
+            w.travel(actor, w.belongingApproach(actor, item.id), TaskKind::None, none);
             paused = false;
           });
         if (ui.button("estateCollect" + std::to_string(item.id),
@@ -3628,6 +3974,70 @@ public:
           locale.language = lang;
       }
       bottom += 54;
+      ui.text(content.x, bottom, t("audio.title"), 19, hex(0xa5cbb9));
+      bottom += 33;
+      auto volume = [&](const char *key, float &value) {
+        ui.text(content.x, bottom,
+                t(key) + " · " + std::to_string(int(std::round(value * 100))) + "%", 14,
+                hex(0xc2c8cf));
+        bottom += 25;
+        if (ui.button(std::string(key) + "Minus", {content.x, bottom, 50, 30}, "−"))
+          value = std::max(0.f, value - .1f);
+        ui.fill({content.x + 62, bottom + 12, content.w - 124, 6}, hex(0x2b3b3b), 3);
+        ui.fill({content.x + 62, bottom + 12, (content.w - 124) * value, 6}, hex(0xa5cbb9), 3);
+        if (ui.button(std::string(key) + "Plus", {content.x + content.w - 50, bottom, 50, 30}, "+"))
+          value = std::min(1.f, value + .1f);
+        bottom += 42;
+      };
+      volume("audio.master", preferences.audio.master);
+      volume("audio.effects", preferences.audio.effects);
+      volume("audio.ambience", preferences.audio.ambience);
+      if (ui.button("audioMute", {content.x, bottom, content.w, 34},
+                    t(preferences.audio.muted ? "audio.unmute" : "audio.mute"), false,
+                    preferences.audio.muted))
+        preferences.audio.muted = !preferences.audio.muted;
+      bottom += 44;
+      if (ui.button(
+              "audioFocus", {content.x, bottom, content.w, 34},
+              t(preferences.audio.muteUnfocused ? "audio.background_off" : "audio.background_on"),
+              false, preferences.audio.muteUnfocused))
+        preferences.audio.muteUnfocused = !preferences.audio.muteUnfocused;
+      bottom += 44;
+      if (!audio.available()) {
+        bottom =
+            ui.wrap(content.x, bottom, content.w,
+                    t(audioEnabled ? "audio.unavailable" : "audio.disabled"), 13, hex(0xc5aa83)) +
+            12;
+        if (audioEnabled &&
+            ui.button("audioRetry", {content.x, bottom, content.w, 32}, t("audio.retry")))
+          audio.start();
+        if (audioEnabled)
+          bottom += 42;
+      }
+      ui.text(content.x, bottom, t("preferences.camera"), 19, hex(0xa5cbb9));
+      bottom += 32;
+      ui.text(content.x, bottom,
+              t("preferences.fov") + " · " + std::to_string(int(preferences.fov)) + "°", 14,
+              hex(0xc2c8cf));
+      bottom += 26;
+      if (ui.button("fovMinus", {content.x, bottom, content.w / 2 - 5, 32}, "−"))
+        preferences.fov = std::max(55.f, preferences.fov - 5);
+      if (ui.button("fovPlus", {content.x + content.w / 2 + 5, bottom, content.w / 2 - 5, 32}, "+"))
+        preferences.fov = std::min(100.f, preferences.fov + 5);
+      bottom += 43;
+      ui.text(content.x, bottom,
+              t("preferences.sensitivity") + " · " +
+                  std::to_string(int(std::round(preferences.sensitivity / .0025f * 100))) + "%",
+              14, hex(0xc2c8cf));
+      bottom += 26;
+      if (ui.button("lookMinus", {content.x, bottom, content.w / 2 - 5, 32}, "−"))
+        preferences.sensitivity = std::max(.0006f, preferences.sensitivity - .0002f);
+      if (ui.button("lookPlus", {content.x + content.w / 2 + 5, bottom, content.w / 2 - 5, 32},
+                    "+"))
+        preferences.sensitivity = std::min(.006f, preferences.sensitivity + .0002f);
+      bottom = ui.wrap(content.x, bottom + 48, content.w, t("preferences.saved_help"), 12,
+                       hex(0x8d99a5)) +
+               25;
       if (ui.button("settingsSaveBrowser", {content.x, bottom, content.w, 38},
                     t("save.browser_save")))
         openSaves(true);
@@ -3856,13 +4266,12 @@ public:
     if (firstPerson && !drawerOpen && !phone && !helpOpen) {
       float cx = width / 2, cy = h / 2;
       ui.fill({cx - 2, cy - 2, 4, 4}, hex(0xffffff, .85f), 2);
-      std::string prompt = paused                          ? t("help.paused")
-                           : r.ladder >= 0                 ? t("ladder.controls")
-                           : w.nearbyLadder(selected) >= 0 ? t("ladder.grab")
-                                                           : t("hud.controls");
-      float tw = std::min(width - 500, ui.textWidth(prompt, 14) + 32);
-      ui.fill({(width - tw) / 2, h - 181, tw, 36}, hex(0x10141a, .78f), 6);
-      ui.text((width - tw) / 2 + 16, h - 171, prompt, 14, hex(0xd7dee4));
+      std::string prompt = paused ? t("help.paused") : interactionPrompt();
+      float tw = std::min(width - 48, std::min(720.f, ui.textWidth(prompt, 14) + 32));
+      float th = ui.wrappedHeight(tw - 32, prompt, 14) + 20;
+      float py = hudBottom - 145 - th;
+      ui.fill({(width - tw) / 2, py, tw, th}, hex(0x10141a, .85f), 6);
+      ui.wrap((width - tw) / 2 + 16, py + 10, tw - 32, prompt, 14, hex(0xd7dee4));
     }
   }
   void helpPanel() {
@@ -4834,8 +5243,10 @@ public:
         vertex.material = assets.meshes.at("concrete_floor_02").vertices.front().material;
         vertex.u = vertex.p.x * .08f;
         vertex.v = vertex.p.z * .08f;
-        vertex.color = {.22f, .29f, .34f, 1};
-        vertex.normalScale = .08f;
+        // Use the same texture-tint blend as recolorable surfaces to keep worn concrete
+        // readable without amplifying its high-contrast aggregate across huge slabs.
+        vertex.color = {.43f, .48f, .50f, .82f};
+        vertex.normalScale = -1;
       }
       if (world)
         for (const auto &wall : world->interiorWalls)
@@ -5044,6 +5455,7 @@ public:
               if (open > .1f)
                 for (Id id : lease->items) {
                   const auto &item = w.items[id];
+                  itemPresentationPositions[id] = item.pos;
                   Color color = palette(int(item.kind) % 8);
                   if (item.durability <= 0)
                     color = hex(0x292b29);
@@ -5366,13 +5778,54 @@ public:
           box(v, p + Vec3{0, -.2f, side * 1.6f}, {.35f, .5f, .35f}, hex(0x73c9d1, .7f));
       }
     }
+    int detailedBodies = 0;
+    Vec3 bodyFocus =
+        firstPerson ? w.position(selected) : Vec3{cameraFocus.x, floorY, cameraFocus.z};
     for (const auto &b : w.remains)
       if (!b.cremated && !b.lost && b.ambulance == none) {
         Vec3 p = b.carrier == none ? b.pos : w.position(b.carrier) + Vec3{0, .7f, .9f};
+        if (b.lift != none)
+          p.y = w.lifts[b.lift].y;
         if (std::abs(p.y - floorY) > 6 || p.y >= ceilingCut)
           continue;
-        box(v, p + Vec3{0, .18f, 0}, {.58f, .26f, 1.7f}, hex(0x7a8481));
-        sphere(v, p + Vec3{0, .23f, -.77f}, {.17f, .17f, .18f}, hex(0xa6a08e));
+        if (length(p - bodyFocus) < 28 && detailedBodies++ < (renderer->software ? 4 : 16)) {
+          ++bodyFrames;
+          const auto &r = w.residents[b.resident];
+          CharacterStyle style;
+          style.pattern = b.look.style;
+          style.shirt = palette(b.look.primary);
+          style.trousers = palette(b.look.secondary);
+          style.skin = {.86f + float(r.id % 4) * .05f, .86f + float(r.id % 3) * .04f,
+                        .85f + float(r.id % 5) * .03f, 1};
+          style.height =
+              (1.68f + float(r.id % 9) * .018f) * (r.age < 18 ? .55f + r.age * .025f : 1.f);
+          std::string mesh = ((r.sex < 0 ? r.id % 2 : r.sex) ? "resident_Female" : "resident_Male");
+          mesh += "_lod";
+          float blend = 1;
+          CharacterPose previous = CharacterPose::Dead;
+          if (b.carrier == none && b.storage == none && b.lift == none &&
+              deathGestures.contains(r.id)) {
+            blend = std::clamp(float((glfwGetTime() - deathGestures[r.id]) / .55), 0.f, 1.f);
+            previous =
+                characterPoses.contains(r.id) ? characterPoses[r.id].current : CharacterPose::Fall;
+          }
+          Vec3 origin = p + Vec3{0, -.48f * blend, 0};
+          if (gpuSkinning && !renderer->software) {
+            auto request = assets.characterSkin(mesh, std::uint32_t(v.size()), origin, 0, previous,
+                                                CharacterPose::Dead, blend, 0, 0, style);
+            v.resize(v.size() + request.count);
+            frameSkins.push_back(std::move(request));
+          } else
+            assets.appendCharacter(v, mesh, origin, 0, previous, CharacterPose::Dead, blend, 0, 0,
+                                   style);
+        } else {
+          cylinder(v, p + Vec3{0, .18f, -.55f}, p + Vec3{0, .18f, .2f}, .19f,
+                   palette(b.look.primary), 8);
+          for (int side : {-1, 1})
+            cylinder(v, p + Vec3{side * .12f, .16f, .1f}, p + Vec3{side * .14f, .12f, .85f}, .08f,
+                     palette(b.look.secondary), 6);
+          sphere(v, p + Vec3{0, .23f, -.77f}, {.17f, .17f, .18f}, hex(0xa6a08e));
+        }
         if (b.carrier != none)
           box(v, p + Vec3{0, .02f, 0}, {.7f, .08f, 2}, hex(0x6b919d));
       }
@@ -5383,6 +5836,8 @@ public:
     for (Id id : looseItemList) {
       const auto &item = w.items[id];
       Vec3 p = item.pos;
+      if (item.carrier == none && !item.consumed)
+        itemPresentationPositions[id] = p;
       if (item.consumed || item.carrier != none || item.storedAt != none ||
           item.reservedAt != none || length(p - itemFocus) > 40 || p.y >= ceilingCut ||
           renderedItems++ >= 256)
@@ -5407,6 +5862,34 @@ public:
         box(v, p + Vec3{0, .112f, 0}, {.045f, .004f, .16f}, hex(0x738d85));
       }
     }
+    for (const auto &[actor, gesture] : pickupGestures) {
+      if (actor < 0 || std::size_t(actor) >= w.residents.size() || gesture.item < 0 ||
+          std::size_t(gesture.item) >= w.items.size())
+        continue;
+      const auto &item = w.items[gesture.item];
+      const auto &r = w.residents[actor];
+      Vec3 body = w.position(actor);
+      if (item.carrier != actor || item.consumed || !r.alive || r.activity == Activity::Fighting ||
+          std::abs(body.y - floorY) > 6 || length(body - bodyFocus) > 28)
+        continue;
+      float t = std::clamp(float((glfwGetTime() - gesture.began) / .7), 0.f, 1.f);
+      float heading = characterHeading.contains(actor) ? characterHeading[actor] : 0;
+      Vec3 forward{-std::sin(heading), 0, -std::cos(heading)},
+          right{std::cos(heading), 0, -std::sin(heading)};
+      Vec3 hand = body + Vec3{0, .95f, 0} + forward * .35f + right * .2f;
+      if (firstPerson && actor == selected) {
+        forward = {std::sin(playerYaw), 0, -std::cos(playerYaw)};
+        right = {std::cos(playerYaw), 0, std::sin(playerYaw)};
+        hand = body + firstPersonOffset + forward * .45f + right * .2f - Vec3{0, .35f, 0};
+      }
+      float travel = std::clamp(t / .65f, 0.f, 1.f), smooth = travel * travel * (3 - 2 * travel);
+      Vec3 at = gesture.from * (1 - smooth) + hand * smooth +
+                Vec3{0, std::sin(travel * 3.1415927f) * .12f, 0};
+      float scale = t < .8f ? 1 : std::max(.01f, (1 - t) * 5);
+      box(v, at, {.17f * scale, .05f * scale, .13f * scale}, palette(item.look.primary));
+    }
+    std::erase_if(itemPresentationPositions,
+                  [&](const auto &entry) { return length(entry.second - bodyFocus) > 45; });
     float detailY = currentFloor * 3.f;
     for (int side : {-1, 1}) {
 
@@ -5631,13 +6114,23 @@ public:
         else
           pose = CharacterPose::Work;
       }
+      auto pickup = pickupGestures.find(r.id);
+      bool pickupActive = pickup != pickupGestures.end() && !moving &&
+                          r.activity != Activity::Fighting && !resting &&
+                          !w.looseBodies.contains(r.id);
+      if (pickupActive) {
+        ++pickupFrames;
+        pose = pickup->second.storage ? CharacterPose::Handover : CharacterPose::Pickup;
+        phase =
+            float(std::clamp((glfwGetTime() - pickup->second.began) / .7, 0.0, 1.0)) * 3.1415927f;
+      }
       auto [transition, newPose] = characterPoses.try_emplace(r.id, PoseTransition{pose, pose, 1});
       if (transition->second.current != pose) {
         transition->second.previous = transition->second.current;
         transition->second.current = pose;
         transition->second.blend = 0;
       }
-      if (!paused)
+      if (!paused || pickupActive)
         transition->second.blend = std::min(1.f, transition->second.blend + sceneDelta * 3);
       if (length(p - viewCenter) < 22 && detailedCharacters++ < (renderer->software ? 8 : 64)) {
         CharacterStyle style;
@@ -5893,9 +6386,10 @@ public:
       eye = observerEye(target, orbit, pitch, distance);
     }
     cameraEye = eye;
-    return mul(
-        observerProjection(float(ui.width), float(ui.height), firstPerson ? 0 : 460 * drawerSlide),
-        lookAt(eye, target));
+    return mul(observerProjection(float(ui.width), float(ui.height),
+                                  firstPerson ? 0 : 460 * drawerSlide,
+                                  firstPerson ? preferences.fov * .01745329252f : 1.02f),
+               lookAt(eye, target));
   }
   void endingPanel() {
     float width = std::min(600.f, float(ui.width) - 48), height = 310;
@@ -6000,6 +6494,7 @@ public:
     savesEscapeHeld = saveEscape;
     if (!savesOpen && !importOpen)
       update(dt);
+    updateFeedback();
     auto &scene = sceneGeometry;
     double sceneStart = glfwGetTime();
     scene.clear();
@@ -6061,6 +6556,9 @@ public:
       ui.fill({24, toastY, toastWidth, toastHeight}, hex(0x614f37, .97f), 6);
       ui.wrap(38, toastY + 12, toastWidth - 28, toast, 14, hex(0xf0e4cc));
     }
+    if (ui.activations)
+      audio.play(Sound::Click, .6f);
+    syncPreferences();
     ui.end();
     if (font.dirty) {
       renderer->updateFont(font.atlas, font.atlasSize);
@@ -6077,6 +6575,7 @@ public:
       batch.clip.h *= uiScale;
     }
     auto cameraMatrix = camera();
+    updateAudio();
     std::vector<std::pair<float, std::array<float, 8>>> sources;
     if (world && !menu)
       for (const auto &[fid, id] : world->activeFires) {
@@ -6133,8 +6632,26 @@ int runApplication(int argc, char **argv) {
   try {
     auto paths =
         RuntimePaths::discover(runningExecutable(argv[0]), MEGA_ASSETS, MEGA_SHADERS, MEGA_PROJECT);
-    Application app(window, paths);
+    bool automation = false, sound = true;
+    std::filesystem::path customPrefs, customSaves;
+    for (int i = 1; i < argc; ++i) {
+      std::string arg = argv[i];
+      if (arg == "--demo" || arg == "--frames" || arg == "--skin-test" || arg == "--compute-test" ||
+          arg.starts_with("--playtest-"))
+        automation = true;
+      if (arg == "--no-audio")
+        sound = false;
+      if (arg == "--preferences-file" && i + 1 < argc)
+        customPrefs = argv[++i];
+      else if ((arg == "--saves" || arg == "--save-root") && i + 1 < argc)
+        customSaves = argv[++i];
+    }
+    if (customPrefs.empty() && !customSaves.empty())
+      customPrefs = customSaves / "settings.json";
+    Application app(window, paths, !automation || !customPrefs.empty(), !automation, sound,
+                    customPrefs);
     int frames = 0, maxFrames = 0;
+    bool verifyFeedback = false;
     bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false,
          playConstruction = false, playVehicles = false, playCompany = false, playSecurity = false,
          playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
@@ -6186,7 +6703,11 @@ int runApplication(int argc, char **argv) {
           throw std::runtime_error("Missing argument value");
         return std::string(argv[++i]);
       };
-      if (arg == "--playtest-estates") {
+      if (arg == "--verify-feedback")
+        verifyFeedback = true;
+      else if (arg == "--preferences-file") {
+        (void)value();
+      } else if (arg == "--playtest-estates") {
         playEstates = demo = animate = true;
         panel = "estate-play";
         app.config.population = 80;
@@ -6317,7 +6838,7 @@ int runApplication(int argc, char **argv) {
         panel = value();
       else if (arg == "--import-browser")
         browserImport = value();
-      else if (arg == "--saves")
+      else if (arg == "--saves" || arg == "--save-root")
         app.saveRoot = value();
       else if (arg == "--width" || arg == "--height") {
         (void)value();
@@ -7836,6 +8357,19 @@ int runApplication(int argc, char **argv) {
       }
       app.frame(dt, frameCapture);
       ++frames;
+    }
+    if (verifyFeedback) {
+      if (app.pickupFrames == 0 || app.bodyFrames == 0)
+        throw std::runtime_error(
+            "Pickup/body presentation failed: " + std::to_string(app.pickupFrames) + " / " +
+            std::to_string(app.bodyFrames));
+      if (app.audio.available() &&
+          (app.audio.framesWritten() < 480 || app.audioFootstepFrames == 0))
+        throw std::runtime_error("Native audio output or moving-source feedback did not run");
+      std::cout << "FEEDBACK PLAYTEST PASS: pickup frames " << app.pickupFrames
+                << ", rigged body frames " << app.bodyFrames << ", footstep frames "
+                << app.audioFootstepFrames << ", output frames " << app.audio.framesWritten()
+                << "\n";
     }
     if (playEstates) {
       auto &w = *app.world;

@@ -394,6 +394,96 @@ int main() {
             "Replacement worker did not recover original cargo");
     w.validate();
   });
+  test("Material delivery at clock-off remains delivered without unpaid construction", [] {
+    auto w = small();
+    rich(w);
+    Id shop = workshop(w);
+    builder(w, 2, shop);
+    Id job = w.commissionFacility(w.dormOwner, FacilityKind::Toilet, 0, {70, 0, 100}, 1);
+    w.assignBuilder(job, 2);
+    place(w, 2, w.facilities[w.projects[job].source].pos);
+    w.collectMaterials(2, job);
+    auto &p = w.projects[job];
+    Id cargo = p.materialItem;
+    place(w, 2, w.facilities[p.facility].pos + Vec3{0, 0, 1.6f});
+    auto &r = w.residents[2];
+    r.routine.shiftStart = 6;
+    r.routine.shiftHours = 8;
+    w.time = 20 * 3600;
+    r.task = TaskKind::ConstructionDrop;
+    r.target = job;
+    Money before = w.accounts[p.escrow].balance;
+    double remaining = p.remaining;
+    w.arrive(2);
+    require(p.materialsDelivered && r.carrying == none && w.items[cargo].carrier == none &&
+                length(w.items[cargo].pos - w.facilities[p.facility].pos) < .01f,
+            "Clock-off lost or relocated the physical shipment");
+    require(r.activity == Activity::Idle && p.workAt < 0,
+            "Off-shift delivery started a construction shift");
+    w.time += 60;
+    w.workProject(job, 60);
+    require(p.remaining == remaining && w.accounts[p.escrow].balance == before,
+            "Clocked-off worker advanced construction or received wages");
+    w.time = 34 * 3600;
+    w.beginProjectWork(2, job);
+    w.time += 60;
+    w.workProject(job, 60);
+    require(p.remaining < remaining && w.accounts[p.escrow].balance < before,
+            "Next shift did not resume the same supplied paid contract");
+    require(total(w) == 0, "Resumption created money");
+    w.validate();
+  });
+  test("Construction-site arrival after shift end is a normal wait", [] {
+    auto w = small();
+    rich(w);
+    Id shop = workshop(w);
+    builder(w, 2, shop);
+    Id job = w.commissionFacility(w.dormOwner, FacilityKind::Toilet, 0, {70, 0, 100}, 1);
+    w.assignBuilder(job, 2);
+    place(w, 2, w.facilities[w.projects[job].source].pos);
+    w.collectMaterials(2, job);
+    auto &p = w.projects[job];
+    place(w, 2, w.facilities[p.facility].pos + Vec3{0, 0, 1.6f});
+    w.deliverMaterials(2, job);
+    auto &r = w.residents[2];
+    r.routine.shiftStart = 6;
+    r.routine.shiftHours = 8;
+    w.time = 20 * 3600;
+    r.task = TaskKind::Work;
+    r.target = p.facility;
+    w.arrive(2);
+    require(r.activity == Activity::Idle && p.workAt < 0 && p.worker == 2 &&
+                p.state == ProjectState::Working && p.materialsDelivered,
+            "End-of-shift arrival lost the contract or began work");
+    w.validate();
+  });
+  test("An off-shift workshop arrival does not buy another material shipment", [] {
+    auto w = small();
+    rich(w);
+    Id shop = workshop(w);
+    builder(w, 2, shop);
+    Id job = w.commissionFacility(w.dormOwner, FacilityKind::Toilet, 0, {70, 0, 100}, 1);
+    w.assignBuilder(job, 2);
+    place(w, 2, w.facilities[w.projects[job].source].pos + Vec3{0, 0, 1.6f});
+    auto &r = w.residents[2];
+    r.routine.shiftStart = 6;
+    r.routine.shiftHours = 8;
+    w.time = 20 * 3600;
+    r.task = TaskKind::ConstructionPickup;
+    r.target = job;
+    Money escrow = w.accounts[w.projects[job].escrow].balance;
+    int stock = w.facilities[w.projects[job].source].stock;
+    w.arrive(2);
+    require(w.projects[job].materialItem == none && r.carrying == none &&
+                w.accounts[w.projects[job].escrow].balance == escrow &&
+                w.facilities[w.projects[job].source].stock == stock,
+            "Off-shift workshop arrival spent reserved money or stock");
+    w.time = 34 * 3600;
+    w.collectMaterials(2, job);
+    require(w.projects[job].materialItem != none && r.carrying == w.projects[job].materialItem,
+            "Next shift could not collect its contracted material");
+    w.validate();
+  });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

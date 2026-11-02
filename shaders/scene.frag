@@ -37,7 +37,8 @@ void main(){
  if(pc.ui>.5){outColor=vec4(pow(color.rgb,vec3(2.2)),color.a*texture(fontAtlas,uv).r);return;}
  vec3 n=normalize(normal),base=pow(color.rgb,vec3(2.2));
  float rough=material.y,metal=material.z,ao=1,alpha=color.a;
- bool garment=material.w<-.5; if(garment)alpha=1;
+ // Negative normal strength selects opaque texture tinting (clothing and concrete).
+ bool tinted=material.w<-.5; if(tinted)alpha=1;
  if(material.x>=0){
    vec2 cell=vec2(mod(floor(material.x+.5),5),floor((material.x+.5)/5));
    // Match the border guard to the mip footprint; never sample a neighbouring material.
@@ -46,14 +47,14 @@ void main(){
    float mip=clamp(log2(max(footprint,1)),0,6);
    float guard=(exp2(mip)*.75+1)/768;
    vec2 st=(cell+clamp(fract(uv),vec2(guard),vec2(1-guard)))/5;
-   vec4 texel=textureGrad(albedoAtlas,st,dFdx(uv)/5,dFdy(uv)/5);base=garment?mix(texel.rgb,pow(color.rgb,vec3(2.2)),color.a):texel.rgb*color.rgb;alpha*=texel.a;
+   vec4 texel=textureGrad(albedoAtlas,st,dFdx(uv)/5,dFdy(uv)/5);base=tinted?mix(texel.rgb,pow(color.rgb,vec3(2.2)),color.a):texel.rgb*color.rgb;alpha*=texel.a;
    vec3 orm=textureGrad(ormAtlas,st,dFdx(uv)/5,dFdy(uv)/5).rgb;ao=orm.r;rough*=orm.g;metal*=orm.b;
-   vec3 mapped=textureGrad(normalAtlas,st,dFdx(uv)/5,dFdy(uv)/5).xyz*2-1; mapped.xy*=garment?mix(1.,.12,color.a):material.w;
+   vec3 mapped=textureGrad(normalAtlas,st,dFdx(uv)/5,dFdy(uv)/5).xyz*2-1; mapped.xy*=tinted?mix(1.,.12,color.a):material.w;
    vec3 dp1=dFdx(worldPosition),dp2=dFdy(worldPosition);vec2 duv1=dFdx(uv),duv2=dFdy(uv);
    float det=duv1.x*duv2.y-duv1.y*duv2.x;
    if(abs(det)>.000001){vec3 tangent=normalize((dp1*duv2.y-dp2*duv1.y)/det);tangent=normalize(tangent-n*dot(tangent,n));vec3 bitangent=normalize(cross(n,tangent))*sign(det);n=normalize(mat3(tangent,bitangent,n)*mapped);}
  }
- if(garment){rough=mix(rough,.92,color.a);metal=mix(metal,0.,color.a);}
+ if(tinted){rough=mix(rough,.92,color.a);metal=mix(metal,0.,color.a);}
  if(alpha<.4)discard;
  if(!gl_FrontFacing)n=-n;
  rough=clamp(rough,.08,1);metal=clamp(metal,0,1);

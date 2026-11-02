@@ -169,6 +169,7 @@ void UI::begin(int w, int h, double x, double y, bool click, float delta) {
   mx = float(x);
   my = float(y);
   clicked = click;
+  activations = 0;
   dt = delta;
   enabled = true;
   vertices.clear();
@@ -245,12 +246,12 @@ void UI::text(float x, float y, const std::string &s, float size, Color c) {
     x += g.advance * scale;
   }
 }
-float UI::wrap(float x, float y, float max, const std::string &s, float size, Color c) {
+std::vector<std::string> UI::wrapLines(float max, const std::string &s, float size) {
+  std::vector<std::string> lines;
   std::string line;
   for (auto cp : decodeUTF8(s)) {
     if (cp == '\n') {
-      text(x, y, line, size, c);
-      y += size * 1.5f;
+      lines.push_back(line);
       line.clear();
       continue;
     }
@@ -258,18 +259,25 @@ float UI::wrap(float x, float y, float max, const std::string &s, float size, Co
     if (font.width(line + ch, size) > max && !line.empty()) {
       auto space = line.find_last_of(' ');
       if (space != std::string::npos && space > 0) {
-        text(x, y, line.substr(0, space), size, c);
+        lines.push_back(line.substr(0, space));
         line = line.substr(space + 1);
       } else {
-        text(x, y, line, size, c);
+        lines.push_back(line);
         line.clear();
       }
-      y += size * 1.5f;
     }
     if (cp != ' ' || !line.empty())
       line += ch;
   }
-  if (!line.empty()) {
+  if (!line.empty())
+    lines.push_back(line);
+  return lines;
+}
+float UI::wrappedHeight(float max, const std::string &s, float size) {
+  return wrapLines(max, s, size).size() * size * 1.5f;
+}
+float UI::wrap(float x, float y, float max, const std::string &s, float size, Color c) {
+  for (const auto &line : wrapLines(max, s, size)) {
     text(x, y, line, size, c);
     y += size * 1.5f;
   }
@@ -296,6 +304,7 @@ bool UI::button(const std::string &id, Rect r, const std::string &label, bool pr
   if (over && clicked) {
     clicked = false;
     activeInput.clear();
+    ++activations;
     return true;
   }
   return false;

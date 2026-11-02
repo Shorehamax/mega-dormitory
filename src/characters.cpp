@@ -64,6 +64,25 @@ PoseDescription describe(CharacterPose pose, float phase, float motion) {
       elbow.x = -.1f;
       d.lying = 1;
     }
+    if (pose == CharacterPose::Dead) {
+      d.rotations["spine_02"] = {};
+      d.rotations["Head"] = {};
+      arm = {0, 0, -side * 1.48f};
+      elbow.x = -.12f;
+      thigh.x = -.03f;
+      calf.x = .05f;
+      d.lying = 1;
+    }
+    if (pose == CharacterPose::Pickup) {
+      float bend = std::sin(std::clamp(phase, 0.f, 3.1415927f));
+      d.lower = -.25f * bend;
+      d.rotations["spine_02"] = {.42f * bend, 0, 0};
+      d.rotations["Head"] = {.3f * bend, 0, 0};
+      arm = {-.9f * bend, 0, -side * 1.4f};
+      elbow.x = -.12f - .4f * bend;
+      thigh.x = -.65f * bend;
+      calf.x = 1.0f * bend;
+    }
     if (pose == CharacterPose::Climb) {
       arm = {-2.35f - side * stride * .26f, 0, -side * .75f};
       elbow.x = -.45f;

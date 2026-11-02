@@ -282,6 +282,41 @@ int main() {
     std::filesystem::remove(file);
     std::filesystem::remove(file.string() + ".meta.json");
   });
+  test("Changed funds, hours or access during a service trip replan without false interruption",
+       [] {
+         for (int change = 0; change < 3; ++change) {
+           auto w = small();
+           Id f = site(w);
+           for (auto &other : w.facilities)
+             if (other.kind == w.facilities[f].kind && other.id != f)
+               other.open = false;
+           auto &r = w.residents[40];
+           r.automatic = true;
+           w.facilities[f].price = 100;
+           place(w, 40, w.facilities[f].pos + Vec3{0, 0, 20});
+           w.travel(40, w.facilities[f].pos, TaskKind::Service, f);
+           place(w, 40, w.serviceApproach(f));
+           if (change == 0)
+             w.pay(r.account, 0, w.accounts[r.account].balance, "test-funds-changed");
+           else if (change == 1) {
+             w.facilities[f].opensAt = 12;
+             w.facilities[f].openHours = 1;
+           } else {
+             w.facilities[f].publicAccess = false;
+             w.facilities[f].whitelist.erase(40);
+             require(!w.accessAllowed(40, f), "Fixture resident still has private access");
+           }
+           auto sequence = w.newsSequence;
+           Money cash = w.accounts[r.account].balance;
+           w.arrive(40);
+           require(r.queuedAt == none && w.facilities[f].queue.empty() &&
+                       w.facilities[f].serving.empty() && w.accounts[r.account].balance == cash &&
+                       w.newsSequence == sequence,
+                   "Unavailable arrival charged, reserved a station or logged a blocked action");
+           rejects([&] { w.joinQueue(40, f); });
+           w.validate();
+         }
+       });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

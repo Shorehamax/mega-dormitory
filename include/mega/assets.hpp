@@ -38,6 +38,8 @@ enum class CharacterPose {
   Teach,
   Rescue,
   Handover,
+  Pickup,
+  Dead,
   Count
 };
 struct CharacterStyle {

@@ -51,3 +51,5 @@ Walls, slab presence, crews, contracts, delivered materials, attendance, counter
 The rendered scenario also exposed a ladder-entry deadlock. Landing entrants now retreat through normal capsule motion to let traffic already on the ladder pass; collision is not disabled. This addresses that specific conflict, not all crowd congestion at every scale.
 
 `cooperative_construction_contracts` checks shared escrow/wages, physical attendance, supplied jobs, original-lead inspection, job exclusivity, dismissal, voluntary dispatch, save/load, all four contract types and recoverable expansion cargo. `--playtest-crew` runs actual workshop staffing, material hauling, paid assistance and facility completion in an isolated rendered world, with continuous movement checks.
+
+Automatic builders arriving at a new-build workshop after clock-off wait until their next shift before buying or collecting materials. A shipment already carried to site can be set down after hours, but construction and wages do not begin until an attended working shift. Site arrivals after shift end retain the same paid contract and supplied crate.

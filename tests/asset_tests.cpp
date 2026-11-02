@@ -64,10 +64,12 @@ int main() {
       require(gpuSource.size() == mesh.vertices.size() + 576,
               "GPU geometry lost body or hair triangles");
       CharacterStyle appearance;
-      for (auto pose : {CharacterPose::Idle, CharacterPose::Walk, CharacterPose::Sit,
-                        CharacterPose::Eat, CharacterPose::Sleep, CharacterPose::Climb,
-                        CharacterPose::Carry, CharacterPose::Work, CharacterPose::Fight,
-                        CharacterPose::Surrender, CharacterPose::Fall, CharacterPose::Push}) {
+      for (auto pose :
+           {CharacterPose::Idle, CharacterPose::Walk, CharacterPose::Sit, CharacterPose::Eat,
+            CharacterPose::Sleep, CharacterPose::Climb, CharacterPose::Carry, CharacterPose::Work,
+            CharacterPose::Fight, CharacterPose::Surrender, CharacterPose::Fall,
+            CharacterPose::Push, CharacterPose::Study, CharacterPose::Teach, CharacterPose::Rescue,
+            CharacterPose::Handover, CharacterPose::Pickup, CharacterPose::Dead}) {
         std::vector<Vertex> rendered;
         assets.appendCharacter(rendered, name, {}, 0, pose, pose, 1, 1.2f, 1, appearance);
         auto request = assets.characterSkin(name, 7, {}, 0, pose, pose, 1, 1.2f, 1, appearance);
@@ -113,6 +115,16 @@ int main() {
           require(samples > 5 && pushZ / samples < restZ / samples - .15f,
                   "A shove did not extend both hands in front of the body");
         }
+      }
+      {
+        std::vector<Vertex> a, b;
+        assets.appendCharacter(a, name, {}, 0, CharacterPose::Dead, CharacterPose::Dead, 1, 0, 0,
+                               appearance);
+        assets.appendCharacter(b, name, {}, 0, CharacterPose::Dead, CharacterPose::Dead, 1, 2.5f, 0,
+                               appearance);
+        require(a.size() == b.size(), "Static body vertex count changed");
+        for (std::size_t i = 0; i < a.size(); ++i)
+          require(length(a[i].p - b[i].p) < .00001f, "Dead body kept breathing or moving");
       }
       std::cout << "PASS bind-pose fidelity, all activity poses and sleeping bounds: " << name
                 << '\n';

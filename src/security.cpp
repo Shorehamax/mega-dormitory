@@ -205,6 +205,13 @@ void World::investigateArrival(Id warden, Id id) {
     c.lastKnown = position(c.suspect);
     c.seenAt = time;
     if (near(warden, c.lastKnown, 2.5f)) {
+      if ((target.surrendered || target.strength < r.strength * 1.2f) &&
+          availableJail(warden) == none) {
+        c.warden = none;
+        c.searchAfter = time + 300;
+        log("security.capacity_wait", warden, id);
+        return;
+      }
       if (target.surrendered)
         apprehend(warden, c.suspect);
       else if (target.strength < r.strength * 1.2f) {
