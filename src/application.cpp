@@ -1032,6 +1032,19 @@ public:
               12;
       }
     }
+    if (control)
+      for (std::size_t id = 0; id < w.remains.size(); ++id) {
+        const auto &body = w.remains[id];
+        if (w.bodyVisible(selected, Id(id))) {
+          if (ui.button("examineBody" + std::to_string(id), {x, y, width, 32},
+                        t("security.examine_body") + " · #" + std::to_string(body.resident + 1)))
+            act([&] {
+              if (w.discoverBody(selected, Id(id)) == none)
+                notify(t("security.no_violent_case"));
+            });
+          y += 42;
+        }
+      }
     std::vector<Id> visible;
     for (auto it = w.incidents.rbegin(); it != w.incidents.rend(); ++it) {
       bool witness = std::any_of(it->witnesses.begin(), it->witnesses.end(),
@@ -1070,7 +1083,8 @@ public:
                   t("security.suspect") + " · " +
                       (c.suspect == none ? t("security.unknown")
                                          : w.displayName(c.suspect, locale.language)) +
-                      " · " + t("status.floor") + " " + std::to_string(int(c.pos.y / 3) + 1),
+                      " · " + t("status.floor") + " " +
+                      std::to_string(int((c.sceneLocated ? c.scene.y : c.pos.y) / 3) + 1),
                   13, hex(0xa8bdba)) +
           12;
       if (!c.resolved && control) {
@@ -1091,7 +1105,7 @@ public:
               paused = false;
             });
           y += 40;
-          if (w.near(selected, c.pos, 4) && !c.inspected) {
+          if (w.near(selected, c.sceneLocated ? c.scene : c.pos, 4) && !c.inspected) {
             if (ui.button("caseInspect" + key, {x, y, width, 31}, t("security.inspect")))
               act([&] { w.inspectCrimeScene(selected, id); });
             y += 40;
@@ -1118,7 +1132,8 @@ public:
     ui.text(x, y, t("security.property"), 19, hex(0xe6e8df));
     y += 33;
     for (const auto &e : w.evidenceReceipts)
-      if (!e.claimed && (e.owner == r.account || (official && e.carrier == selected))) {
+      if (!e.claimed &&
+          (w.evidenceAuthority(selected, e.id) || (official && e.carrier == selected))) {
         const auto &i = w.items[e.item];
         y = ui.wrap(x, y, width,
                     "#" + std::to_string(e.id + 1) + " · " + t(itemLabel(i.kind)) + " · " +
@@ -1136,7 +1151,8 @@ public:
               paused = false;
             });
           y += 40;
-          if (e.owner == r.account && w.near(selected, w.facilities[e.locker].pos, 3)) {
+          if (w.evidenceAuthority(selected, e.id) &&
+              w.near(selected, w.facilities[e.locker].pos, 3)) {
             if (ui.button("evidenceClaim" + std::to_string(e.id), {x, y, width, 31},
                           t("security.claim")))
               act([&] { w.claimEvidence(selected, e.id); });
@@ -1539,6 +1555,16 @@ public:
     }
     if (f.kind == FacilityKind::Dealership)
       return f.pos + Vec3{1.5f, 0, -2.f};
+    if (!f.queue.empty() && f.kind != FacilityKind::Terminal && f.kind != FacilityKind::Office &&
+        f.kind != FacilityKind::Reception && f.kind != FacilityKind::Jail &&
+        f.kind != FacilityKind::Workshop && f.kind != FacilityKind::Parking &&
+        f.kind != FacilityKind::Morgue && f.kind != FacilityKind::Crematorium &&
+        f.kind != FacilityKind::FireStation) {
+      try {
+        return world->serviceApproach(f.id);
+      } catch (const std::runtime_error &) {
+      }
+    }
     return f.pos;
   }
   float facilityPanel(float x, float y, float width) {
@@ -5352,12 +5378,18 @@ int runApplication(int argc, char **argv) {
     int frames = 0, maxFrames = 0;
     bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false,
          playConstruction = false, playVehicles = false, playCompany = false, playSecurity = false,
-         playCrowd = false;
+         playCrowd = false, playQueueFlow = false, playDiscovery = false;
     Id playCourier = none, constructionJob = none;
     Id capitalCompany = none, capitalOffice = none, capitalOffer = none, capitalOrder = none;
     int capitalStage = 0, capitalFinish = 0;
     Id lawCase = none, lawItem = none, lawJail = none, lawReceipt = none;
     int lawStage = 0, lawFinish = 0;
+    int flowFinish = -1, discoveryFinish = -1;
+    Id flowWorkplace = none, discoveryCase = none, discoveryBody = none;
+    std::vector<std::pair<Id, Vec3>> flowCohort;
+    Vec3 flowPrior{};
+    float flowLargestStep = 0;
+    int flowCleared = 0;
     bool lawEscortCaptured = false;
     float crowdCameraStep = 0, crowdBodyDrift = 0;
     Vec3 crowdCameraPrevious{};
@@ -5386,6 +5418,16 @@ int runApplication(int argc, char **argv) {
         playConstruction = demo = animate = true;
         panel = "construction";
         app.config.population = 600;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-queue-flow") {
+        playQueueFlow = demo = animate = true;
+        panel = "queue-flow";
+      } else if (arg == "--playtest-body-discovery") {
+        playDiscovery = demo = animate = true;
+        panel = "body-discovery";
+        app.config.population = 200;
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
         app.config.accidentRate = 0;
@@ -5473,7 +5515,7 @@ int runApplication(int argc, char **argv) {
         app.renderer->skinVertexBudget = std::stoull(value());
     }
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
-        playCrowd) {
+        playCrowd || playQueueFlow || playDiscovery) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
@@ -5492,7 +5534,9 @@ int runApplication(int argc, char **argv) {
       app.paused = true;
     }
     if (demo && browserImport.empty()) {
-      app.setWorld(World::generate(app.config));
+      app.setWorld(playQueueFlow ? World::load(std::filesystem::path(MEGA_PROJECT) /
+                                               "tests/fixtures/common-exit.fixture")
+                                 : World::generate(app.config));
       app.paused = true;
       app.helpOpen = panel == "help";
       app.drawerOpen = panel == "work" || panel == "facilities" || panel == "housing" ||
@@ -5500,7 +5544,70 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "crowd-play") {
+      if (panel == "queue-flow") {
+        auto &w = *app.world;
+        flowWorkplace = w.residents[226].jobSite;
+        if (flowWorkplace == none || w.residents[226].role != Role::Vendor)
+          throw std::runtime_error("Crowd fixture has no original clerk");
+        for (const auto &r : w.residents)
+          if (w.legacyServiceDeparture(r.id) != none)
+            flowCohort.emplace_back(r.id, w.position(r.id));
+        if (flowCohort.size() < 12)
+          throw std::runtime_error("Crowd fixture has no shared-exit blockage");
+        app.selected = 226;
+        app.setFirstPerson(false);
+        app.currentFloor = 0;
+        app.cameraFocus = w.position(226);
+        app.distance = 13;
+        app.pitch = .3f;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        flowPrior = w.position(226);
+        std::cout << "FLOW PLAYTEST: loaded unchanged saved crowd with " << flowCohort.size()
+                  << " customers sharing an exit; observing the original clerk\n";
+      } else if (panel == "body-discovery") {
+        auto &w = *app.world;
+        auto place = [&](Id id, Vec3 p) {
+          auto &r = w.residents[id];
+          w.leaveQueue(id);
+          w.clockOut(id);
+          r.pos = p;
+          r.route.clear();
+          ++r.routeVersion;
+          w.crowd.erase(id);
+          r.automatic = false;
+          r.activity = Activity::Idle;
+          r.task = TaskKind::None;
+          r.hunger = r.thirst = .1f;
+          r.energy = 1;
+        };
+        place(1, {150, 0, 150});
+        place(2, {151, 0, 150});
+        discoveryBody = Id(w.remains.size());
+        w.kill(1, 2);
+        discoveryCase = Id(w.incidents.size() - 1);
+        // The initial scene represents a corpse moved before the investigating
+        // resident arrives. From here all observed movement is simulated.
+        w.remains[discoveryBody].pos = {150, 3, 150};
+        place(0, {140, 3, 150});
+        w.chooseJob(0, Role::Warden, w.nearest(0, FacilityKind::Jail));
+        w.travel(0, {148.5f, 3, 151}, TaskKind::None, none);
+        if (w.incidents[discoveryCase].reported)
+          throw std::runtime_error("Discovery fixture unexpectedly had a direct report");
+        app.selected = 0;
+        app.setFirstPerson(false);
+        app.currentFloor = 1;
+        app.cameraFocus = w.position(0);
+        app.distance = 10;
+        app.pitch = .3f;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        app.securityScreen = true;
+        std::cout
+            << "DISCOVERY PLAYTEST: walking to a body on a different floor from the unseen crime\n";
+      } else if (panel == "crowd-play") {
         auto &w = *app.world;
         for (auto &r : w.residents) {
           w.leaveQueue(r.id);
@@ -5642,26 +5749,6 @@ int runApplication(int argc, char **argv) {
         r.hygiene = r.energy = 1;
         r.needsAt = w.time;
         auto dealer = w.vehicles[2].dealer;
-        // This workflow tests vehicles, not whether a particular hungry generated
-        // clerk finishes a scarce water queue before the dealership closes.
-        // Reserve staff still walk to work, clock in, draw wages and gate sales.
-        auto &vendor = w.residents[3];
-        w.leaveQueue(vendor.id);
-        w.clockOut(vendor.id);
-        vendor.pos = w.accessible(w.facilities[dealer].pos + Vec3{6, 0, -8});
-        w.crowd.erase(vendor.id);
-        vendor.route.clear();
-        ++vendor.routeVersion;
-        vendor.task = TaskKind::None;
-        vendor.activity = Activity::Idle;
-        vendor.automatic = false;
-        vendor.hunger = vendor.thirst = vendor.bladder = .1f;
-        vendor.energy = vendor.hygiene = 1;
-        w.chooseJob(vendor.id, Role::Vendor, dealer);
-        vendor.routine.shiftStart = 0;
-        vendor.routine.shiftHours = 24;
-        vendor.routine.daysOff = 0;
-        w.travel(vendor.id, w.facilities[dealer].pos, TaskKind::Work, dealer);
         w.travel(r.id, w.facilities[dealer].pos + Vec3{1.5f, 0, -2.f}, TaskKind::None, none);
         app.setFirstPerson(false);
         app.drawerOpen = false;
@@ -6093,7 +6180,7 @@ int runApplication(int argc, char **argv) {
     if (demo && animate) {
       app.paused = false;
       if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
-          playCrowd)
+          playCrowd || playQueueFlow || playDiscovery)
         app.speed = 6;
     }
     if (computeTest) {
@@ -6196,6 +6283,47 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playQueueFlow) {
+        auto &w = *app.world;
+        auto actual = w.position(226);
+        if (frames > 0)
+          flowLargestStep = std::max(flowLargestStep, length(actual - flowPrior));
+        flowPrior = actual;
+        flowCleared = 0;
+        for (auto [id, start] : flowCohort)
+          if (w.residents[id].alive && w.residents[id].present &&
+              length(w.position(id) - start) > 2)
+            ++flowCleared;
+        auto &r = w.residents[226];
+        if (flowFinish < 0 && r.activity == Activity::Working && r.jobSite == flowWorkplace &&
+            w.near(226, w.facilities[flowWorkplace].pos, 3) && flowCleared >= 12) {
+          flowFinish = frames;
+          std::cout << "FLOW PLAYTEST: original clerk physically clocked in; " << flowCleared
+                    << " original customers cleared the exit\n";
+        }
+        app.cameraFocus = actual;
+        app.currentFloor = std::clamp(int(actual.y / 3), 0, w.config.floors - 1);
+        if (flowFinish >= 0 && frames >= flowFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
+      if (playDiscovery) {
+        auto &w = *app.world;
+        if (discoveryFinish < 0 && w.bodyVisible(0, discoveryBody)) {
+          w.discoverBody(0, discoveryBody);
+          discoveryFinish = frames;
+          std::cout << "DISCOVERY PLAYTEST: reached the real corpse; reported its actual location "
+                       "with no identified killer\n";
+        }
+        app.cameraFocus = w.position(0);
+        if (discoveryFinish >= 0 && frames >= discoveryFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playCrowd) {
         auto &w = *app.world;
         w.stepBody(0, {0, 0, -w.walkingSpeed(0, true)}, dt);
@@ -6465,6 +6593,24 @@ int runApplication(int argc, char **argv) {
       }
       std::cout << "PLAYTEST PASS: walking, budgeted checkout, real courier delivery, live UI and "
                    "conserved state\n";
+    }
+    if (playQueueFlow) {
+      app.world->validate();
+      if (flowFinish < 0 || flowCleared < 12 || flowLargestStep > 2)
+        throw std::runtime_error("Saved crowd did not recover through real continuous movement");
+      std::cout << "FLOW PLAYTEST PASS: unchanged legacy crowd recovered; original clerk at work, "
+                << flowCleared << " customers clear, largest clerk step " << flowLargestStep
+                << " m\n";
+    }
+    if (playDiscovery) {
+      auto &w = *app.world;
+      const auto &c = w.incidents[discoveryCase];
+      w.validate();
+      if (discoveryFinish < 0 || !c.reported || !c.sceneLocated || c.scene.y != 3 || c.pos.y != 0 ||
+          c.suspect != none || w.hasWarrant(2))
+        throw std::runtime_error("Body discovery leaked identity or the hidden original scene");
+      std::cout << "DISCOVERY PLAYTEST PASS: physical approach, body-only report, correct found "
+                   "floor and no fabricated warrant\n";
     }
     if (playCrowd) {
       app.world->validate();

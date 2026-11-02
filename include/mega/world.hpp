@@ -125,7 +125,8 @@ enum class TaskKind {
   FireResponse,
   Evacuate,
   TradeMeet,
-  ShoppingTerminal
+  ShoppingTerminal,
+  LeaveService
 };
 enum class CrimeKind { QueueCutting, Assault, ExcessiveForce, Murder, Theft, Escape };
 enum class ProjectState { Proposed, AwaitingConsent, Funded, Working, Completed, Disputed };
@@ -566,6 +567,8 @@ struct Testimony {
   double seenAt = 0;
   float confidence = 0;
   bool identifies = false, filed = false;
+  bool bodyOnly = false;
+  Vec3 seenScene{};
 };
 struct EvidenceReceipt {
   Id id = none, item = none, incident = none, owner = none, carrier = none, locker = none;
@@ -590,6 +593,8 @@ struct Incident {
   Vec3 lastKnown{};
   double seenAt = -1, reportedAt = -1, searchAfter = 0;
   std::vector<Testimony> witnesses;
+  Vec3 scene{};
+  bool sceneLocated = false;
 };
 struct Project {
   Id id = none, owner = none, facility = none, worker = none, escrow = none;
@@ -850,7 +855,11 @@ public:
   void recoverEvidence(Id warden, Id incident, Id item);
   void depositEvidence(Id warden, Id jail);
   void claimEvidence(Id owner, Id receipt);
+  bool evidenceAuthority(Id actor, Id receipt) const;
   void securityTick();
+  Id discoverBody(Id observer, Id remains);
+  bool bodyVisible(Id observer, Id remains) const;
+  void discoverDeaths();
   void beginCustody(Id guard, Id suspect, Id jail);
   void startEscape(Id resident);
   void stopEscape(Id resident);
@@ -936,6 +945,7 @@ public:
     std::size_t next = 1;
     Vec3 detour{};
     float detourTime = 0;
+    double serviceCheckAt = 0;
   };
   std::map<Id, CrowdBody> crowd;
   mutable std::map<int, std::vector<Obstacle>> obstacles;
@@ -968,7 +978,7 @@ public:
   void schedule(double at, EventKind kind, Id id, Id other = none, std::uint64_t version = 0);
   void advance(double seconds, std::size_t eventBudget = 500000);
   void dispatch(const Event &);
-  void decide(Id);
+  void decide(Id, bool scheduleNext = true);
   static bool inHours(double time, double start, double length);
   bool onShift(Id) const;
   bool sleepTime(Id) const;
@@ -1008,6 +1018,12 @@ public:
   void changeClothes(Id, Id);
   Vec3 servicePosition(Id facility, int station) const;
   void layoutQueue(Id);
+  std::vector<Vec3> queueSlots(Id facility, std::size_t count) const;
+  Vec3 serviceApproach(Id facility) const;
+  bool atServiceEntrance(Id resident, Id facility) const;
+  Id legacyServiceDeparture(Id resident) const;
+  void clearServiceArea(Id resident, Id facility);
+  void resumeAfterService(Id resident, Id facility);
   Id order(Id, Id, ItemKind);
   void assignDelivery(Id, Id);
   void pickup(Id, Id);

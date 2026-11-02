@@ -314,7 +314,7 @@
   "help.walk": "MARCHER · Survie commence en vue subjective. Reprenez puis cliquez dans le monde. WASD marche, Maj court, Espace saute. Tab ou Échap ouvre le menu.",
   "help.ladder": "GRIMPER · Rejoignez une échelle dorée. E saisit, W monte, S descend. Arrêtez-vous à un étage puis appuyez sur E pour descendre au palier.",
   "help.camera": "VUE LIBRE · V alterne première personne / observation. Clic droit glissé : orbite ; molette : zoom. WASD suit la vue ; Q/E descend/monte ; Maj accélère. + / − conserve la position horizontale. Retrouver le résident le cadre sans le contrôler ; Étage entier cadre le bâtiment.",
-  "help.services": "INTERAGIR · Approchez d’un comptoir et appuyez sur E, ou utilisez Marcher dans Services. Rejoignez le commerce et attendez votre tour.",
+  "help.services": "Rejoignez la fin réelle de la file et appuyez sur E, ou choisissez Marcher dans Services. Après le service, les résidents reprennent leur emploi du temps ou libèrent le comptoir.",
   "help.expansion": "CONSTRUIRE · Les propriétaires financent les extensions dans Gestion. Un ouvrier doit rejoindre le chantier et travailler avant son ouverture.",
   "help.to_ladder": "Me guider vers une échelle",
   "help.to_reception": "Rejoindre l’accueil",
@@ -928,7 +928,7 @@
   "security.in_transit": "Transporté par un gardien",
   "security.missing": "Perdu en cours de transport",
   "security.to_locker": "Aller au dépôt",
-  "security.claim": "Récupérer mes biens",
+  "security.claim": "Récupérer les biens autorisés",
   "security.deposit": "Déposer les objets saisis",
   "security.reported": "Une infraction a été signalée aux gardiens.",
   "security.scene_checked": "Un gardien a examiné les lieux.",
@@ -949,5 +949,10 @@
   "security.error.locker": "Un dépôt au poste et un gardien disponible sont nécessaires.",
   "security.error.claim": "Le propriétaire légitime doit se rendre au dépôt ; certaines pièces restent retenues tant qu’il est recherché.",
   "security.error.escape": "Seul un détenu conscient disposant d’assez d’énergie peut tenter de s’évader.",
-  "security.recovered": "Un résident s’est remis de sa reddition."
+  "security.recovered": "Un résident s’est remis de sa reddition.",
+  "flow.help": "Rejoignez la fin réelle de la file et appuyez sur E, ou choisissez Marcher dans Services. Après le service, les résidents reprennent leur emploi du temps ou libèrent le comptoir.",
+  "security.error.body": "Approchez des restes visibles et accessibles pour les examiner.",
+  "security.body_found": "Un résident a découvert une mort violente.",
+  "security.examine_body": "Examiner les restes proches",
+  "security.no_violent_case": "Aucune enquête ouverte pour mort violente ne concerne ces restes."
 }

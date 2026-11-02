@@ -314,7 +314,7 @@
   "help.walk": "MOVE · Survival starts in first person. Resume, then click the world. WASD walks, Shift runs, Space jumps. Tab or Esc opens the menu and releases the mouse.",
   "help.ladder": "CLIMB · Walk to a gold ladder landing. E grabs it, W climbs up, S climbs down. Stop at a floor and press E to step off.",
   "help.camera": "FREE VIEW · V switches first person / observer. Right-drag orbits, wheel zooms. WASD moves relative to the view; Q/E moves down/up between floors; Shift moves faster. + / − preserves your horizontal position. Find resident centres the view without taking control; Entire floor fits the building.",
-  "help.services": "INTERACT · Approach a counter and press E, or choose Walk in Facilities. You must reach the business and wait your turn.",
+  "help.services": "Queues start at their real tail. Walk there and press E, or choose Walk in Facilities. After service, residents return to their schedule or clear the counter.",
   "help.expansion": "BUILD · Owners can fund floor expansions in Manage. A builder must travel to the site and work their shift before the extra area opens.",
   "help.to_ladder": "Walk me to a ladder",
   "help.to_reception": "Walk to reception",
@@ -928,7 +928,7 @@
   "security.in_transit": "Carried by an officer",
   "security.missing": "Lost in transit",
   "security.to_locker": "Walk to property desk",
-  "security.claim": "Collect my property",
+  "security.claim": "Collect authorized property",
   "security.deposit": "Deposit seized property",
   "security.reported": "A crime was reported to security.",
   "security.scene_checked": "An officer examined the scene.",
@@ -949,5 +949,10 @@
   "security.error.locker": "A jail property desk and an available officer are required.",
   "security.error.claim": "The rightful owner must reach the locker; some evidence remains held while they are wanted.",
   "security.error.escape": "Only a conscious prisoner with enough energy can begin an escape.",
-  "security.recovered": "A resident recovered from surrender."
+  "security.recovered": "A resident recovered from surrender.",
+  "flow.help": "Queues start at their real tail. Walk there and press E, or choose Walk in Facilities. After service, residents return to their schedule or clear the counter.",
+  "security.error.body": "Reach visible, accessible remains to examine them.",
+  "security.body_found": "A resident discovered a violent death.",
+  "security.examine_body": "Examine nearby remains",
+  "security.no_violent_case": "No open violent-death case is linked to these remains."
 }

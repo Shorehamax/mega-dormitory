@@ -122,7 +122,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(VehicleJob, id, customer, vehicl
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParkingBay, id, facility, vehicle, pos, width, dailyPrice,
                                    paidUntil)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Testimony, witness, offenderPosition, seenAt,
-                                                confidence, identifies, filed)
+                                                confidence, identifies, filed, bodyOnly, seenScene)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(EvidenceReceipt, id, item, incident, owner, carrier,
                                                 locker, claimed)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(CustodyRecord, resident, guard, jail, bookedAt,
@@ -132,7 +132,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Incident, id, offender, victim, 
                                                 time, resolved, threat, reported, inspected,
                                                 discovered, suspect, item, reporter, confidence,
                                                 lastKnown, seenAt, reportedAt, witnesses,
-                                                searchAfter)
+                                                searchAfter, scene, sceneLocated)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Project, id, owner, facility, worker, escrow, state,
                                                 budget, spent, compensation, remaining, affected,
                                                 consented, demolition, offer, newConstruction,
@@ -537,6 +537,17 @@ static World readSave(const std::filesystem::path &path) {
       c.seenAt = c.time;
       c.reportedAt = c.time;
     }
+  for (std::size_t i = 0; i < w.incidents.size(); ++i) {
+    auto &c = w.incidents[i];
+    const auto &old = j.at("incidents").at(i);
+    if (!old.contains("scene")) {
+      c.scene = c.pos;
+      c.sceneLocated = c.reported || c.inspected;
+    }
+    for (std::size_t n = 0; n < c.witnesses.size(); ++n)
+      if (!old.at("witnesses").at(n).contains("seenScene"))
+        c.witnesses[n].seenScene = c.pos;
+  }
   if (j.contains("evidenceReceipts"))
     j.at("evidenceReceipts").get_to(w.evidenceReceipts);
   if (j.contains("custodyRecords"))

@@ -497,6 +497,7 @@ void World::moveCrowd(double seconds) {
   double real = seconds / (1440 / config.dayMinutes);
   int steps = std::max(1, int(std::ceil(real * 30)));
   float dt = float(real / steps);
+  std::map<Id, Vec3> serviceEntrances;
   for (int step = 0; step < steps; ++step) {
     crowdGrid.clear();
     for (Id id : nearbyResidents) {
@@ -509,6 +510,27 @@ void World::moveCrowd(double seconds) {
       auto &b = crowd[id];
       if (r.ladder >= 0 || r.activity == Activity::Sleeping)
         continue;
+      if (r.task == TaskKind::Service && r.activity == Activity::Walking && r.target != none &&
+          time >= b.serviceCheckAt && !climbing(id) &&
+          std::abs(b.pos.y - std::round(b.pos.y / 3) * 3) < .025f) {
+        b.serviceCheckAt = time + (1.0 + (id % 7) * .07) * (1440 / config.dayMinutes);
+        try {
+          auto entrance = serviceEntrances.find(r.target);
+          if (entrance == serviceEntrances.end())
+            entrance = serviceEntrances.emplace(r.target, serviceApproach(r.target)).first;
+          if (length(b.pos - entrance->second) < 1.5f &&
+              lineOfSight(b.pos + Vec3{0, 1.5f, 0}, entrance->second + Vec3{0, 1.5f, 0}))
+            schedule(time + .01, EventKind::Arrive, id, none, r.routeVersion);
+          else if (r.route.empty() || length(r.route.back().p - entrance->second) > .8f) {
+            routeTo(id, entrance->second);
+            b.detourTime = 0;
+            schedule(std::max(time + .01, r.route.back().time), EventKind::Arrive, id, none,
+                     r.routeVersion);
+          }
+        } catch (const std::runtime_error &) {
+          // A changed layout can temporarily have no queue standing space.
+        }
+      }
       if (r.route.empty()) {
         b.pos = r.pos;
         continue;

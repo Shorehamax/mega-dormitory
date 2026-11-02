@@ -95,6 +95,16 @@ void guard(World &w, Id r) {
   w.residents[r].routine.shiftHours = 24;
   w.residents[r].routine.daysOff = 0;
 }
+std::pair<Id, Id> unseenDeath(World &w) {
+  place(w, 0, {150, 0, 150});
+  place(w, 1, {151, 0, 150});
+  place(w, 2, {-150, 30, 150});
+  place(w, 3, {-150, 30, 155});
+  w.residents[1].activity = Activity::Sleeping;
+  Id body = Id(w.remains.size());
+  w.kill(1, 0);
+  return {Id(w.incidents.size() - 1), body};
+}
 int main() {
   test("Unreported acts retain causal facts without giving wardens omniscient identity", [] {
     auto w = small();
@@ -611,6 +621,293 @@ int main() {
     w.wardenRespond(3);
     require(w.residents[3].escort == none && w.custodyRecords.empty(),
             "A surrendered officer booked someone");
+    w.validate();
+  });
+  test("A warden can discover an unwitnessed body without learning the killer", [] {
+    auto w = small();
+    auto [c, b] = unseenDeath(w);
+    require(!w.incidents[c].reported, "Unseen death was already reported");
+    guard(w, 3);
+    w.residents[3].automatic = true;
+    place(w, 3, w.remains[b].pos + Vec3{1, 0, 1});
+    w.securityTick();
+    require(w.incidents[c].reported && w.incidents[c].sceneLocated &&
+                w.incidents[c].suspect == none && !w.hasWarrant(0),
+            "Body discovery fabricated an offender");
+    require(w.incidents[c].witnesses.size() == 1 && w.incidents[c].witnesses[0].bodyOnly &&
+                !w.incidents[c].witnesses[0].identifies,
+            "Discovery was recorded as a murder eyewitness");
+    w.validate();
+  });
+  test("A moved body is found at its real location instead of the hidden original crime scene", [] {
+    auto w = small();
+    auto [c, b] = unseenDeath(w);
+    w.remains[b].pos = {150, 6, 150};
+    guard(w, 3);
+    w.residents[3].automatic = true;
+    place(w, 3, {150, 0, 151});
+    w.securityTick();
+    require(!w.incidents[c].reported, "Guard discovered a body on another floor");
+    place(w, 3, {150, 6, 151});
+    w.securityTick();
+    guard(w, 4);
+    place(w, 4, {150, 0, 151});
+    auto goal = w.investigationDestination(4, c);
+    require(w.incidents[c].scene.y == 6 && goal.y == 6 && w.incidents[c].pos.y == 0,
+            "A body report revealed a hidden original scene");
+    rejects([&] { w.inspectCrimeScene(4, c); });
+    w.validate();
+  });
+  test("A witness with no device can remember a body and report it at a real desk", [] {
+    auto w = small();
+    auto [c, b] = unseenDeath(w);
+    for (Id item : w.residents[2].items)
+      w.items[item].carrier = none;
+    place(w, 2, w.remains[b].pos + Vec3{1, 0, 0});
+    require(w.discoverBody(2, b) == c && !w.incidents[c].reported,
+            "Discovery made a remote report without a connection");
+    rejects([&] { w.fileCrimeReport(2, c); });
+    auto seen = w.remains[b].pos;
+    place(w, 2, w.facilities[jail(w)].pos + Vec3{1.6f, 0, 1.6f});
+    w.fileCrimeReport(2, c);
+    require(w.incidents[c].reported && length(w.incidents[c].scene - seen) < .001f &&
+                w.incidents[c].suspect == none,
+            "The report lost the remembered scene or invented identity");
+    w.validate();
+  });
+  test("Walls prevent examining a corpse", [] {
+    auto w = small();
+    auto [c, b] = unseenDeath(w);
+    place(w, 2, {151, 0, 152});
+    InteriorWall wall;
+    wall.id = Id(w.interiorWalls.size());
+    wall.owner = w.dormAccount;
+    wall.floor = 0;
+    wall.a = {147, 0, 151};
+    wall.b = {155, 0, 151};
+    wall.active = true;
+    wall.door = false;
+    w.interiorWalls.push_back(wall);
+    w.invalidateGeometry(0);
+    rejects([&] { w.discoverBody(2, b); });
+    require(!w.incidents[c].reported && w.incidents[c].witnesses.empty(),
+            "Discovery saw through a partition");
+    w.validate();
+  });
+  test("Lost and cremated remains cannot be examined", [] {
+    auto w = small();
+    auto [c, b] = unseenDeath(w);
+    place(w, 2, w.remains[b].pos + Vec3{1, 0, 0});
+    w.remains[b].lost = true;
+    rejects([&] { w.discoverBody(2, b); });
+    w.remains[b].lost = false;
+    w.remains[b].cremated = true;
+    rejects([&] { w.discoverBody(2, b); });
+    require(!w.incidents[c].reported, "Destroyed evidence produced a report");
+  });
+  test("A private morgue does not expose bodies to an unauthorized passerby", [] {
+    auto w = small();
+    auto [c, b] = unseenDeath(w);
+    Id morgue = none;
+    for (auto &f : w.facilities)
+      if (f.kind == FacilityKind::Morgue)
+        morgue = f.id;
+    require(morgue != none, "Missing morgue");
+    auto &f = w.facilities[morgue];
+    f.publicAccess = false;
+    f.manager = none;
+    f.whitelist.clear();
+    w.remains[b].storage = morgue;
+    w.remains[b].pos = f.pos;
+    place(w, 2, f.pos + Vec3{1.6f, 0, 1.6f});
+    rejects([&] { w.discoverBody(2, b); });
+    require(!w.incidents[c].reported, "Private storage was bypassed");
+    w.validate();
+  });
+  test("A real eyewitness retains their identifying account when they later examine the body", [] {
+    auto w = small();
+    scene(w);
+    phone(w, 2);
+    w.kill(1, 0);
+    Id c = Id(w.incidents.size() - 1);
+    w.discoverBody(2, Id(w.remains.size() - 1));
+    require(w.canEnforce(w.incidents[c]) && w.incidents[c].suspect == 0,
+            "Examining remains erased real eyewitness identification");
+    for (auto &s : w.incidents[c].witnesses)
+      if (s.witness == 2)
+        require(!s.bodyOnly && s.identifies, "A direct account became body-only evidence");
+    w.validate();
+  });
+  test("Natural deaths do not manufacture murder allegations", [] {
+    auto w = small();
+    place(w, 1, {151, 0, 150});
+    place(w, 2, {150, 0, 150});
+    w.kill(1);
+    auto count = w.incidents.size();
+    require(w.discoverBody(2, Id(w.remains.size() - 1)) == none && w.incidents.size() == count,
+            "A natural death invented a criminal");
+    w.validate();
+  });
+  test("Body-discovery location and limited testimony survive a save", [] {
+    auto w = small();
+    auto [c, b] = unseenDeath(w);
+    w.remains[b].pos = {150, 6, 150};
+    guard(w, 3);
+    w.residents[3].automatic = true;
+    place(w, 3, {150, 6, 151});
+    w.securityTick();
+    auto file = std::filesystem::temp_directory_path() / "mega-body-scene.mdsave";
+    w.save(file);
+    auto v = World::load(file);
+    require(v.incidents[c].sceneLocated && v.incidents[c].scene.y == 6 &&
+                v.incidents[c].witnesses[0].bodyOnly && v.incidents[c].suspect == none,
+            "Saved discovery leaked identity or lost the body location");
+    v.validate();
+    std::filesystem::remove(file);
+    std::filesystem::remove(file.string() + ".meta.json");
+  });
+  test("A body-only observation cannot be forged into identifying testimony", [] {
+    auto w = small();
+    auto [c, b] = unseenDeath(w);
+    guard(w, 3);
+    place(w, 3, w.remains[b].pos + Vec3{1, 0, 1});
+    w.discoverBody(3, b);
+    w.incidents[c].witnesses[0].identifies = true;
+    rejects([&] { w.validate(); });
+  });
+  test("A company director recovers corporate property without changing its legal title", [] {
+    auto w = small();
+    w.pay(0, w.residents[0].account, 100000, "test-capital");
+    Id company = w.foundCompany(0, "Recovery Company", 50000);
+    Id f = jail(w);
+    Item item;
+    item.id = Id(w.items.size());
+    item.kind = ItemKind::Tools;
+    item.owner = w.companies[company].account;
+    item.reservedAt = f;
+    item.pos = w.facilities[f].pos;
+    w.items.push_back(item);
+    Id c = w.report(CrimeKind::Assault, 2, 1);
+    EvidenceReceipt e;
+    e.id = 0;
+    e.item = item.id;
+    e.incident = c;
+    e.owner = item.owner;
+    e.locker = f;
+    w.evidenceReceipts.push_back(e);
+    place(w, 4, w.facilities[f].pos + Vec3{1.6f, 0, 1.6f});
+    rejects([&] { w.claimEvidence(4, 0); });
+    place(w, 0, w.facilities[f].pos + Vec3{1.6f, 0, 1.6f});
+    w.claimEvidence(0, 0);
+    require(w.items[item.id].owner == w.companies[company].account && w.items[item.id].carrier == 0,
+            "Recovery privatized a company-owned tool");
+    w.validate();
+  });
+  test("A shop manager cannot collect their employer's private belongings", [] {
+    auto w = small();
+    Id f = jail(w);
+    auto &shop = w.facilities[f];
+    shop.owner = w.residents[0].account;
+    shop.manager = 4;
+    Item item;
+    item.id = Id(w.items.size());
+    item.kind = ItemKind::Phone;
+    item.owner = shop.owner;
+    item.reservedAt = f;
+    item.pos = shop.pos;
+    w.items.push_back(item);
+    Id c = w.report(CrimeKind::Theft, 2, 0);
+    EvidenceReceipt e;
+    e.id = 0;
+    e.item = item.id;
+    e.incident = c;
+    e.owner = item.owner;
+    e.locker = f;
+    w.evidenceReceipts.push_back(e);
+    place(w, 4, shop.pos + Vec3{1.6f, 0, 1.6f});
+    rejects([&] { w.claimEvidence(4, 0); });
+    require(!w.evidenceReceipts[0].claimed && w.items[item.id].carrier == none,
+            "A work mandate appropriated the owner's private phone");
+    w.validate();
+  });
+  test("Automatic undertakers can report a violent death when they physically collect the body",
+       [] {
+         auto w = small();
+         auto [c, b] = unseenDeath(w);
+         Id morgue = none;
+         for (const auto &f : w.facilities)
+           if (f.kind == FacilityKind::Morgue)
+             morgue = f.id;
+         w.chooseJob(2, Role::Cleaner, morgue);
+         auto &r = w.residents[2];
+         r.automatic = true;
+         r.routine.shiftStart = 0;
+         r.routine.shiftHours = 24;
+         r.routine.daysOff = 0;
+         phone(w, 2);
+         place(w, 2, w.remains[b].pos + Vec3{1, 0, 0});
+         w.transportBody(2, b);
+         w.pickupBody(2, b);
+         require(w.incidents[c].reported && w.incidents[c].suspect == none &&
+                     w.remains[b].carrier == 2,
+                 "Physical collection skipped the report or invented the killer");
+         guard(w, 3);
+         place(w, 3, {151, 0, 150});
+         require(w.investigationDestination(3, c).y == 0,
+                 "Stretcher height became a floating walking goal");
+         w.validate();
+       });
+  test("Manual body transport does not force a player to report the death", [] {
+    auto w = small();
+    auto [c, b] = unseenDeath(w);
+    Id morgue = none;
+    for (const auto &f : w.facilities)
+      if (f.kind == FacilityKind::Morgue)
+        morgue = f.id;
+    w.chooseJob(2, Role::Cleaner, morgue);
+    auto &r = w.residents[2];
+    r.automatic = false;
+    r.routine.shiftStart = 0;
+    r.routine.shiftHours = 24;
+    r.routine.daysOff = 0;
+    phone(w, 2);
+    place(w, 2, w.remains[b].pos + Vec3{1, 0, 0});
+    w.transportBody(2, b);
+    w.pickupBody(2, b);
+    require(!w.incidents[c].reported && w.remains[b].carrier == 2,
+            "Manual transport silently filed a complaint");
+    w.validate();
+  });
+  test("A full set of offline body observations does not stop a later warden report", [] {
+    auto w = small();
+    auto [c, b] = unseenDeath(w);
+    for (Id id = 2; id < 26; ++id) {
+      for (Id item : w.residents[id].items)
+        w.items[item].carrier = none;
+      place(w, id, w.remains[b].pos + Vec3{1, 0, 0});
+      w.discoverBody(id, b);
+    }
+    require(w.incidents[c].witnesses.size() == 24 && !w.incidents[c].reported,
+            "Offline witnesses unexpectedly reported the body");
+    guard(w, 39);
+    place(w, 39, w.remains[b].pos + Vec3{1, 0, 1});
+    w.discoverBody(39, b);
+    require(w.incidents[c].reported && w.incidents[c].witnesses.size() == 24 &&
+                w.incidents[c].suspect == none,
+            "A saturated witness list made an actual officer blind");
+    w.validate();
+  });
+  test("A witness cannot file a complaint while asleep", [] {
+    auto w = small();
+    scene(w);
+    phone(w, 2);
+    Id c = w.recordCrime(CrimeKind::Assault, 0, 1);
+    w.residents[2].activity = Activity::Sleeping;
+    rejects([&] { w.fileCrimeReport(2, c); });
+    require(!w.incidents[c].reported, "A sleeping resident used their phone to report");
+    w.residents[2].activity = Activity::Idle;
+    w.fileCrimeReport(2, c);
+    require(w.canEnforce(w.incidents[c]), "Awake witness could not report after waking");
     w.validate();
   });
   std::cout << passed << " passed, " << failed << " failed\n";

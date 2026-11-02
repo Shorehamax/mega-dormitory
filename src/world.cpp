@@ -429,7 +429,8 @@ void World::travel(Id id, Vec3 dest, TaskKind task, Id target) {
   r.ladderExit = false;
   if (target >= 0 && std::size_t(target) < facilities.size() &&
       (task == TaskKind::Service || task == TaskKind::Work))
-    dest = facilities[target].pos + Vec3{0, 0, task == TaskKind::Work ? -1.6f : 1.6f};
+    dest = task == TaskKind::Service ? serviceApproach(target)
+                                     : facilities[target].pos + Vec3{0, 0, -1.6f};
   if (task != TaskKind::LiftWait && planLift(id, dest, task, target)) {
     stopPersonalUse(id);
     return;
@@ -481,12 +482,13 @@ void World::needs(Id id) {
   if (r.health <= 0)
     kill(id);
 }
-void World::decide(Id id) {
+void World::decide(Id id, bool scheduleNext) {
   auto &r = residents.at(id);
   needs(id);
   if (!r.alive || !r.present)
     return;
-  schedule(time + 180 + random() * 120, EventKind::Decide, id);
+  if (scheduleNext)
+    schedule(time + 180 + random() * 120, EventKind::Decide, id);
   if (looseBodies.contains(id))
     return;
   if (r.task == TaskKind::Escort && r.escort != none)
@@ -497,6 +499,16 @@ void World::decide(Id id) {
     return;
   if (liftJourneys.contains(id))
     return;
+  Id departure = r.task == TaskKind::LeaveService ? r.target : legacyServiceDeparture(id);
+  if (departure != none) {
+    resumeAfterService(id, departure);
+    return;
+  }
+  if (r.activity == Activity::Walking && r.task == TaskKind::Service && r.target != none &&
+      facilities[r.target].queue.size() >= 64) {
+    resumeAfterService(id, r.target);
+    return;
+  }
   if (fireSprays.contains(id) || r.task == TaskKind::FireResponse)
     return;
   if (r.task == TaskKind::Evacuate && !r.route.empty())
@@ -1104,14 +1116,10 @@ void World::dispatch(const Event &e) {
       r.activity = Activity::Idle;
       r.queuedAt = none;
     }
-    if (r.automatic && r.alive && r.present) {
-      try {
-        travel(r.id, f.pos + Vec3{5, 0, 1.5f}, TaskKind::None, none);
-      } catch (
-          const std::runtime_error &) { /* The ordinary decision tick retries a changed layout. */
-      }
-    }
-    serve(f.id);
+    Id person = r.id;
+    serve(e.id);
+    if (residents[person].automatic && residents[person].alive && residents[person].present)
+      resumeAfterService(person, e.id);
     return;
   }
   if (e.kind == EventKind::Release) {
@@ -1182,9 +1190,10 @@ void World::arrive(Id id) {
         break;
       }
   bool closeHandover =
-      r.task == TaskKind::DeliveryPickup ? near(id, items[orders[r.target].item].pos)
-      : r.task == TaskKind::DeliveryDrop ? near(id, position(orders[r.target].buyer))
-                                         : false;
+      r.task == TaskKind::Service          ? atServiceEntrance(id, r.target)
+      : r.task == TaskKind::DeliveryPickup ? near(id, items[orders[r.target].item].pos)
+      : r.task == TaskKind::DeliveryDrop   ? near(id, position(orders[r.target].buyer))
+                                           : false;
   if (!closeHandover && !r.route.empty() &&
       (r.route.back().time > time + .01 ||
        (crowd.contains(id) && length(position(id) - r.route.back().p) > arrivalRadius))) {
@@ -1197,16 +1206,24 @@ void World::arrive(Id id) {
   Id target = r.target;
   r.task = TaskKind::None;
   r.activity = Activity::Idle;
-  if (task == TaskKind::Service) {
+  if (task == TaskKind::LeaveService) {
+    resumeAfterService(id, target);
+  } else if (task == TaskKind::Service) {
     auto &f = facilities[target];
     if (f.open && f.queue.size() >= 64 && r.automatic) {
       Id alternative = serviceChoice(id, f.kind);
       if (alternative != none && alternative != target)
         travel(id, facilities[alternative].pos, TaskKind::Service, alternative);
+      else
+        clearServiceArea(id, target);
       // Crowded service is an expected condition, not an interrupted task.
       // The next decision chooses a service again after the queue has advanced.
-    } else if (f.open)
-      joinQueue(id, target);
+    } else if (f.open) {
+      if (near(id, f.pos, 3) || atServiceEntrance(id, target))
+        joinQueue(id, target);
+      else
+        travel(id, serviceApproach(target), TaskKind::Service, target);
+    }
   } else if (task == TaskKind::TradeMeet)
     finishAutonomyTrade(id);
   else if (task == TaskKind::ShoppingTerminal) {
@@ -1326,7 +1343,8 @@ void World::joinQueue(Id id, Id fId) {
   if (looseBodies.contains(id))
     throw std::runtime_error("physics.error.airborne");
   if (!r.alive || !r.present || !f.open || !accessAllowed(id, fId) ||
-      !inHours(time, f.opensAt, f.openHours) || !near(id, f.pos, 3))
+      !inHours(time, f.opensAt, f.openHours) ||
+      (!near(id, f.pos, 3) && !atServiceEntrance(id, fId)))
     throw std::runtime_error("Reach the open facility first");
   if (r.queuedAt == fId)
     return;
@@ -1458,42 +1476,15 @@ void World::serve(Id fId) {
 }
 void World::layoutQueue(Id fid) {
   auto &f = facilities.at(fid);
-  std::vector<Vec3> slots;
+  auto slots = queueSlots(fid, f.queue.size());
   for (std::size_t i = 0; i < f.queue.size(); ++i) {
     auto &r = residents[f.queue[i]];
-    int row = int(i / 8), col = int(i % 8);
-    if (row % 2)
-      col = 7 - col;
-    Vec3 dest =
-        config.layoutVersion == 1
-            ? Vec3{(f.pos.x < 0 ? -1.f : 1.f) * (19.f - col * .75f), f.floor * 3.f,
-                   std::clamp(f.pos.z, -12.f, 6.f) + 1.8f + row * .8f}
-            : f.pos + Vec3{-3.5f + col, 0,
-                           std::max(3.2f, 2.4f + float((f.stations + 3) / 4) * .8f) + row * .85f};
-    auto vacant = [&](Vec3 p) {
-      return clearPosition(p) &&
-             std::none_of(slots.begin(), slots.end(), [&](Vec3 q) { return length(p - q) < .7f; });
-    };
-    if (!vacant(dest)) {
-      bool found = false;
-      for (float radius = .4f; radius < 12 && !found; radius += .4f)
-        for (int a = 0; a < 32; ++a) {
-          Vec3 p = dest + Vec3{std::sin(a * .19635f) * radius, 0, std::cos(a * .19635f) * radius};
-          if (vacant(p)) {
-            dest = p;
-            found = true;
-            break;
-          }
-        }
-      if (!found)
-        throw std::runtime_error("No free queue standing space");
-    }
-    slots.push_back(dest);
-    if (!r.route.empty() && length(r.route.back().p - dest) < .01f)
+    if (!r.route.empty() && length(r.route.back().p - slots[i]) < .01f)
       continue;
-    routeTo(r.id, dest);
+    routeTo(r.id, slots[i]);
   }
 }
+
 std::size_t World::living() const {
   return std::count_if(residents.begin(), residents.end(),
                        [](auto &r) { return r.alive && r.present; });

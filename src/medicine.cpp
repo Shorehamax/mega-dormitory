@@ -466,6 +466,12 @@ void World::pickupBody(Id worker, Id id) {
   body.storage = none;
   body.destination = destination;
   r.bodyCarrying = id;
+  if (r.automatic)
+    try {
+      discoverBody(worker, id);
+    } catch (const std::runtime_error &) {
+      // Taking the stretcher still works if the scene cannot be examined yet.
+    }
   travel(worker, facilities[destination].pos + Vec3{0, 0, 1.6f}, TaskKind::BodyDrop, destination);
 }
 void World::storeBody(Id worker, Id destination) {

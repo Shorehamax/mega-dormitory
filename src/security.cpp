@@ -46,6 +46,7 @@ void World::observeCrime(Id id) {
                            : distance < 8 ? .85f
                                           : .65f,
                            knows, false});
+    c.witnesses.back().seenScene = c.pos;
     c.discovered = true;
   }
   if (c.kind == CrimeKind::Murder) {
@@ -60,6 +61,8 @@ void World::observeCrime(Id id) {
           c.reportedAt = time;
           c.lastKnown = it->lastKnown;
           c.seenAt = it->seenAt;
+          c.scene = it->sceneLocated ? it->scene : it->pos;
+          c.sceneLocated = true;
         }
         break;
       }
@@ -71,12 +74,13 @@ void World::observeCrime(Id id) {
 void World::fileCrimeReport(Id reporter, Id id) {
   auto &c = incidents.at(id);
   auto &r = residents.at(reporter);
-  if (!r.alive || !r.present || c.resolved)
+  if (!r.alive || !r.present || r.activity == Activity::Sleeping || c.resolved)
     throw std::runtime_error("security.error.report");
   auto statement = std::find_if(c.witnesses.begin(), c.witnesses.end(),
                                 [&](const Testimony &s) { return s.witness == reporter; });
   bool victim = reporter == c.victim && r.activity != Activity::Sleeping;
-  bool inspector = r.role == Role::Warden && c.inspected && near(reporter, c.pos, 4);
+  bool inspector =
+      r.role == Role::Warden && c.inspected && near(reporter, c.sceneLocated ? c.scene : c.pos, 4);
   if (statement == c.witnesses.end() && !victim && !inspector)
     throw std::runtime_error("security.error.report");
   bool contact = hasDevice(reporter) || inspector;
@@ -95,14 +99,25 @@ void World::fileCrimeReport(Id reporter, Id id) {
     c.reportedAt = time;
   if (statement != c.witnesses.end()) {
     statement->filed = true;
+    if (!c.sceneLocated || !statement->bodyOnly) {
+      c.scene = statement->seenScene;
+      c.sceneLocated = true;
+    }
+    if (!statement->identifies)
+      c.confidence = std::max(c.confidence, .2f);
     if (statement->identifies) {
       c.suspect = c.offender;
       c.confidence = std::max(c.confidence, statement->confidence);
       c.lastKnown = statement->offenderPosition;
       c.seenAt = statement->seenAt;
     }
-  } else
+  } else {
     c.confidence = std::max(c.confidence, .2f);
+    if (!c.sceneLocated) {
+      c.scene = c.pos;
+      c.sceneLocated = true;
+    }
+  }
   log("security.reported", reporter, c.suspect);
 }
 bool World::canEnforce(const Incident &c) const {
@@ -116,11 +131,14 @@ bool World::hasWarrant(Id person) const {
 }
 void World::inspectCrimeScene(Id warden, Id id) {
   auto &c = incidents.at(id);
-  if (!guardReady(*this, warden) || !near(warden, c.pos, 4) || !sees(*this, warden, c.pos, 4))
+  Vec3 scene = c.sceneLocated ? c.scene : c.pos;
+  if (!guardReady(*this, warden) || !near(warden, scene, 4) || !sees(*this, warden, scene, 4))
     throw std::runtime_error("security.error.scene");
   if (c.inspected)
     return;
   c.inspected = c.discovered = true;
+  c.scene = scene;
+  c.sceneLocated = true;
   if (!c.reported) {
     c.reported = true;
     c.reporter = warden;
@@ -141,6 +159,10 @@ void World::interviewWitness(Id warden, Id id, Id witness) {
   if (s == c.witnesses.end())
     throw std::runtime_error("security.error.witness");
   s->filed = true;
+  if (!c.sceneLocated || !s->bodyOnly) {
+    c.scene = s->seenScene;
+    c.sceneLocated = true;
+  }
   c.reported = true;
   c.reporter = warden;
   if (c.reportedAt < 0)
@@ -160,14 +182,17 @@ Vec3 World::investigationDestination(Id warden, Id id) {
     c.lastKnown = position(c.suspect);
     c.seenAt = time;
   }
-  return c.suspect == none || !canEnforce(c) ? accessible(c.pos) : accessible(c.lastKnown);
+  Vec3 goal =
+      c.suspect == none || !canEnforce(c) ? (c.sceneLocated ? c.scene : c.pos) : c.lastKnown;
+  goal.y = std::round(goal.y / 3) * 3;
+  return accessible(goal);
 }
 void World::investigateArrival(Id warden, Id id) {
   auto &c = incidents.at(id);
   auto &r = residents.at(warden);
   if (!guardReady(*this, warden) || c.resolved)
     return;
-  if (near(warden, c.pos, 4) && !c.inspected)
+  if (near(warden, c.sceneLocated ? c.scene : c.pos, 4) && !c.inspected)
     inspectCrimeScene(warden, id);
   for (const auto &s : c.witnesses)
     if (!s.filed && residents[s.witness].alive && near(warden, position(s.witness), 2.5f)) {
@@ -275,16 +300,35 @@ void World::depositEvidence(Id warden, Id jail) {
       log("security.deposited", warden, i.id);
     }
 }
+bool World::evidenceAuthority(Id actor, Id receipt) const {
+  const auto &r = residents.at(actor);
+  Id owner = evidenceReceipts.at(receipt).owner;
+  if (owner == r.account || (owner == dormAccount && actor == dormOwner))
+    return true;
+  Id company = companyForAccount(owner);
+  if (company != none && directsCompany(actor, company))
+    return true;
+  for (const auto &f : facilities)
+    if (operatingAccount(f.id) == owner && f.manager == actor) {
+      // A shop manager does not become custodian of its owner's private wallet
+      // or personal belongings when that wallet also funds the shop.
+      for (const auto &person : residents)
+        if (person.account == owner)
+          return false;
+      return true;
+    }
+  return false;
+}
 void World::claimEvidence(Id owner, Id receipt) {
   auto &e = evidenceReceipts.at(receipt);
   auto &r = residents.at(owner);
   auto &i = items[e.item];
-  if (!available(r) || e.claimed || e.owner != r.account || e.locker == none ||
+  if (!available(r) || e.claimed || !evidenceAuthority(owner, receipt) || e.locker == none ||
       !near(owner, facilities[e.locker].pos, 3) || i.consumed || i.carrier != none)
     throw std::runtime_error("security.error.claim");
   if (i.stolenFrom == none && hasWarrant(owner))
     throw std::runtime_error("security.error.claim");
-  i.owner = r.account;
+  i.owner = e.owner;
   i.stolenFrom = none;
   i.carrier = owner;
   i.reservedAt = none;
@@ -409,9 +453,11 @@ void World::escapeCustody(Id id) {
   }
   Id crime = report(CrimeKind::Escape, id, victim, false, true);
   incidents[crime].pos = incidents[crime].lastKnown = r.pos;
+  incidents[crime].scene = r.pos;
   log("security.escaped", id, c.jail);
 }
 void World::securityTick() {
+  discoverDeaths();
   for (auto &r : residents)
     if (r.alive && r.present && r.surrendered && r.activity == Activity::Surrendered &&
         r.surrenderUntil <= time &&
@@ -556,14 +602,17 @@ void World::validateSecurity() const {
         !std::isfinite(c.time) || !std::isfinite(c.reportedAt) || !std::isfinite(c.seenAt) ||
         !std::isfinite(c.searchAfter) || !std::isfinite(c.pos.x) || !std::isfinite(c.pos.y) ||
         !std::isfinite(c.pos.z) || !std::isfinite(c.lastKnown.x) || !std::isfinite(c.lastKnown.y) ||
-        !std::isfinite(c.lastKnown.z) || c.witnesses.size() > 12)
+        !std::isfinite(c.lastKnown.z) || c.witnesses.size() > 24 || !std::isfinite(c.scene.x) ||
+        !std::isfinite(c.scene.y) || !std::isfinite(c.scene.z))
       throw std::runtime_error("Invalid investigation");
     std::set<Id> seen;
     for (const auto &s : c.witnesses)
       if (!resident(s.witness) || !seen.insert(s.witness).second || !std::isfinite(s.seenAt) ||
           !std::isfinite(s.confidence) || s.confidence < 0 || s.confidence > 1 ||
           !std::isfinite(s.offenderPosition.x) || !std::isfinite(s.offenderPosition.y) ||
-          !std::isfinite(s.offenderPosition.z))
+          !std::isfinite(s.offenderPosition.z) || !std::isfinite(s.seenScene.x) ||
+          !std::isfinite(s.seenScene.y) || !std::isfinite(s.seenScene.z) ||
+          (s.bodyOnly && s.identifies))
         throw std::runtime_error("Invalid testimony");
   }
   for (std::size_t n = 0; n < evidenceReceipts.size(); ++n) {

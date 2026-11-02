@@ -314,7 +314,7 @@
   "help.walk": "移动 · 生存模式以第一人称开始。继续模拟并点击场景：WASD 行走，Shift 奔跑，空格跳跃。Tab 或 Esc 打开菜单并释放鼠标。",
   "help.ladder": "攀爬 · 走到金色梯子平台。E 抓住梯子，W 向上，S 向下。在楼层处停下，按 E 走下梯子。",
   "help.camera": "自由观察 · V 切换第一人称／观察模式。右键拖动环绕，滚轮缩放；WASD 按视角平移，Q/E 升降楼层，Shift 加速。+ / − 保留水平位置。定位居民只聚焦视图，不会接管居民；整层视图显示全貌。",
-  "help.services": "互动 · 靠近柜台按 E，或在设施列表点击前往。必须实际到达商家并排队等待。",
+  "help.services": "请走到队尾按 E，或在设施菜单中选择步行前往。服务结束后，居民会继续自己的日程，或离开柜台区域。",
   "help.expansion": "建设 · 所有者可在管理页出资扩建楼层。工人必须到达工地并在工作时段施工，完工后开放新面积。",
   "help.to_ladder": "自动步行到梯子",
   "help.to_reception": "前往接待处",
@@ -928,7 +928,7 @@
   "security.in_transit": "由狱警携带中",
   "security.missing": "运输途中遗失",
   "security.to_locker": "前往失物保管处",
-  "security.claim": "领取我的物品",
+  "security.claim": "领取有权领取的物品",
   "security.deposit": "存入扣押物品",
   "security.reported": "一起案件已向狱警报案。",
   "security.scene_checked": "狱警勘查了现场。",
@@ -949,5 +949,10 @@
   "security.error.locker": "需要拘留所保管柜台及可执勤的狱警。",
   "security.error.claim": "物品合法所有人必须到达保管处；被通缉期间部分涉案物品不能领取。",
   "security.error.escape": "只有清醒且有足够体力的被拘押者才能开始逃脱。",
-  "security.recovered": "一名居民从投降状态中恢复了。"
+  "security.recovered": "一名居民从投降状态中恢复了。",
+  "flow.help": "请走到队尾按 E，或在设施菜单中选择步行前往。服务结束后，居民会继续自己的日程，或离开柜台区域。",
+  "security.error.body": "请靠近可见且允许接近的遗体进行查看。",
+  "security.body_found": "一名居民发现了暴力死亡的遗体。",
+  "security.examine_body": "查看附近遗体",
+  "security.no_violent_case": "此遗体没有关联的未结暴力死亡案件。"
 }

@@ -13,6 +13,8 @@ Id World::report(CrimeKind kind, Id offender, Id victim, bool threat, bool publi
   c.offender = offender;
   c.victim = victim;
   c.pos = position(victim);
+  c.scene = c.pos;
+  c.sceneLocated = published;
   c.time = time;
   c.threat = threat;
   c.reported = published;
@@ -560,9 +562,9 @@ void World::validate() const {
   if (!residentValid(dormOwner) || !accountValid(dormAccount))
     throw std::runtime_error("Invalid owner");
   for (const auto &r : residents) {
-    if (int(r.task) < 0 || int(r.task) > int(TaskKind::ShoppingTerminal) ||
+    if (int(r.task) < 0 || int(r.task) > int(TaskKind::LeaveService) ||
         ((r.task == TaskKind::Service || r.task == TaskKind::Work || r.task == TaskKind::Escort ||
-          r.task == TaskKind::ShoppingTerminal) &&
+          r.task == TaskKind::ShoppingTerminal || r.task == TaskKind::LeaveService) &&
          !facilityValid(r.target)) ||
         ((r.task == TaskKind::DeliveryPickup || r.task == TaskKind::DeliveryDrop) &&
          (r.target < 0 || std::size_t(r.target) >= orders.size())) ||
@@ -674,7 +676,8 @@ void World::validate() const {
   for (auto &[id, j] : liftJourneys)
     if (!residentValid(id) || j.lift < 0 || std::size_t(j.lift) >= lifts.size() ||
         !std::isfinite(j.goal.x) || !std::isfinite(j.goal.y) || !std::isfinite(j.goal.z) ||
-        int(j.task) < 0 || int(j.task) > int(TaskKind::Evacuate) || j.task == TaskKind::LiftWait)
+        int(j.task) < 0 || int(j.task) > int(TaskKind::LeaveService) ||
+        j.task == TaskKind::LiftWait)
       throw std::runtime_error("Invalid lift journey");
   for (auto &r : residents)
     if (r.lift != none &&
