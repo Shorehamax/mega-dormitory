@@ -82,6 +82,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Fire, id, facility, worker, stat
                                                 heat, smoke, fuel, started, updated, budget, paid,
                                                 contained, out, spreadExposure)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FireSpray, fire, item, workedAt)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(EstateDebt, creditor, remaining)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Estate, id, deceased, beneficiary, openedAt,
+                                                reviewAt, acceptedAt, accepted, distributed,
+                                                inheritedDebt, candidates, declined, debts,
+                                                belongings)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PersonalUse, item, ingredient, remaining, workedAt, origin)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LooseBody, velocity, pusher, justified, updated)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Company, id, owner, account, leader, name,
@@ -106,13 +111,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(StorageLease, id, facility, hold
                                                 household, slot, dailyRent, arrears, paidUntil,
                                                 active, released, open, items)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Household, id, founder, members, invitations)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ResidentPlan, nextShopping, nextCareer,
-                                                nextBusiness, nextListing, tradeDeadline,
-                                                lastCareer, reserve, spentToday, tradePrice, day,
-                                                tradeRetries, order, tradeItem, seller,
-                                                lastBusiness, wanted, action, nextHousehold,
-                                                helpDeadline, helpTarget, helpRetries, storageItem,
-                                                storageDeadline, nextStorage, storageGroup)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
+    ResidentPlan, nextShopping, nextCareer, nextBusiness, nextListing, tradeDeadline, lastCareer,
+    reserve, spentToday, tradePrice, day, tradeRetries, order, tradeItem, seller, lastBusiness,
+    wanted, action, nextHousehold, helpDeadline, helpTarget, helpRetries, storageItem,
+    storageDeadline, nextStorage, storageGroup, nextEstate)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Message, from, to, time, text, read)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Vehicle, id, owner, dealer, driver, bay, kind, pos,
                                                 yaw, speed, condition, askingPrice, originalPrice,
@@ -228,6 +231,8 @@ void World::save(const std::filesystem::path &path) const {
             {"shareOffers", shareOffers},
             {"acquisitions", acquisitions},
             {"equityHeirs", equityHeirs},
+            {"personalHeirs", personalHeirs},
+            {"estates", estates},
             {"workspaceLeases", workspaceLeases},
             {"workspaceOffers", workspaceOffers},
             {"repairs", repairs},
@@ -471,6 +476,10 @@ static World readSave(const std::filesystem::path &path) {
     j.at("shareOffers").get_to(w.shareOffers);
   if (j.contains("acquisitions"))
     j.at("acquisitions").get_to(w.acquisitions);
+  if (j.contains("personalHeirs"))
+    j.at("personalHeirs").get_to(w.personalHeirs);
+  if (j.contains("estates"))
+    j.at("estates").get_to(w.estates);
   if (j.contains("equityHeirs"))
     j.at("equityHeirs").get_to(w.equityHeirs);
   if (j.contains("workspaceLeases"))

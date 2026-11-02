@@ -259,7 +259,7 @@ void World::releaseStorage(Id actor, Id lease) {
 void World::storageTick() {
   for (Id id = 0; id < Id(storageLeases.size()); ++id) {
     auto &l = storageLeases[id];
-    if (!residents[l.custodian].present) {
+    if (!residents[l.custodian].alive || !residents[l.custodian].present) {
       l.active = false;
       l.open = false;
       if (l.items.empty() && !l.released) {

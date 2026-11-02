@@ -720,20 +720,20 @@ void World::validateAutonomy() const {
         !ref(p.tradeItem, items.size()) || !ref(p.seller, residents.size()) ||
         !ref(p.storageItem, items.size()) || !ref(p.storageGroup, households.size()) ||
         !std::isfinite(p.storageDeadline) || p.storageDeadline < 0 ||
-        !std::isfinite(p.nextStorage) || p.nextStorage < 0 ||
-        !ref(p.lastBusiness, facilities.size()) || !ref(p.helpTarget, residents.size()) ||
-        !std::isfinite(p.nextHousehold) || p.nextHousehold < 0 || !std::isfinite(p.helpDeadline) ||
-        p.helpDeadline < 0 || p.helpRetries < 0 || p.helpRetries > 3 || p.reserve < 0 ||
-        p.reserve > 1000000000000LL || p.spentToday < 0 || p.spentToday > 1000000000 ||
-        p.tradePrice < 0 || p.tradePrice > 100000000 || p.day < -1 || p.day > int(time / 86400) ||
-        p.tradeRetries < 0 || p.tradeRetries > 3 || int(p.wanted) < 0 ||
-        int(p.wanted) > int(ItemKind::RiceCooker) || int(p.action) < 0 ||
-        int(p.action) > int(AutonomyAction::Founded) || !std::isfinite(p.nextShopping) ||
-        p.nextShopping < 0 || !std::isfinite(p.nextCareer) || p.nextCareer < 0 ||
-        !std::isfinite(p.nextBusiness) || p.nextBusiness < 0 || !std::isfinite(p.nextListing) ||
-        p.nextListing < 0 || !std::isfinite(p.tradeDeadline) || p.tradeDeadline < 0 ||
-        !std::isfinite(p.lastCareer) || p.lastCareer < -86400 || p.lastCareer > time ||
-        (p.order != none && orders[p.order].buyer != id) ||
+        !std::isfinite(p.nextStorage) || p.nextStorage < 0 || !std::isfinite(p.nextEstate) ||
+        p.nextEstate < 0 || !ref(p.lastBusiness, facilities.size()) ||
+        !ref(p.helpTarget, residents.size()) || !std::isfinite(p.nextHousehold) ||
+        p.nextHousehold < 0 || !std::isfinite(p.helpDeadline) || p.helpDeadline < 0 ||
+        p.helpRetries < 0 || p.helpRetries > 3 || p.reserve < 0 || p.reserve > 1000000000000LL ||
+        p.spentToday < 0 || p.spentToday > 1000000000 || p.tradePrice < 0 ||
+        p.tradePrice > 100000000 || p.day < -1 || p.day > int(time / 86400) || p.tradeRetries < 0 ||
+        p.tradeRetries > 3 || int(p.wanted) < 0 || int(p.wanted) > int(ItemKind::RiceCooker) ||
+        int(p.action) < 0 || int(p.action) > int(AutonomyAction::Founded) ||
+        !std::isfinite(p.nextShopping) || p.nextShopping < 0 || !std::isfinite(p.nextCareer) ||
+        p.nextCareer < 0 || !std::isfinite(p.nextBusiness) || p.nextBusiness < 0 ||
+        !std::isfinite(p.nextListing) || p.nextListing < 0 || !std::isfinite(p.tradeDeadline) ||
+        p.tradeDeadline < 0 || !std::isfinite(p.lastCareer) || p.lastCareer < -86400 ||
+        p.lastCareer > time || (p.order != none && orders[p.order].buyer != id) ||
         ((p.tradeItem == none) != (p.seller == none)))
       throw std::runtime_error("Invalid resident plan");
   }

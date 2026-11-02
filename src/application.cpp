@@ -108,7 +108,15 @@ public:
   std::string browserPath;
   std::future<World> importing;
   bool emergencyScreen = false;
-  bool securityScreen = false, storageScreen = false;
+  bool securityScreen = false, storageScreen = false, estateScreen = false, estateWillOpen = false;
+  std::string personalHeir = "-1";
+  std::vector<Id> estateItemList;
+  std::vector<Id> looseItemList;
+  int looseItemFloor = -100;
+  double nextLooseItems = 0;
+  std::size_t looseItemCount = 0;
+  Id estateListActor = none;
+  double nextEstateList = 0;
   Id selectedStorage = none, selectedStorageFacility = none;
   int securityPage = 0;
   bool cheatOpen = false, companyScreen = false, companyConstruction = false;
@@ -450,8 +458,16 @@ public:
     world = std::make_unique<World>(std::move(w));
     selected = world->player;
     savesOpen = importOpen = importSummary = false;
-    storageScreen = educationOpen = securityScreen = emergencyScreen = companyScreen =
-        companyConstruction = cheatOpen = false;
+    looseItemList.clear();
+    looseItemFloor = -100;
+    nextLooseItems = 0;
+    looseItemCount = 0;
+    estateWillOpen = false;
+    estateItemList.clear();
+    estateListActor = none;
+    nextEstateList = 0;
+    estateScreen = storageScreen = educationOpen = securityScreen = emergencyScreen =
+        companyScreen = companyConstruction = cheatOpen = false;
     securityPage = 0;
     selectedCompany = video = office = customVehicle = lethalConfirm = none;
     companyPage = companyMarketPage = 0;
@@ -717,6 +733,27 @@ public:
               w.enterVehicle(selected, vehicle.id);
               return;
             }
+          refreshLooseItems();
+          Id belonging = none;
+          float belongingDistance = 1.8f;
+          for (Id id : looseItemList) {
+            const auto &item = w.items[id];
+            if (item.owner != r.account || item.carrier != none || item.consumed ||
+                item.storedAt != none || item.reservedAt != none || item.seller != none)
+              continue;
+            if (item.order != none && w.orders[item.order].state != OrderState::Delivered &&
+                w.orders[item.order].state != OrderState::Lost)
+              continue;
+            float distance = length(item.pos - w.position(selected));
+            if (distance < belongingDistance) {
+              belonging = id;
+              belongingDistance = distance;
+            }
+          }
+          if (belonging != none) {
+            w.collectBelonging(selected, belonging);
+            return;
+          }
           for (auto &lift : w.lifts)
             if (w.near(selected, w.liftDoor(currentFloor), 3) &&
                 std::find(w.facilities[lift.facility].stops.begin(),
@@ -1209,6 +1246,158 @@ public:
         }
     return y;
   }
+  void refreshLooseItems() {
+    if (!world)
+      return;
+    auto &w = *world;
+    if (looseItemFloor == currentFloor && looseItemCount == w.items.size() &&
+        glfwGetTime() < nextLooseItems)
+      return;
+    looseItemList.clear();
+    looseItemFloor = currentFloor;
+    looseItemCount = w.items.size();
+    nextLooseItems = glfwGetTime() + .5;
+    for (const auto &item : w.items) {
+      if (item.consumed || item.carrier != none || item.storedAt != none ||
+          item.reservedAt != none || item.kind == ItemKind::Materials ||
+          item.kind == ItemKind::Waste || std::abs(item.pos.y - currentFloor * 3.f) > 6.1f)
+        continue;
+      int floor = int(std::round(item.pos.y / 3));
+      if (floor < 0 || floor >= w.config.floors || std::abs(item.pos.y - floor * 3.f) > .2f ||
+          !w.layout(floor).supported(item.pos))
+        continue;
+      looseItemList.push_back(item.id);
+    }
+  }
+  float estatePanel(float x, float y, float width) {
+    auto &w = *world;
+    Id actor = selected;
+    bool control = actor == w.player || w.config.mode == Mode::Cheat;
+    ui.text(x, y, t("estate.title"), 23, hex(0xe6e8df));
+    y += 40;
+    if (ui.button("estateBack", {x, y, width, 31}, t("fire.back"))) {
+      estateScreen = false;
+      scrollOffset = 0;
+    }
+    y += 43;
+    y = ui.wrap(x, y, width, t("estate.help"), 13, hex(0x9fb4b7)) + 16;
+    if (control && w.residents[actor].alive) {
+      if (ui.button("estateWillOpen", {x, y, width, 32}, t("estate.will"), estateWillOpen))
+        estateWillOpen = !estateWillOpen;
+      y += 42;
+    }
+    if (control && w.residents[actor].alive && estateWillOpen) {
+      ui.text(x, y, t("estate.nominee_id"), 13, hex(0xa5cbb9));
+      y += 25;
+      ui.input("personalHeir", {x, y, width / 2 - 5, 32}, personalHeir, true);
+      if (ui.button("personalHeirSave", {x + width / 2 + 5, y, width / 2 - 5, 32}, t("nav.save")))
+        act([&] {
+          int number = 0;
+          std::size_t used = 0;
+          try {
+            number = std::stoi(personalHeir, &used);
+          } catch (const std::exception &) {
+            throw std::runtime_error("estate.error.nominee");
+          }
+          if (used != personalHeir.size() ||
+              (number != -1 && (number < 1 || std::size_t(number) > w.residents.size())))
+            throw std::runtime_error("estate.error.nominee");
+          w.nominatePersonalHeir(actor, number == -1 ? none : number - 1);
+        });
+      y += 43;
+      if (w.personalHeirs.contains(actor))
+        y = ui.wrap(x, y, width,
+                    t("estate.nominee") + " · " +
+                        w.displayName(w.personalHeirs.at(actor), locale.language),
+                    14, hex(0xa5cbb9)) +
+            12;
+    }
+    for (const auto &e : w.estates) {
+      if (e.deceased != actor && e.beneficiary != actor && w.config.mode != Mode::Cheat)
+        continue;
+      y = ui.wrap(x, y, width,
+                  w.displayName(e.deceased, locale.language) + " · " +
+                      t(e.accepted              ? "estate.accepted_status"
+                        : e.beneficiary == none ? "estate.unclaimed"
+                                                : "estate.offered"),
+                  17, hex(0xe0bc76)) +
+          12;
+      if (e.beneficiary != none)
+        y = ui.wrap(x, y, width,
+                    t("estate.nominee") + " · " + w.displayName(e.beneficiary, locale.language), 13,
+                    hex(0x9fb4b7)) +
+            10;
+      if (!e.accepted) {
+        y = ui.wrap(x, y, width, t("estate.value") + " " + money(w.estateValuation(e.id)), 14,
+                    hex(0xa5cbb9)) +
+            9;
+        y = ui.wrap(x, y, width, t("estate.debt") + " " + money(w.estateLiabilities(e.id)), 14,
+                    hex(0xd7ad84)) +
+            12;
+        if (w.time < e.reviewAt)
+          y = ui.wrap(x, y, width,
+                      t("estate.wait") + " " +
+                          std::to_string(int(std::ceil((e.reviewAt - w.time) / 3600))) + " h",
+                      13, hex(0x9fb4b7)) +
+              12;
+        if (control && e.beneficiary == actor) {
+          if (w.time >= e.reviewAt && ui.button("acceptEstate" + std::to_string(e.id),
+                                                {x, y, width, 34}, t("estate.accept")))
+            act([&] {
+              w.acceptEstate(actor, e.id);
+              nextEstateList = 0;
+            });
+          if (w.time >= e.reviewAt)
+            y += 42;
+          if (ui.button("declineEstate" + std::to_string(e.id), {x, y, width, 32},
+                        t("estate.decline")))
+            act([&] { w.declineEstate(actor, e.id); });
+          y += 42;
+        }
+      } else {
+        y = ui.wrap(x, y, width, t("estate.distributed") + " " + money(e.distributed), 14,
+                    hex(0xa5cbb9)) +
+            10;
+        y = ui.wrap(x, y, width, t("estate.inherited_debt") + " " + money(e.inheritedDebt), 13,
+                    hex(0xd7ad84)) +
+            10;
+      }
+    }
+    if (control && (estateListActor != actor || glfwGetTime() >= nextEstateList)) {
+      estateItemList.clear();
+      estateListActor = actor;
+      nextEstateList = glfwGetTime() + .5;
+      for (const auto &item : w.items)
+        if (item.owner == w.residents[actor].account && !item.consumed && item.carrier == none &&
+            item.storedAt == none && item.reservedAt == none)
+          estateItemList.push_back(item.id);
+    }
+    if (control)
+      for (Id id : estateItemList) {
+        const auto &item = w.items[id];
+        if (item.owner != w.residents[actor].account || item.consumed || item.carrier != none ||
+            item.storedAt != none || item.reservedAt != none || item.seller != none ||
+            item.kind == ItemKind::Materials || item.kind == ItemKind::Waste)
+          continue;
+        y = ui.wrap(x, y, width,
+                    t(itemLabel(item.kind)) + " #" + std::to_string(item.id + 1) + " · " +
+                        t("status.floor") + " " +
+                        std::to_string(int(std::round(item.pos.y / 3)) + 1),
+                    14, hex(0xb3c3be)) +
+            9;
+        if (ui.button("estateWalk" + std::to_string(item.id), {x, y, width / 2 - 4, 31},
+                      t("action.walk")))
+          act([&] {
+            w.travel(actor, w.accessible(item.pos), TaskKind::None, none);
+            paused = false;
+          });
+        if (ui.button("estateCollect" + std::to_string(item.id),
+                      {x + width / 2 + 4, y, width / 2 - 4, 31}, t("estate.collect")))
+          act([&] { w.collectBelonging(actor, item.id); });
+        y += 40;
+      }
+    return y + 12;
+  }
   float storagePanel(float x, float y, float width) {
     auto &w = *world;
     auto &r = w.residents[selected];
@@ -1425,6 +1614,8 @@ public:
     return y;
   }
   float lifePanel(float x, float y, float width) {
+    if (estateScreen)
+      return estatePanel(x, y, width);
     if (storageScreen)
       return storagePanel(x, y, width);
     if (educationOpen)
@@ -1574,6 +1765,15 @@ public:
       y = ui.wrap(x, y, width, t("household.explain"), 12, hex(0x8da5aa)) + 12;
       y = ui.wrap(x, y, width, t("autonomy.explain"), 12, hex(0x8da5aa)) + 20;
     }
+    if (ui.button("estateScreen", {x, y, width, 36}, t("estate.title"))) {
+      estateScreen = true;
+      nextEstateList = 0;
+      personalHeir = w.personalHeirs.contains(selected)
+                         ? std::to_string(w.personalHeirs.at(selected) + 1)
+                         : "-1";
+      scrollOffset = 0;
+    }
+    y += 44;
     if (ui.button("storageScreen", {x, y, width, 36}, t("storage.title"))) {
       storageScreen = true;
       scrollOffset = 0;
@@ -5176,6 +5376,37 @@ public:
         if (b.carrier != none)
           box(v, p + Vec3{0, .02f, 0}, {.7f, .08f, 2}, hex(0x6b919d));
       }
+    refreshLooseItems();
+    Vec3 itemFocus =
+        firstPerson ? w.position(selected) : Vec3{cameraFocus.x, floorY, cameraFocus.z};
+    int renderedItems = 0;
+    for (Id id : looseItemList) {
+      const auto &item = w.items[id];
+      Vec3 p = item.pos;
+      if (item.consumed || item.carrier != none || item.storedAt != none ||
+          item.reservedAt != none || length(p - itemFocus) > 40 || p.y >= ceilingCut ||
+          renderedItems++ >= 256)
+        continue;
+      Color color = item.durability <= 0 ? hex(0x363a38) : palette(item.look.primary);
+      if (item.kind == ItemKind::Laptop) {
+        box(v, p + Vec3{0, .025f, 0}, {.3f, .035f, .23f}, hex(0x47575c));
+        box(v, p + Vec3{0, .043f, .015f}, {.25f, .004f, .15f}, hex(0x222c31));
+        box(v, p + Vec3{0, .035f, -.105f}, {.3f, .055f, .018f}, color);
+      } else if (item.kind == ItemKind::Phone) {
+        box(v, p + Vec3{0, .015f, 0}, {.085f, .024f, .16f}, hex(0x30434b));
+        box(v, p + Vec3{0, .028f, 0}, {.07f, .003f, .13f}, hex(0x708c8c));
+      } else if (item.kind == ItemKind::Clothes) {
+        box(v, p + Vec3{0, .045f, 0}, {.28f, .09f, .23f}, color);
+        box(v, p + Vec3{0, .093f, -.04f}, {.12f, .006f, .12f}, palette(item.look.secondary));
+      } else if (item.kind == ItemKind::Medicine) {
+        cylinder(v, p + Vec3{0, .015f, 0}, p + Vec3{0, .13f, 0}, .045f, hex(0xb8c8b9), 8);
+        cylinder(v, p + Vec3{0, .13f, 0}, p + Vec3{0, .15f, 0}, .048f, hex(0x40685d), 8);
+      } else {
+        box(v, p + Vec3{0, .055f, 0}, {.2f, .11f, .16f},
+            item.kind == ItemKind::Food ? hex(0xad9b6d) : color);
+        box(v, p + Vec3{0, .112f, 0}, {.045f, .004f, .16f}, hex(0x738d85));
+      }
+    }
     float detailY = currentFloor * 3.f;
     for (int side : {-1, 1}) {
 
@@ -5908,7 +6139,11 @@ int runApplication(int argc, char **argv) {
          playConstruction = false, playVehicles = false, playCompany = false, playSecurity = false,
          playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
          playRescue = false, playFire = false, playAngled = false, playStorage = false,
-         playCrew = false;
+         playCrew = false, playEstates = false;
+    Id testEstate = none, testInheritance = none, testTenancy = none;
+    int estateStage = 0, estateFinish = -1;
+    Vec3 estatePrior{};
+    float estateMaxStep = 0;
     Id crewJob = none, crewTeam = none, crewContract = none;
     int crewFinish = -1;
     bool crewCaptured = false;
@@ -5951,7 +6186,14 @@ int runApplication(int argc, char **argv) {
           throw std::runtime_error("Missing argument value");
         return std::string(argv[++i]);
       };
-      if (arg == "--playtest-crew") {
+      if (arg == "--playtest-estates") {
+        playEstates = demo = animate = true;
+        panel = "estate-play";
+        app.config.population = 80;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-crew") {
         playCrew = demo = animate = true;
         panel = "crew-play";
         app.config.population = 80;
@@ -6090,7 +6332,7 @@ int runApplication(int argc, char **argv) {
     }
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
         playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
-        playStorage || playCrew) {
+        playStorage || playCrew || playEstates) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
@@ -6119,7 +6361,61 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "crew-play") {
+      if (panel == "estate-play") {
+        auto &w = *app.world;
+        while (!w.events.empty())
+          w.events.pop();
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.pos = w.position(r.id);
+          r.route.clear();
+          ++r.routeVersion;
+          r.automatic = false;
+          r.task = TaskKind::None;
+          r.activity = Activity::Idle;
+          r.role = Role::Unemployed;
+          r.jobSite = r.employer = none;
+          r.age = 30;
+          r.hunger = r.thirst = r.bladder = .1f;
+          r.health = 100;
+          r.energy = r.hygiene = 1;
+        }
+        w.crowd.clear();
+        w.player = 2;
+        w.residents[0].pos = w.accessible({70, 0, 100});
+        w.residents[2].pos = w.accessible({79, 0, 100});
+        testInheritance = w.residents[0].items.front();
+        testTenancy = w.residentHomes[3];
+        w.pay(0, w.residents[0].account, 5000000, "playtest-estate-capital");
+        w.housing[testTenancy].listed = true;
+        w.buyHome(0, testTenancy);
+        w.nominatePersonalHeir(0, 2);
+        w.kill(0);
+        testEstate = Id(w.estates.size() - 1);
+        // Start from a reviewed estate fixture. The rule suite separately enforces the one-day
+        // wait.
+        w.time = w.estates[testEstate].reviewAt;
+        while (!w.events.empty())
+          w.events.pop();
+        w.nextPhysicsAt = w.nextVehicleAt = -1;
+        for (auto &r : w.residents)
+          r.needsAt = w.time;
+        estatePrior = w.position(2);
+        app.selected = 2;
+        app.estateScreen = true;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        app.setFirstPerson(false);
+        app.cameraFocus = w.position(0);
+        app.currentFloor = 0;
+        app.distance = 10;
+        app.pitch = .3f;
+        app.orbit = .6f;
+        std::cout << "ESTATE PLAYTEST: reviewed estate fixture; real cash and tenanted title, "
+                     "belongings remain at body\n";
+      } else if (panel == "crew-play") {
         auto &w = *app.world;
         for (auto &r : w.residents) {
           w.clockOut(r.id);
@@ -6997,7 +7293,7 @@ int runApplication(int argc, char **argv) {
       app.paused = false;
       if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
           playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
-          playStorage || playCrew)
+          playStorage || playCrew || playEstates)
         app.speed = 6;
     }
     if (computeTest) {
@@ -7100,6 +7396,33 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playEstates) {
+        auto &w = *app.world;
+        estateMaxStep = std::max(estateMaxStep, length(w.position(2) - estatePrior));
+        estatePrior = w.position(2);
+        if (estateStage == 0 && frames >= 30) {
+          w.acceptEstate(2, testEstate);
+          app.nextEstateList = 0;
+          estateStage = 1;
+          if (!capture.empty())
+            frameCapture = capture.parent_path() / (capture.stem().string() + "-accepted.ppm");
+          std::cout << "ESTATE PLAYTEST: accepted obligations and occupied property; original "
+                       "tenant remains\n";
+        } else if (estateStage == 1 && frames >= 60) {
+          w.residents[2].automatic = true;
+          w.estateDecision(2);
+          estateStage = 2;
+        }
+        if (estateStage == 2 && w.items[testInheritance].carrier == 2) {
+          estateStage = 3;
+          estateFinish = frames;
+        }
+        if (estateFinish >= 0 && frames >= estateFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playCrew) {
         auto &w = *app.world;
         crewMaxStep = std::max(crewMaxStep, length(w.position(3) - crewPrior));
@@ -7513,6 +7836,20 @@ int runApplication(int argc, char **argv) {
       }
       app.frame(dt, frameCapture);
       ++frames;
+    }
+    if (playEstates) {
+      auto &w = *app.world;
+      w.validate();
+      if (estateStage != 3 || estateMaxStep > 2 || !w.estates[testEstate].accepted ||
+          w.items[testInheritance].owner != w.residents[2].account ||
+          w.items[testInheritance].carrier != 2 ||
+          w.housing[testTenancy].owner != w.residents[2].account ||
+          w.housing[testTenancy].tenant != 3)
+        throw std::runtime_error(
+            "Estate playthrough failed physical collection, accepted title or tenant protection");
+      std::cout << "ESTATE PLAYTEST PASS: accepted cash, preserved tenant, real ownership and "
+                   "walking collection; max step "
+                << estateMaxStep << "\n";
     }
     if (playCrew) {
       auto &w = *app.world;

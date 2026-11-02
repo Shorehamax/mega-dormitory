@@ -745,6 +745,8 @@ void World::decide(Id id, bool scheduleNext) {
       }
     }
   }
+  if (!workWindow && estateDecision(id))
+    return;
   if (!workWindow && r.activity == Activity::Idle && r.route.empty() && r.hunger < .85f &&
       r.thirst < .65f && r.bladder < .75f && r.hygiene >= .35f && r.energy > .3f &&
       autonomyDecision(id))
@@ -1215,6 +1217,7 @@ void World::dispatch(const Event &e) {
     householdTick();
     socialTick();
     economyTick();
+    estateTick();
     governanceTick();
     schedule(time + 3600, EventKind::Payroll, 0);
   }
@@ -1269,6 +1272,9 @@ void World::arrive(Id id) {
       else
         travel(id, serviceApproach(target), TaskKind::Service, target);
     }
+  } else if (task == TaskKind::BelongingCollect) {
+    collectBelonging(id, target);
+    residentPlans[id].nextEstate = time + 120;
   } else if (task == TaskKind::CrewWork)
     beginCrewContractWork(id, target);
   else if (task == TaskKind::StorageRetrieve || task == TaskKind::StorageDeposit ||

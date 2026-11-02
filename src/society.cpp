@@ -354,6 +354,7 @@ void World::kill(Id id, Id killer, bool justified) {
     recordCrime(CrimeKind::Murder, killer, id);
   else if (killer != none)
     log("combat.justified", killer, id);
+  openEstate(id);
   log("resident.died", id, killer);
   if ((id == player && config.mode != Mode::Cheat) || living() == 0) {
     gameOver = true;
@@ -417,6 +418,7 @@ void World::validate() const {
   for (const auto &[key, value] : importReport)
     if (key.size() > 64 || value < 0 || value > 1000000000000000LL)
       throw std::runtime_error("Invalid browser migration report");
+  validateEstates();
   validateCompanies();
   validateEmergencies();
   validatePersonalUses();
@@ -580,7 +582,7 @@ void World::validate() const {
   if (!residentValid(dormOwner) || !accountValid(dormAccount))
     throw std::runtime_error("Invalid owner");
   for (const auto &r : residents) {
-    if (int(r.task) < 0 || int(r.task) > int(TaskKind::CrewWork) ||
+    if (int(r.task) < 0 || int(r.task) > int(TaskKind::BelongingCollect) ||
         ((r.task == TaskKind::Service || r.task == TaskKind::Work || r.task == TaskKind::Escort ||
           r.task == TaskKind::ShoppingTerminal || r.task == TaskKind::LeaveService) &&
          !facilityValid(r.target)) ||
@@ -601,6 +603,8 @@ void World::validate() const {
         (r.task == TaskKind::Investigate &&
          (r.target < 0 || std::size_t(r.target) >= incidents.size())))
       throw std::runtime_error("Invalid resident task");
+    if (r.task == TaskKind::BelongingCollect && !itemValid(r.target))
+      throw std::runtime_error("Invalid belonging collection");
     if (r.task == TaskKind::CrewWork &&
         (r.target < 0 || std::size_t(r.target) >= crewContracts.size()))
       throw std::runtime_error("Invalid crew task");
@@ -706,7 +710,8 @@ void World::validate() const {
   for (auto &[id, j] : liftJourneys)
     if (!residentValid(id) || j.lift < 0 || std::size_t(j.lift) >= lifts.size() ||
         !std::isfinite(j.goal.x) || !std::isfinite(j.goal.y) || !std::isfinite(j.goal.z) ||
-        int(j.task) < 0 || int(j.task) > int(TaskKind::CrewWork) || j.task == TaskKind::LiftWait)
+        int(j.task) < 0 || int(j.task) > int(TaskKind::BelongingCollect) ||
+        j.task == TaskKind::LiftWait)
       throw std::runtime_error("Invalid lift journey");
   for (auto &r : residents)
     if (r.lift != none &&

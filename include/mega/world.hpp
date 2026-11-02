@@ -133,7 +133,8 @@ enum class TaskKind {
   StorageRetrieve,
   StorageDeposit,
   StorageRent,
-  CrewWork
+  CrewWork,
+  BelongingCollect
 };
 enum class CrimeKind { QueueCutting, Assault, ExcessiveForce, Murder, Theft, Escape, Obstruction };
 enum class ProjectState { Proposed, AwaitingConsent, Funded, Working, Completed, Disputed };
@@ -265,7 +266,7 @@ struct ResidentPlan {
   Id helpTarget = none;
   int helpRetries = 0;
   Id storageItem = none, storageGroup = none;
-  double storageDeadline = 0, nextStorage = 0;
+  double storageDeadline = 0, nextStorage = 0, nextEstate = 0;
 };
 struct Resident {
   Id id = none, account = none, home = 0, employer = none, jobSite = none;
@@ -725,6 +726,18 @@ struct LooseBody {
   bool justified = false;
   double updated = 0;
 };
+struct EstateDebt {
+  Id creditor = none;
+  Money remaining = 0;
+};
+struct Estate {
+  Id id = none, deceased = none, beneficiary = none;
+  double openedAt = 0, reviewAt = 0, acceptedAt = -1;
+  bool accepted = false;
+  Money distributed = 0, inheritedDebt = 0;
+  std::set<Id> candidates, declined, belongings;
+  std::vector<EstateDebt> debts;
+};
 struct PersonalUse {
   Id item = none, ingredient = none;
   double remaining = 0, workedAt = 0;
@@ -867,6 +880,18 @@ public:
   mutable std::size_t equityPopulation = 0;
   std::vector<ShareOffer> shareOffers;
   std::vector<Acquisition> acquisitions;
+  std::map<Id, Id> personalHeirs;
+  std::vector<Estate> estates;
+  void nominatePersonalHeir(Id actor, Id heir);
+  void openEstate(Id deceased);
+  void acceptEstate(Id actor, Id estate);
+  void declineEstate(Id actor, Id estate);
+  Money estateLiabilities(Id estate) const;
+  Money estateValuation(Id estate) const;
+  void estateTick();
+  void validateEstates() const;
+  void collectBelonging(Id actor, Id item);
+  bool estateDecision(Id actor);
   std::map<Id, Id> equityHeirs; // Resident nominations, affecting company equity only.
   Id companyController(Id company) const;
   void refreshCompanyControl(Id company);
