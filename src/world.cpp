@@ -793,12 +793,17 @@ void World::decide(Id id, bool scheduleNext) {
     Id sanitation = none;
     float sanitationDistance = 1e20f;
     for (const auto &shipment : freight)
-      if (shipment.waste && shipment.state != FreightState::Delivered) {
+      if (shipment.waste && !shipment.finished()) {
         if (shipment.worker == id) {
+          if (dangerAt(shipment.state == FreightState::Carrying ? facilities[shipment.facility].pos
+                                                                : items[shipment.item].pos) > .02f)
+            return;
           sanitation = shipment.id;
           break;
         }
         Vec3 pickup = items[shipment.item].pos;
+        if (dangerAt(pickup) > .02f || dangerAt(facilities[shipment.facility].pos) > .02f)
+          continue;
         float d = length(position(id) - pickup);
         if (shipment.worker == none && std::abs(position(id).y - pickup.y) <= 60 &&
             d < sanitationDistance) {
@@ -839,7 +844,10 @@ void World::decide(Id id, bool scheduleNext) {
       }
     }
     for (auto &shipment : freight)
-      if (!shipment.waste && shipment.worker == id && shipment.state != FreightState::Delivered) {
+      if (!shipment.waste && shipment.worker == id && !shipment.finished()) {
+        if (dangerAt(shipment.state == FreightState::Carrying ? facilities[shipment.facility].pos
+                                                              : items[shipment.item].pos) > .02f)
+          return;
         if (shipment.state == FreightState::Carrying)
           travel(id, facilities[shipment.facility].pos + Vec3{0, 0, 1.6f}, TaskKind::FreightDrop,
                  shipment.id);
@@ -852,6 +860,8 @@ void World::decide(Id id, bool scheduleNext) {
     for (auto &shipment : freight)
       if (!shipment.waste && shipment.state == FreightState::Waiting && shipment.readyAt <= 0) {
         Vec3 pickup = items[shipment.item].pos;
+        if (dangerAt(pickup) > .02f || dangerAt(facilities[shipment.facility].pos) > .02f)
+          continue;
         float d = length(position(id) - pickup);
         if (std::abs(position(id).y - pickup.y) <= 60 && d < freightDistance) {
           localFreight = shipment.id;
@@ -1297,9 +1307,10 @@ void World::arrive(Id id) {
       residentPlans[id].nextShopping = time + 900;
       residentPlans[id].action = AutonomyAction::NeedConnection;
     }
-  } else if (task == TaskKind::FireResponse)
-    beginExtinguish(id, target);
-  else if (task == TaskKind::MedicalReach)
+  } else if (task == TaskKind::FireResponse) {
+    if (!fires.at(target).out && !fires[target].contained)
+      beginExtinguish(id, target);
+  } else if (task == TaskKind::MedicalReach)
     medicalReached(id, target);
   else if (task == TaskKind::MedicalBoard)
     medicalBoard(id, target);
@@ -1309,11 +1320,23 @@ void World::arrive(Id id) {
     pickupBody(id, target);
   else if (task == TaskKind::BodyDrop)
     storeBody(id, target);
-  else if (task == TaskKind::FreightPickup)
-    collectFreight(id, target);
-  else if (task == TaskKind::FreightDrop)
-    deliverFreight(id, target);
-  else if (task == TaskKind::Emigrate)
+  else if (task == TaskKind::FreightPickup) {
+    if (!freight.at(target).finished() && freight[target].worker == id) {
+      if (r.automatic && dangerAt(items[freight[target].item].pos) > .02f) {
+        if (dangerAt(position(id)) > .02f)
+          evacuate(id);
+      } else
+        collectFreight(id, target);
+    }
+  } else if (task == TaskKind::FreightDrop) {
+    if (!freight.at(target).finished() && freight[target].worker == id) {
+      if (r.automatic && dangerAt(facilities[freight[target].facility].pos) > .02f) {
+        if (dangerAt(position(id)) > .02f)
+          evacuate(id);
+      } else
+        deliverFreight(id, target);
+    }
+  } else if (task == TaskKind::Emigrate)
     depart(id);
   else if (task == TaskKind::LiftWait) {
     auto j = liftJourneys.at(id);

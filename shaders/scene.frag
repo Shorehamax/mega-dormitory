@@ -4,7 +4,7 @@ layout(binding=1) uniform sampler2D albedoAtlas;
 layout(binding=2) uniform sampler2D normalAtlas;
 layout(binding=3) uniform sampler2D ormAtlas;
 layout(binding=4) uniform sampler2DShadow shadowMap;
-layout(binding=5) uniform Lighting { mat4 lightMvp; vec4 fire[16]; vec4 smoke[16]; vec4 counts; } lighting;
+layout(binding=5) uniform Lighting { mat4 lightMvp; vec4 fire[16]; vec4 smoke[16]; vec4 counts; uvec4 smokeVisibility[128]; } lighting;
 layout(push_constant) uniform Push { mat4 mvp; float ui; vec3 eye; } pc;
 layout(location=0) in vec4 color;
 layout(location=1) in vec2 uv;
@@ -70,7 +70,7 @@ void main(){
  }
  for(int i=0;i<int(lighting.counts.x);++i){
    vec3 delta=lighting.fire[i].xyz-worldPosition;float d2=max(dot(delta,delta),.1);
-   float floorMask=1-smoothstep(1.8,2.8,abs(delta.y));
+   float floorMask=abs(floor((lighting.fire[i].y-1.2)/3)-floor((worldPosition.y+.02)/3))<.5?1:0;
    c+=lit(base,n,view,normalize(delta),vec3(16,4.2,.6)*lighting.fire[i].w*floorMask/(1+d2*.3),rough,metal);
  }
  if(material.x < -1.5)c=base*2.5;
@@ -78,10 +78,14 @@ void main(){
  c*=1.4;c=clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),0,1);
  float fog=1-exp(-max(depth-18,0)*.012);c=mix(c,vec3(.06,.09,.11),min(fog,.82));
  float smokeDensity=0;
- for(int i=0;i<int(lighting.counts.x);++i){
+ for(int i=0;i<int(lighting.counts.y);++i){
    for(int probe=0;probe<4;++probe){
      vec3 q=mix(pc.eye,worldPosition,(probe+.5)/4.0)-lighting.smoke[i].xyz;
-     float vertical=step(-.1,q.y)*(1-smoothstep(7,10,q.y));
+     float vertical=step(.05,q.y)*(1-smoothstep(2.6,2.9,q.y));
+     ivec2 cell=ivec2(floor((q.xz+18)/36*32));
+     if(any(lessThan(cell,ivec2(0)))||any(greaterThanEqual(cell,ivec2(32))))continue;
+     uint row=lighting.smokeVisibility[i*8+cell.y/4][cell.y%4];
+     if((row&(1u<<uint(cell.x)))==0u)continue;
      float radial=max(0,1-length(q.xz)/18);
      smokeDensity+=lighting.smoke[i].w*radial*vertical*min(length(worldPosition-pc.eye),40)*.025;
    }

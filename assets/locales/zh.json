@@ -1098,5 +1098,15 @@
   "hint.in_queue": "正在排队",
   "hint.supplies": "等待补给",
   "security.capacity_wait": "等待安全监禁名额 · 指控仍然有效",
-  "security.error.jail_capacity": "没有安全开放且有空位的监狱"
+  "security.error.jail_capacity": "没有安全开放且有空位的监狱",
+  "fire.freight_damaged": "补给箱被火烧损",
+  "fire.freight_lost": "补给箱已烧毁 · 未完成的运费已退还",
+  "fire.upper_smoke": "上层烟雾",
+  "fire.inspect_smoke": "查看烟雾",
+  "fire.smoke_warning": "附近有烟雾 · 请前往空气清洁处",
+  "fire.cargo_remaining": "份剩余",
+  "fire.cargo_receipt": "受损货运",
+  "fire.lost_cargo": "已烧毁",
+  "fire.smoke_clearing": "上层烟雾仍在消散",
+  "fire.vertical_help": "烟雾通过开放的竖井和拆除的楼板向上蔓延。完好的楼板和实体隔墙会阻挡烟雾。即使明火已受控，上层仍可能有危险。"
 }

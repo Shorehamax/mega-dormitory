@@ -37,6 +37,19 @@ Id World::ignite(Id fid, float intensity) {
     waiting.push_back(s.resident);
   for (Id id : waiting)
     leaveQueue(id);
+  for (const auto &shipment : freight)
+    if (shipment.facility == fid && !shipment.finished() && shipment.worker != none) {
+      auto &r = residents[shipment.worker];
+      if (r.automatic && r.task == TaskKind::FreightDrop && r.target == shipment.id &&
+          r.lift == none && r.vehicle == none && r.ambulance == none && r.carriedBy == none) {
+        r.pos = position(r.id);
+        r.route.clear();
+        ++r.routeVersion;
+        r.task = TaskKind::None;
+        r.target = none;
+        r.activity = Activity::Idle;
+      }
+    }
   log("fire.started", f.manager, fid);
   return fire.id;
 }
@@ -46,18 +59,13 @@ void World::triggerFire(Id actor, Id fid) {
   ignite(fid);
 }
 float World::dangerAt(Vec3 p) const {
-  float total = 0;
+  float total = smokeAt(p) * .35f;
   for (const auto &[fid, id] : activeFires) {
-    const auto &f = facilities[fid];
     const auto &fire = fires[id];
-    int floor = int(std::floor((p.y + .1f) / 3));
-    int above = floor - f.floor;
-    if (above < 0 || above > 3)
-      continue;
-    float d = std::hypot(p.x - f.pos.x, p.z - f.pos.z);
-    if (above == 0 && !fire.contained)
-      total += fire.heat * std::max(0.f, 1 - d / 8);
-    total += fire.smoke * .35f * std::max(0.f, 1 - d / 18) * (1 - above * .2f);
+    if (!fire.contained) {
+      float heat = fireHeatBetween(facilities[fid].pos, p);
+      total += fire.heat * heat * heat;
+    }
   }
   return std::clamp(total, 0.f, 2.f);
 }
@@ -324,15 +332,8 @@ void World::emergencyTick() {
         }
       }
     }
-    if (fire.contained && fire.smoke <= .001f) {
-      fire.out = true;
-      if (fire.escrow != none)
-        pay(fire.escrow, fire.payer, accounts[fire.escrow].balance, "fire-response-unspent");
-      releaseResponder(*this, fire);
-      finished.push_back(fid);
-      log("fire.out", f.manager, fid);
-    }
   }
+  smokeTick(elapsed);
   if (exposureSeconds > 0)
     for (auto &r : residents) {
       if (!r.alive || !r.present)
@@ -349,6 +350,18 @@ void World::emergencyTick() {
                r.task != TaskKind::Evacuate && danger > .02f)
         evacuate(r.id);
     }
+  for (const auto &[fid, id] : activeFires) {
+    auto &fire = fires[id];
+    const auto &f = facilities[fid];
+    if (fire.contained && fire.smoke <= .001f && fire.smokeLayers.empty()) {
+      fire.out = true;
+      if (fire.escrow != none)
+        pay(fire.escrow, fire.payer, accounts[fire.escrow].balance, "fire-response-unspent");
+      releaseResponder(*this, fire);
+      finished.push_back(fid);
+      log("fire.out", f.manager, fid);
+    }
+  }
   for (Id fid : finished)
     activeFires.erase(fid);
   spreadFireTick(elapsed);
@@ -377,6 +390,16 @@ void World::validateEmergencies() const {
                               accounts[f.escrow].balance != (f.out ? 0 : f.budget - f.paid))) ||
         (f.escrow == none && (f.payer != none || f.paid != 0)))
       throw std::runtime_error("Invalid fire emergency");
+    if (f.smokeLayers.size() > 8 || (f.out && !f.smokeLayers.empty()))
+      throw std::runtime_error("Invalid smoke layer count");
+    for (const auto &[floor, layer] : f.smokeLayers)
+      if (floor <= facilities[f.facility].floor || floor > facilities[f.facility].floor + 8 ||
+          floor >= config.floors || !std::isfinite(layer.density) || layer.density <= 0 ||
+          layer.density > 1 || !std::isfinite(layer.pos.x) || !std::isfinite(layer.pos.y) ||
+          !std::isfinite(layer.pos.z) || std::abs(layer.pos.y - floor * 3.f) > .01f ||
+          std::abs(layer.pos.x) >= layout(floor).halfWidth() ||
+          std::abs(layer.pos.z) >= layout(floor).halfDepth())
+        throw std::runtime_error("Invalid smoke layer");
     for (auto [target, exposure] : f.spreadExposure)
       if (!facility(target) || target == f.facility || !std::isfinite(exposure) || exposure < 0 ||
           exposure > 300)

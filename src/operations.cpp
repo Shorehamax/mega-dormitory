@@ -76,12 +76,24 @@ void World::hireEmployee(Id actor, Id id, Id worker, Role role, double shift) {
   r.routine.sleepStart = std::fmod(shift + (shift >= 20 ? 10 : 14), 24);
   log("business.hired", worker, id);
 }
+static void refundFreight(World &w, const Freight &s, const Item &item, const char *reason) {
+  Money amount = w.accounts[s.escrow].balance;
+  if (amount <= 0)
+    return;
+  Id recipient = item.owner;
+  for (const auto &r : w.residents)
+    if (r.account == item.owner && !r.present) {
+      recipient = 0;
+      break;
+    }
+  w.pay(s.escrow, recipient, amount, reason);
+}
 Id World::requestStock(Id actor, Id id, int quantity) {
   auto &f = facilities.at(id);
   if (!manages(*this, actor, f) || !f.open || quantity < 100 || quantity > 10000)
     throw std::runtime_error("Only the owner or manager can place a funded stock order");
   for (auto &s : freight)
-    if (!s.waste && s.facility == id && s.state != FreightState::Delivered)
+    if (!s.waste && s.facility == id && !s.finished())
       throw std::runtime_error("A shipment is already outstanding");
   Money unit = f.kind == FacilityKind::Food || f.kind == FacilityKind::Cafe ? 140
                : f.kind == FacilityKind::Water                              ? 3
@@ -169,7 +181,7 @@ void World::collectFreight(Id worker, Id id) {
       i.consumed)
     throw std::runtime_error("Reach the supply crate with an empty trolley");
   if (s.waste && s.source != none) {
-    facilities[s.source].waste = std::max(0, facilities[s.source].waste - s.quantity);
+    facilities[s.source].waste = std::max(0, facilities[s.source].waste - s.remaining());
     s.source = none;
   }
   r.carrying = i.id;
@@ -186,19 +198,50 @@ void World::deliverFreight(Id worker, Id id) {
       r.carrying != i.id || i.carrier != worker || !near(worker, f.pos, 2.5f))
     throw std::runtime_error("Bring the supplies to the actual business");
   if (s.waste) {
-    f.waste += s.quantity;
-    pay(s.escrow, f.owner, s.cost, "waste-disposal");
+    f.waste += s.remaining();
+    pay(s.escrow, f.owner, s.cost * s.remaining() / s.quantity, "waste-disposal");
   } else
-    f.stock += s.quantity;
+    f.stock += s.remaining();
   r.carrying = none;
   i.carrier = none;
   i.consumed = true;
   i.reservedAt = none;
   s.state = FreightState::Delivered;
-  pay(s.escrow, r.account, s.fee, "freight-delivered");
+  pay(s.escrow, r.account, s.payableFee(), "freight-delivered");
+  refundFreight(*this, s, i, "damaged-freight-unearned-refund");
   r.activity = Activity::Idle;
   serve(f.id);
   log("business.stock_arrived", worker, f.id);
+}
+void World::ruinFreight(Id id) {
+  auto &s = freight.at(id);
+  auto &item = items.at(s.item);
+  if (s.finished() || item.durability > 0)
+    return;
+  s.lostQuantity = s.quantity;
+  if (item.carrier != none) {
+    auto &r = residents[item.carrier];
+    item.pos = position(r.id);
+    if (r.carrying == item.id)
+      r.carrying = none;
+  }
+  item.carrier = none;
+  item.reservedAt = none;
+  if (s.worker != none) {
+    auto &r = residents[s.worker];
+    if ((r.task == TaskKind::FreightPickup || r.task == TaskKind::FreightDrop) && r.target == id) {
+      r.pos = position(r.id);
+      r.route.clear();
+      ++r.routeVersion;
+      r.task = TaskKind::None;
+      r.activity = Activity::Idle;
+    }
+  }
+  s.source = none;
+  s.readyAt = 0;
+  s.state = FreightState::Lost;
+  refundFreight(*this, s, item, "burned-freight-unearned-refund");
+  log("fire.freight_lost", s.worker, id);
 }
 void World::listHome(Id actor, Id home, Money price) {
   auto &h = housing.at(home);
@@ -468,7 +511,7 @@ Id World::requestWaste(Id actor, Id fid) {
   if (!manages(*this, actor, f) || !f.open || f.waste < 1)
     throw std::runtime_error("No authorized waste collection");
   for (auto &s : freight)
-    if (s.waste && s.source == fid && s.state != FreightState::Delivered)
+    if (s.waste && s.source == fid && !s.finished())
       throw std::runtime_error("Waste pickup already assigned");
   Id destination = none;
   float best = 1e20f;

@@ -3306,12 +3306,12 @@ int main() {
     conserved(w);
     w.validate();
   });
-  test("Fire smoke rises locally and heat cannot harm someone on the floor below", [] {
+  test("Intact floors isolate immediate fire hazards above and below", [] {
     auto w = small();
     Id f = w.nearest(0, FacilityKind::Office);
     w.ignite(f, .6f);
     Vec3 p = w.facilities[f].pos;
-    require(w.dangerAt(p + Vec3{3, 0, 0}) > .2f && w.dangerAt(p + Vec3{3, 3, 0}) > 0 &&
+    require(w.dangerAt(p + Vec3{3, 0, 0}) > .2f && w.dangerAt(p + Vec3{3, 3, 0}) == 0 &&
                 w.dangerAt(p + Vec3{3, -3, 0}) == 0 && w.dangerAt(p + Vec3{100, 0, 0}) == 0,
             "Hazard footprint crosses the wrong floors or distant places");
     place(w, 3, p + Vec3{0, 0, -2});

@@ -10,8 +10,9 @@ struct SceneLighting {
   Mat4 sun;
   std::array<std::array<float, 4>, 16> fire{}, smoke{};
   std::array<float, 4> counts{};
+  std::array<std::array<std::uint32_t, 4>, 128> smokeVisibility{};
 };
-static_assert(sizeof(SceneLighting) == sizeof(Mat4) + 33 * 16);
+static_assert(sizeof(SceneLighting) == sizeof(Mat4) + 161 * 16);
 
 static void check(VkResult r, const char *operation) {
   if (r != VK_SUCCESS)
@@ -924,10 +925,14 @@ void Renderer::draw(const std::vector<Vertex> &world, const std::vector<Vertex> 
   lighting.counts[0] =
       float(std::min(emergencyLights.size(), software ? std::size_t(4) : std::size_t(16)));
   for (int n = 0; n < int(lighting.counts[0]); ++n)
-    for (int axis = 0; axis < 4; ++axis) {
-      lighting.fire[n][axis] = emergencyLights[n][axis];
-      lighting.smoke[n][axis] = emergencyLights[n][axis + 4];
-    }
+    lighting.fire[n] = emergencyLights[n];
+  lighting.counts[1] =
+      float(std::min(smokeVolumes.size(), software ? std::size_t(4) : std::size_t(16)));
+  for (int n = 0; n < int(lighting.counts[1]); ++n) {
+    lighting.smoke[n] = smokeVolumes[n].plume;
+    for (int row = 0; row < 32; ++row)
+      lighting.smokeVisibility[n * 8 + row / 4][row % 4] = smokeVolumes[n].visibility[row];
+  }
   check(vkMapMemory(device, lightMemory, 0, sizeof(SceneLighting), 0, &lightData),
         "map scene lighting");
   std::memcpy(lightData, &lighting, sizeof(SceneLighting));

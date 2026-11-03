@@ -25,7 +25,7 @@ void World::prepareAdministration(OfficeOrder &order) {
   };
   std::set<Id> supplied, repaired, medical;
   for (const auto &shipment : freight)
-    if (!shipment.waste && shipment.state != FreightState::Delivered)
+    if (!shipment.waste && !shipment.finished())
       supplied.insert(shipment.facility);
   for (const auto &repair : repairs)
     if (!repair.complete)
@@ -83,7 +83,7 @@ void World::dispatchAdministration(OfficeOrder &order, const std::vector<int> &a
         const auto &f = facilities.at(target);
         bool supplied = f.stock >= 100;
         for (const auto &s : freight)
-          if (!s.waste && s.facility == target && s.state != FreightState::Delivered)
+          if (!s.waste && s.facility == target && !s.finished())
             supplied = true;
         if (supplied) {
           order.outcomes[slot] = 2;

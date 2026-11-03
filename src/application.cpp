@@ -42,6 +42,14 @@ static Color palette(int i) {
                                     0x708b77, 0x80748c, 0xd9d1b9, 0x303d49};
   return hex(colors[std::clamp(i, 0, 7)]);
 }
+static Color cargoTint(const Item &item) {
+  Color tint = hex(item.kind == ItemKind::Waste ? 0x354b42 : 0xa08357);
+  float factor = .25f + .75f * std::clamp(item.durability, 0.f, 1.f);
+  tint.r *= factor;
+  tint.g *= factor;
+  tint.b *= factor;
+  return tint;
+}
 static const char *itemLabel(ItemKind kind) {
   switch (kind) {
   case ItemKind::Phone:
@@ -82,6 +90,12 @@ class Application {
 public:
   bool drawerOpen = false, menuKeyHeld = false, escapeHeld = false, viewKeyHeld = false;
   float drawerSlide = 0;
+  struct SmokeMaskCache {
+    Vec3 origin{};
+    std::uint64_t geometry = ~std::uint64_t(0);
+    std::array<std::uint32_t, 32> mask{};
+  };
+  std::map<std::pair<Id, int>, SmokeMaskCache> smokeMasks;
   int visibleFloors = 96;
   bool gpuSkinning = true;
   AudioEngine audio;
@@ -700,6 +714,7 @@ public:
   void setWorld(World &&w) {
     world = std::make_unique<World>(std::move(w));
     audioPositions.clear();
+    smokeMasks.clear();
     feedbackSerial = world->newsSequence;
     frameFeedback.clear();
     pickupGestures.clear();
@@ -1143,6 +1158,25 @@ public:
     }
     y += 42;
     y = ui.wrap(x, y, width, t("fire.description"), 13, hex(0xb4bdc6)) + 14;
+    y = ui.wrap(x, y, width, t("fire.vertical_help"), 12, hex(0x9dafb3)) + 15;
+    for (const auto &shipment : w.freight) {
+      const auto &item = w.items[shipment.item];
+      if (shipment.lostQuantity <= 0 ||
+          !(w.config.mode == Mode::Cheat || item.owner == r.account ||
+            shipment.worker == w.player ||
+            (w.player == w.dormOwner && item.owner == w.dormAccount) ||
+            w.directsCompany(w.player, w.companyForAccount(item.owner))))
+        continue;
+      y = ui.wrap(x, y, width,
+                  t("fire.cargo_receipt") + " #" + std::to_string(shipment.id + 1) + " · " +
+                      (shipment.state == FreightState::Lost
+                           ? t("fire.lost_cargo")
+                           : std::to_string(shipment.remaining()) + " / " +
+                                 std::to_string(shipment.quantity) + " " +
+                                 t("fire.cargo_remaining")),
+                  13, hex(0xe0b18e)) +
+          12;
+    }
     Id tool = w.extinguisher(w.player);
     if (tool != none) {
       ui.text(x, y,
@@ -1209,6 +1243,35 @@ public:
                       std::to_string(int(fire.smoke * 100)) + "%",
                   13, hex(0xcbbcaf)) +
           12;
+      if (!fire.smokeLayers.empty()) {
+        std::string floors;
+        int most = fire.smokeLayers.begin()->first;
+        for (const auto &[level, layer] : fire.smokeLayers) {
+          if (!floors.empty())
+            floors += ", ";
+          floors += std::to_string(level + 1);
+          if (layer.density > fire.smokeLayers.at(most).density)
+            most = level;
+        }
+        y = ui.wrap(x, y, width,
+                    t(fire.contained ? "fire.smoke_clearing" : "fire.upper_smoke") + " · " + floors,
+                    13, hex(0xd8b798)) +
+            12;
+        if (w.config.mode != Mode::Survival) {
+          if (ui.button("inspectSmoke" + std::to_string(id), {x, y, width, 32},
+                        t("fire.inspect_smoke") + " · " + t("status.floor") + " " +
+                            std::to_string(most + 1))) {
+            setFirstPerson(false);
+            currentFloor = most;
+            cameraFocus = fire.smokeLayers.at(most).pos;
+            observerHeight = 0;
+            cutaway = true;
+            distance = 14;
+            nextInstances = 0;
+          }
+          y += 42;
+        }
+      }
       y = ui.wrap(x, y, width,
                   fire.worker == none
                       ? t("fire.no_crew")
@@ -3070,12 +3133,18 @@ public:
       if (!any)
         ui.wrap(x, y, width, t("work.no_orders"), 14, hex(0x91a6a8));
       for (auto &s : w.freight)
-        if (!s.waste && s.state != FreightState::Delivered &&
-            (s.worker == none || s.worker == w.player)) {
+        if (!s.waste && !s.finished() && (s.worker == none || s.worker == w.player)) {
           ui.text(x, y,
-                  t("business.freight") + " #" + std::to_string(s.id + 1) + " · " + money(s.fee),
+                  t("business.freight") + " #" + std::to_string(s.id + 1) + " · " +
+                      preciseMoney(s.payableFee()),
                   14, hex(0xddc18e));
           y += 27;
+          if (s.lostQuantity > 0)
+            y = ui.wrap(x, y, width,
+                        std::to_string(s.remaining()) + " / " + std::to_string(s.quantity) + " " +
+                            t("fire.cargo_remaining"),
+                        13, hex(0xe0b18e)) +
+                10;
           if (s.readyAt > w.time) {
             ui.text(x, y,
                     t("business.inbound") + " " + std::to_string(int((s.readyAt - w.time) / 60)) +
@@ -3098,12 +3167,18 @@ public:
         }
     } else if (r.role == Role::Cleaner) {
       for (auto &s : w.freight)
-        if (s.waste && s.state != FreightState::Delivered &&
-            (s.worker == none || s.worker == w.player)) {
+        if (s.waste && !s.finished() && (s.worker == none || s.worker == w.player)) {
           ui.text(x, y,
-                  t("business.waste_job") + " #" + std::to_string(s.id + 1) + " · " + money(s.fee),
+                  t("business.waste_job") + " #" + std::to_string(s.id + 1) + " · " +
+                      preciseMoney(s.payableFee()),
                   14, hex(0xb4c3a3));
           y += 28;
+          if (s.lostQuantity > 0)
+            y = ui.wrap(x, y, width,
+                        std::to_string(s.remaining()) + " / " + std::to_string(s.quantity) + " " +
+                            t("fire.cargo_remaining"),
+                        13, hex(0xe0b18e)) +
+                10;
           if (s.worker == none &&
               ui.button("wasteTake" + std::to_string(s.id), {x, y, width, 32}, t("action.accept")))
             act([&] {
@@ -4189,8 +4264,10 @@ public:
     if (!w.activeFires.empty()) {
       bool danger = w.dangerAt(w.position(selected)) > .04f;
       if (ui.button("buildingAlarm", {20, 84, std::min(440.f, width - 40), 34},
-                    t(danger ? "fire.danger" : "fire.alarm") + " · " +
-                        std::to_string(w.activeFires.size()),
+                    t(w.smokeAt(w.position(selected)) > .03f ? "fire.smoke_warning"
+                      : danger                               ? "fire.danger"
+                                                             : "fire.alarm") +
+                        " · " + std::to_string(w.activeFires.size()),
                     danger)) {
         emergencyScreen = true;
         securityScreen = false;
@@ -5720,7 +5797,8 @@ public:
         sphere(v, shot.from, {.09f, .07f, .12f}, hex(0xffe5b5), 4, 5);
       }
     for (const auto &shipment : w.freight)
-      if (shipment.state == FreightState::Waiting || shipment.state == FreightState::Collecting) {
+      if (shipment.state == FreightState::Waiting || shipment.state == FreightState::Collecting ||
+          shipment.state == FreightState::Lost) {
         if (shipment.readyAt > w.time) {
           Vec3 at = w.freightPosition(shipment.id);
           if (std::abs(at.y - floorY) < 15 && at.y < ceilingCut) {
@@ -5734,9 +5812,11 @@ public:
 
         auto &item = w.items[shipment.item];
         if (std::abs(item.pos.y - floorY) < 6 && item.pos.y < ceilingCut) {
-          box(v, item.pos + Vec3{0, .4f, 0}, {.9f, .8f, .9f},
-              hex(shipment.waste ? 0x354b42 : 0x9c8159));
-          box(v, item.pos + Vec3{0, .81f, 0}, {.13f, .025f, .91f}, hex(0xc5bfa0));
+          Color tint = cargoTint(item);
+          float height = shipment.state == FreightState::Lost ? .12f : .8f;
+          box(v, item.pos + Vec3{0, height / 2, 0}, {.9f, height, .9f}, tint);
+          if (shipment.state != FreightState::Lost)
+            box(v, item.pos + Vec3{0, .81f, 0}, {.13f, .025f, .91f}, hex(0xc5bfa0));
         }
       }
     for (const auto &lift : w.lifts) {
@@ -5788,7 +5868,7 @@ public:
           p.y = w.lifts[b.lift].y;
         if (std::abs(p.y - floorY) > 6 || p.y >= ceilingCut)
           continue;
-        if (length(p - bodyFocus) < 28 && detailedBodies++ < (renderer->software ? 4 : 16)) {
+        if (length(p - bodyFocus) < 28 && detailedBodies++ < (renderer->isSoftware() ? 4 : 16)) {
           ++bodyFrames;
           const auto &r = w.residents[b.resident];
           CharacterStyle style;
@@ -6186,8 +6266,7 @@ public:
           cylinder(v, p + Vec3{0, .8f, .26f}, p + Vec3{0, 1.35f, .26f}, .14f, hex(0xc5b994), 8);
         }
         if (r.carrying != none)
-          box(v, p + Vec3{0, 1.f, -.4f}, {.55f, .4f, .4f},
-              hex(w.items[r.carrying].kind == ItemKind::Waste ? 0x354b42 : 0xa08357));
+          box(v, p + Vec3{0, 1.f, -.4f}, {.55f, .4f, .4f}, cargoTint(w.items[r.carrying]));
         if (r.activity == Activity::Fighting && w.hasGun(r.id)) {
           box(v, p + Vec3{.28f, 1.4f, -.45f}, {.09f, .12f, .32f}, hex(0x25343c));
           box(v, p + Vec3{.28f, 1.31f, -.37f}, {.08f, .16f, .1f}, hex(0x3b413e));
@@ -6306,8 +6385,7 @@ public:
         cylinder(v, p + Vec3{.28f, 1.1f, -.15f}, p + Vec3{.28f, 1.5f + std::sin(phase) * .2f, -.4f},
                  .04f, hex(0xbca073), 6);
       if (r.carrying != none)
-        box(v, p + Vec3{0, 1.f, -.4f}, {.55f, .4f, .4f},
-            hex(w.items[r.carrying].kind == ItemKind::Waste ? 0x354b42 : 0xa08357));
+        box(v, p + Vec3{0, 1.f, -.4f}, {.55f, .4f, .4f}, cargoTint(w.items[r.carrying]));
       if (r.role == Role::Courier)
         box(v, p + Vec3{0, 1.1f, .26f}, {.43f, .56f, .2f}, hex(0xab7954));
       for (int side : {-1, 1})
@@ -6576,22 +6654,43 @@ public:
     }
     auto cameraMatrix = camera();
     updateAudio();
-    std::vector<std::pair<float, std::array<float, 8>>> sources;
-    if (world && !menu)
+    std::vector<std::pair<float, std::array<float, 4>>> sources;
+    std::vector<std::pair<float, FirePlume>> plumes;
+    if (world && !menu) {
       for (const auto &[fid, id] : world->activeFires) {
         const auto &fire = world->fires[id];
         auto p = world->facilities[fid].pos;
-        if (length(p - cameraEye) < 160)
-          sources.push_back({length(p - cameraEye),
-                             {p.x, p.y + 1.3f, p.z, fire.contained ? 0.f : fire.heat, p.x, p.y, p.z,
-                              fire.smoke}});
+        if (length(p - cameraEye) < 160 && !fire.contained)
+          sources.push_back({length(p - cameraEye), {p.x, p.y + 1.3f, p.z, fire.heat}});
       }
+      for (const auto &p : world->firePlumes())
+        if (length(p.pos - cameraEye) < 160)
+          plumes.push_back({length(p.pos - cameraEye), p});
+    }
     std::sort(sources.begin(), sources.end(),
               [](const auto &a, const auto &b) { return a.first < b.first; });
-    std::vector<std::array<float, 8>> lights;
+    std::sort(plumes.begin(), plumes.end(),
+              [](const auto &a, const auto &b) { return a.first < b.first; });
+    std::vector<std::array<float, 4>> lights;
     for (std::size_t n = 0; n < std::min(std::size_t(16), sources.size()); ++n)
       lights.push_back(sources[n].second);
-    renderer->setEmergencyLights(std::move(lights));
+    std::vector<SmokeRenderVolume> volumes;
+    std::set<std::pair<Id, int>> visible;
+    for (std::size_t n = 0;
+         n < std::min(std::size_t(renderer->isSoftware() ? 4 : 16), plumes.size()); ++n) {
+      const auto &p = plumes[n].second;
+      auto key = std::pair{p.fire, p.floor};
+      visible.insert(key);
+      auto &cached = smokeMasks[key];
+      if (cached.geometry != world->geometryRevision || length(cached.origin - p.pos) > .01f) {
+        cached.mask = world->smokeVisibility(p.floor, p.pos);
+        cached.origin = p.pos;
+        cached.geometry = world->geometryRevision;
+      }
+      volumes.push_back({{p.pos.x, p.pos.y, p.pos.z, p.density}, cached.mask});
+    }
+    std::erase_if(smokeMasks, [&](const auto &p) { return !visible.contains(p.first); });
+    renderer->setEmergencyLights(std::move(lights), std::move(volumes));
     renderer->draw(scene, ui.vertices, ui.batches, cameraMatrix, cameraEye, capture);
   }
 };
@@ -6656,7 +6755,12 @@ int runApplication(int argc, char **argv) {
          playConstruction = false, playVehicles = false, playCompany = false, playSecurity = false,
          playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
          playRescue = false, playFire = false, playAngled = false, playStorage = false,
-         playCrew = false, playEstates = false;
+         playCrew = false, playEstates = false, playChimney = false;
+    Id chimneySource = none, chimneyTarget = none, chimneyShipment = none;
+    int chimneyFinish = -1;
+    bool chimneyEvacuated = false;
+    Vec3 chimneyPrior{};
+    float chimneyMaxStep = 0;
     Id testEstate = none, testInheritance = none, testTenancy = none;
     int estateStage = 0, estateFinish = -1;
     Vec3 estatePrior{};
@@ -6710,6 +6814,13 @@ int runApplication(int argc, char **argv) {
       } else if (arg == "--playtest-estates") {
         playEstates = demo = animate = true;
         panel = "estate-play";
+        app.config.population = 80;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
+      } else if (arg == "--playtest-chimney") {
+        playChimney = demo = animate = true;
+        panel = "chimney";
         app.config.population = 80;
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
@@ -6853,7 +6964,7 @@ int runApplication(int argc, char **argv) {
     }
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
         playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
-        playStorage || playCrew || playEstates) {
+        playStorage || playCrew || playEstates || playChimney) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
@@ -7805,6 +7916,63 @@ int runApplication(int argc, char **argv) {
         app.networkTab = 4;
       }
     }
+    if (playChimney) {
+      auto &w = *app.world;
+      for (auto &r : w.residents) {
+        w.clockOut(r.id);
+        w.leaveQueue(r.id);
+        r.automatic = false;
+        r.route.clear();
+        ++r.routeVersion;
+        r.task = TaskKind::None;
+        r.activity = Activity::Idle;
+        r.role = Role::Unemployed;
+        r.jobSite = r.employer = none;
+        r.pos = {100 + r.id * 2.f, 57, 100};
+        r.needsAt = w.time;
+      }
+      w.crowd.clear();
+      w.dormOwner = w.player;
+      auto move = [&](FacilityKind kind, Vec3 at) {
+        Id id = w.nearestAt({0, 0, 0}, kind);
+        auto &f = w.facilities[id];
+        std::erase(w.floorFacilities[f.floor], id);
+        f.pos = at;
+        f.floor = int(at.y / 3);
+        f.manager = none;
+        f.staffNeeded = 0;
+        w.floorFacilities[f.floor].push_back(id);
+        w.invalidateGeometry(f.floor);
+        return id;
+      };
+      chimneySource = move(FacilityKind::Office, {4, 0, 0});
+      chimneyTarget = move(FacilityKind::Shop, {7, 3, 0});
+      Id destination = move(FacilityKind::Food, {150, 0, 150});
+      w.facilities[destination].owner = w.residents[0].account;
+      w.pay(0, w.residents[0].account, 1000000, "chimney-fixture-capital");
+      chimneyShipment = w.requestStock(0, destination, 100);
+      auto &crate = w.items[w.freight[chimneyShipment].item];
+      crate.pos = {7.7f, 3, 3};
+      crate.durability = .001f;
+      w.residents[0].pos = {8, 3, 5};
+      w.residents[0].hunger = w.residents[0].thirst = .1f;
+      w.residents[0].energy = 1;
+      chimneyPrior = w.position(0);
+      w.ignite(chimneySource, 1);
+      app.selected = 0;
+      app.setFirstPerson(false);
+      app.currentFloor = 1;
+      app.cameraFocus = {6, 3, 0};
+      app.distance = 16;
+      app.orbit = .65f;
+      app.pitch = .3f;
+      app.emergencyScreen = true;
+      app.tab = 0;
+      app.drawerOpen = true;
+      app.drawerSlide = 1;
+      std::cout << "CHIMNEY PLAYTEST: lower fire, upper resident and real imported cargo beside an "
+                   "open atrium\n";
+    }
     if (demo && demoLook) {
       app.setFirstPerson(true);
       app.playerYaw = demoYaw;
@@ -7814,7 +7982,7 @@ int runApplication(int argc, char **argv) {
       app.paused = false;
       if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
           playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
-          playStorage || playCrew || playEstates)
+          playStorage || playCrew || playEstates || playChimney)
         app.speed = 6;
     }
     if (computeTest) {
@@ -8054,6 +8222,25 @@ int runApplication(int argc, char **argv) {
           rescueFinish = frames;
         }
         if (rescueFinish >= 0 && frames >= rescueFinish + 30) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
+      if (playChimney) {
+        auto &w = *app.world;
+        chimneyMaxStep = std::max(chimneyMaxStep, length(w.position(0) - chimneyPrior));
+        chimneyPrior = w.position(0);
+        if (!chimneyEvacuated && w.smokeAt(w.position(0)) > .02f) {
+          if (!w.evacuate(0))
+            throw std::runtime_error("Upper resident has no smoke evacuation path");
+          chimneyEvacuated = true;
+        }
+        if (chimneyFinish < 0 && chimneyEvacuated && w.activeFires.contains(chimneyTarget) &&
+            w.freight[chimneyShipment].state == FreightState::Lost && w.smokeAt({7, 3, 0}) > .02f &&
+            w.dangerAt(w.position(0)) < .025f && length(w.position(0) - Vec3{8, 3, 5}) > 5)
+          chimneyFinish = frames;
+        if (chimneyFinish >= 0 && frames >= chimneyFinish + 20) {
           if (!capture.empty())
             app.frame(dt, capture);
           break;
@@ -8436,6 +8623,16 @@ int runApplication(int argc, char **argv) {
             "Prison rescue did not free actual restraints with escape consequences");
       std::cout << "RESCUE PLAYTEST PASS: actual approach, timed tool use, freed prisoner and "
                    "retained wanted consequences\n";
+    }
+    if (playChimney) {
+      auto &w = *app.world;
+      w.validate();
+      if (chimneyFinish < 0 || chimneyMaxStep > 1 || !w.residents[0].alive ||
+          w.accounts[w.freight[chimneyShipment].escrow].balance != 0)
+        throw std::runtime_error("Vertical fire/smoke/cargo evacuation workflow incomplete");
+      std::cout << "CHIMNEY PLAYTEST PASS: delayed upper ignition, persistent rising smoke, paid "
+                   "import loss, continuous evacuation; max step "
+                << chimneyMaxStep << "\n";
     }
     if (playFire) {
       auto &w = *app.world;

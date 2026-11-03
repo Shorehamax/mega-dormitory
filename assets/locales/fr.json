@@ -1098,5 +1098,15 @@
   "hint.in_queue": "Vous faites la queue",
   "hint.supplies": "En attente de provisions",
   "security.capacity_wait": "En attente de place en détention · poursuites maintenues",
-  "security.error.jail_capacity": "Aucune prison ouverte et sûre ne peut accueillir un autre détenu"
+  "security.error.jail_capacity": "Aucune prison ouverte et sûre ne peut accueillir un autre détenu",
+  "fire.freight_damaged": "Caisse de provisions endommagée par le feu",
+  "fire.freight_lost": "Caisse détruite · frais logistiques non acquis remboursés",
+  "fire.upper_smoke": "Fumée au-dessus du foyer",
+  "fire.inspect_smoke": "Observer la fumée",
+  "fire.smoke_warning": "Fumée proche · rejoignez un air sain",
+  "fire.cargo_remaining": "unités restantes",
+  "fire.cargo_receipt": "Envois endommagés",
+  "fire.lost_cargo": "Détruit",
+  "fire.smoke_clearing": "La fumée des étages supérieurs se dissipe encore",
+  "fire.vertical_help": "La fumée monte par les puits ouverts et les planchers retirés. Les dalles intactes et les cloisons pleines bloquent son passage. Les étages supérieurs peuvent rester dangereux après la maîtrise des flammes."
 }

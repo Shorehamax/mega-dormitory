@@ -311,7 +311,7 @@ void World::kill(Id id, Id killer, bool justified) {
   }
   ensurePhysicsTick();
   for (auto &shipment : freight)
-    if (shipment.worker == id && shipment.state != FreightState::Delivered) {
+    if (shipment.worker == id && !shipment.finished()) {
       shipment.worker = none;
       shipment.state = FreightState::Waiting;
     }
@@ -797,15 +797,19 @@ void World::validate() const {
     auto &s = freight[i];
     if (s.id != Id(i) || !facilityValid(s.facility) || !itemValid(s.item) ||
         !accountValid(s.escrow) || (s.worker != none && !residentValid(s.worker)) ||
-        s.quantity < 1 || s.quantity > 10000 || s.cost < 0 || s.fee < 0 || int(s.state) < 0 ||
-        int(s.state) > int(FreightState::Delivered) || !std::isfinite(s.placed) ||
-        !std::isfinite(s.readyAt) || s.readyAt < 0 || !std::isfinite(s.origin.x) ||
-        !std::isfinite(s.origin.y) || !std::isfinite(s.origin.z) || !std::isfinite(s.landing.x) ||
-        !std::isfinite(s.landing.y) || !std::isfinite(s.landing.z) ||
-        accounts[s.escrow].balance !=
-            (s.state == FreightState::Delivered ? 0 : s.fee + (s.waste ? s.cost : 0)) ||
+        s.quantity < 1 || s.quantity > 10000 || s.lostQuantity < 0 || s.lostQuantity > s.quantity ||
+        s.cost < 0 || s.fee < 0 || int(s.state) < 0 || int(s.state) > int(FreightState::Lost) ||
+        !std::isfinite(s.placed) || !std::isfinite(s.readyAt) || s.readyAt < 0 ||
+        !std::isfinite(s.origin.x) || !std::isfinite(s.origin.y) || !std::isfinite(s.origin.z) ||
+        !std::isfinite(s.landing.x) || !std::isfinite(s.landing.y) || !std::isfinite(s.landing.z) ||
+        accounts[s.escrow].balance != (s.finished() ? 0 : s.fee + (s.waste ? s.cost : 0)) ||
         (s.source != none && !facilityValid(s.source)))
       throw std::runtime_error("Invalid supply shipment");
+    if ((s.state == FreightState::Lost &&
+         (s.lostQuantity != s.quantity || items[s.item].durability > 0 ||
+          items[s.item].carrier != none || s.source != none)) ||
+        (!s.finished() && s.remaining() <= 0))
+      throw std::runtime_error("Invalid damaged shipment");
   }
   std::set<Id> bodies;
   for (auto &b : remains) {

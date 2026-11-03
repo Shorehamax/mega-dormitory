@@ -28,6 +28,10 @@ struct Instance {
   Color tint{};
 };
 static_assert(sizeof(Instance) == 48);
+struct SmokeRenderVolume {
+  std::array<float, 4> plume{};
+  std::array<std::uint32_t, 32> visibility{};
+};
 struct Rect {
   float x = 0, y = 0, w = 0, h = 0;
 };
@@ -81,9 +85,12 @@ public:
   bool canSkinVertices(std::size_t count) const;
   std::vector<Vertex> testSkinVertices(std::vector<SkinRequest>, std::size_t count);
   void setInstances(std::vector<Instance> instances);
-  void setEmergencyLights(std::vector<std::array<float, 8>> lights) {
+  void setEmergencyLights(std::vector<std::array<float, 4>> lights,
+                          std::vector<SmokeRenderVolume> smoke) {
     emergencyLights = std::move(lights);
+    smokeVolumes = std::move(smoke);
   }
+  bool isSoftware() const { return software; }
   std::size_t instanceCount() const { return pendingInstances.size(); }
   std::vector<float> pressure(const std::vector<std::array<float, 4>> &needs);
   void updateFont(const std::vector<unsigned char> &, int size);
@@ -106,7 +113,8 @@ private:
   void setupSkinning();
   void prepareSkins(std::size_t worldCount);
   void dispatchSkins(bool readback = false);
-  std::vector<std::array<float, 8>> emergencyLights;
+  std::vector<std::array<float, 4>> emergencyLights;
+  std::vector<SmokeRenderVolume> smokeVolumes;
   VkInstance instance{};
   VkSurfaceKHR surface{};
   VkPhysicalDevice physical{};

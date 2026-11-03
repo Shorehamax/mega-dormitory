@@ -2,6 +2,15 @@
 
 This is a development build, not a declaration that the complete accepted design has shipped. The reference-image fidelity and production polish have not been achieved. The former island/city and Creative mode are superseded by the dormitory-focused requirements in `requirements.md`.
 
+## Vertical fire, smoke and cargo damage (3 November 2026)
+
+- Intact slabs now block immediate upstairs hazards. Heat can ignite exposed upper businesses through real openings; smoke fills connected upper levels over time, respects partitions/doorway gaps and freight platforms, and persists after source containment. Funds are not refunded as an all-clear while upper smoke remains. Obsolete arriving responders finish without a false task interruption.
+- Supply/waste crates can partially or completely burn at actual ground, carrier or air-freight positions. Only surviving units and proportional fees/disposal costs settle; full loss releases the carrier and refunds unearned logistics, without refunding imported goods or fabricating replacements. Waste reservations, title, late suspended arrivals and save/load retain actual physical/accounting state.
+- Fire controls report affected levels and authorized damaged-cargo receipts. Manager/Cheat can inspect a smoke layer without moving a resident. Work offers show surviving units and payable fees. Vulkan renders floor-confined smoke with cached geometry visibility masks; the simulation is independent of the sixteen/four-volume hardware/software display budget.
+- This is bounded connectivity and visibility, not fluid dynamics or structural collapse. Construction material batches, ash cleanup, mechanical ventilation, door operation, vehicle fires and reference-quality fire art remain outstanding. Read `emergencies.md` for rules and limits.
+
+Verification for this batch is recorded with its development candidate. The expanded suite contains 23 headless suites and 19 rendered workflows; the dedicated smoke/cargo suite has twenty focused checks. The full 23-suite address/undefined-behavior/leak run passes in 515.93 seconds, with final focused reruns covering obsolete arrivals, safe courier holding/resumption and emigrant refunds. Hardware French and software-Vulkan Chinese replays complete continuous evacuation with a largest step of 0.720 m. English, French and Chinese have 1,110 matching keys; existing save slots are not used by these isolated tests.
+
 ## Sound and interaction polish (2 November 2026)
 
 - Original native stereo sound follows nearby actual footsteps, climbing, machinery, water service, fire and moving transport. Local pickup, combat and interface feedback use separate effects/ambience controls, master/background mute and graceful unavailable-device handling. This is procedural sound, not final Foley/music/voice or full acoustics.
@@ -252,7 +261,7 @@ Detailed commands and results accompany the delivered launcher in `Read-me.txt`.
 - Partial floor cutouts and general structural/load-bearing edits beyond the implemented grid rooms and whole-slab removal/rebuilding; richer eviction proceedings beyond the implemented compensation, counteroffer, replacement and confrontation workflows.
 - Legal-entity mergers, share exchanges, financing/debt and insolvency, contested succession, liquidation and richer negotiated contracts beyond implemented equity, subsidiary acquisitions and funded expansion; deeper video editing, broader administrative workflows, fuller curricula, credentials, promotions and job disciplines beyond the implemented attended courses.
 - Richer relationships, family/child-care provisioning and broader business planning beyond the implemented company expansion, shopping, resale, meal sharing, careers and listed-facility investment; contested estates and full family inheritance; fuller forensics, individual lockable cells, physical restraints, richer coordinated prison rescues and legal consequences beyond the implemented eyewitness reports, body discovery, searches, recovered property and timed escapes.
-- Cross-floor fire/smoke spread, bulk freight damage, structural failure and further disaster/response types beyond infection, local spreading fires and damaged personal belongings; sustained economy/scarcity/AI investment balancing across population, dimensions and time settings.
+- Structural failure, construction-material/furniture damage, mechanical ventilation and further disaster/response types beyond infection, bounded connected-floor fire/smoke, supply/waste loss and damaged personal belongings; sustained economy/scarcity/AI investment balancing across population, dimensions and time settings.
 - Full Cheat world-rule editing, complete browser feature parity beyond the implemented one-way conversion, save-format migration guarantees and Windows packaging.
 
 Passing automated tests means the tested rules hold. It does not mean the complete game or its visual quality is finished.

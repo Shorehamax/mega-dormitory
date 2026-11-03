@@ -68,7 +68,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Order, id, buyer, shop, courier, item, escrow
                                    deliveryFee, state, placed, delivered)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Freight, id, facility, worker, item, escrow,
                                                 quantity, cost, fee, state, placed, waste, source,
-                                                readyAt, origin, landing)
+                                                readyAt, origin, landing, lostQuantity)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LiftCall, resident, from, to, called)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LiftPassenger, resident, destination, from, seat, start, until,
                                    exiting)
@@ -78,9 +78,10 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LiftJourney, lift, destination, goal, task, t
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Repair, id, facility, worker, escrow, workshop,
                                                 partItem, budget, remaining, workedAt, parts,
                                                 complete)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(SmokeLayer, pos, density)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Fire, id, facility, worker, station, payer, escrow,
                                                 heat, smoke, fuel, started, updated, budget, paid,
-                                                contained, out, spreadExposure)
+                                                contained, out, spreadExposure, smokeLayers)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FireSpray, fire, item, workedAt)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(EstateDebt, creditor, remaining)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Estate, id, deceased, beneficiary, openedAt,

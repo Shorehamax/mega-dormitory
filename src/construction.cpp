@@ -162,6 +162,7 @@ void World::workExpansion(Id id, double seconds) {
 }
 
 void World::invalidateGeometry(int floor) {
+  ++geometryRevision;
   obstacles.erase(floor);
   navGrids.erase(floor);
   std::erase_if(obstacleCells, [&](const auto &cell) { return int(cell.first >> 26) == floor; });

@@ -1098,5 +1098,15 @@
   "hint.in_queue": "You are in line",
   "hint.supplies": "Awaiting supplies",
   "security.capacity_wait": "Awaiting safe jail capacity · charges remain active",
-  "security.error.jail_capacity": "No safe open jail has room for another prisoner"
+  "security.error.jail_capacity": "No safe open jail has room for another prisoner",
+  "fire.freight_damaged": "Supply crate damaged by fire",
+  "fire.freight_lost": "Supply crate destroyed · unearned logistics refunded",
+  "fire.upper_smoke": "Smoke above the fire",
+  "fire.inspect_smoke": "Inspect smoke",
+  "fire.smoke_warning": "Smoke nearby · move to clean air",
+  "fire.cargo_remaining": "units remaining",
+  "fire.cargo_receipt": "Damaged shipments",
+  "fire.lost_cargo": "Destroyed",
+  "fire.smoke_clearing": "Upper smoke is still clearing",
+  "fire.vertical_help": "Smoke rises through open shafts and removed floors. Intact slabs and full partitions block its path. Upper floors may remain unsafe after the flames are contained."
 }

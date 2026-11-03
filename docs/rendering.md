@@ -29,3 +29,7 @@ The changed asset/UI paths pass address, undefined-behavior and leak checking. V
 The falling pose braces the knees and recoils with asymmetric arms. A shove extends both hands with a brief torso lean, driven by the actual impulse/cooldown time. Asset checks verify both hands extend in front of the idle body and every pose retains finite bounds and normalized normals for both source and LOD meshes. This visual pass leaves the saved physics and collision rules unchanged.
 
 Nearby remains use the same weighted meshes and death-time appearance as living residents, with a still lying pose and a short freshly observed collapse. Pickup feedback blends a reach/knee bend without moving the collision capsule or first-person eye. The concrete floor now uses the existing opaque texture-tint blend to soften high-contrast aggregate while retaining its downloaded normal/roughness data. Negative normal strength selects this texture-tint material path for clothing and floors.
+
+## Connected-floor smoke
+
+Local fire lighting and smoke now have independent sixteen-entry GPU arrays. Smoke volumes are restricted to their actual floor and use cached 32 × 32 partition-visibility masks derived from the simulation's gas queries. The fragment shader ray-marches these masks; direct fire light is also confined to the emitting floor. Hardware chooses sixteen nearest smoke layers and software Vulkan four. See `emergencies.md` for propagation rules and approximation limits.

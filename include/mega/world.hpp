@@ -469,10 +469,13 @@ struct Order {
   OrderState state = OrderState::Waiting;
   double placed = 0, delivered = 0;
 };
-enum class FreightState { Waiting, Collecting, Carrying, Delivered };
+enum class FreightState { Waiting, Collecting, Carrying, Delivered, Lost };
 struct Freight {
   Id id = none, facility = none, worker = none, item = none, escrow = none;
-  int quantity = 0;
+  int quantity = 0, lostQuantity = 0;
+  bool finished() const { return state == FreightState::Delivered || state == FreightState::Lost; }
+  int remaining() const { return quantity - lostQuantity; }
+  Money payableFee() const { return quantity > 0 ? fee * remaining() / quantity : 0; }
   Money cost = 0, fee = 0;
   FreightState state = FreightState::Waiting;
   double placed = 0;
@@ -514,6 +517,16 @@ struct Repair {
   double remaining = 3600, workedAt = -1;
   bool parts = false, complete = false;
 };
+struct SmokeLayer {
+  Vec3 pos{};
+  float density = 0;
+};
+struct FirePlume {
+  Id fire = none;
+  int floor = 0;
+  Vec3 pos{};
+  float density = 0;
+};
 struct Fire {
   Id id = none, facility = none, worker = none, station = none, payer = none, escrow = none;
   float heat = .35f, smoke = .2f, fuel = 1;
@@ -521,6 +534,7 @@ struct Fire {
   Money budget = 18000, paid = 0;
   bool contained = false, out = false;
   std::map<Id, double> spreadExposure;
+  std::map<int, SmokeLayer> smokeLayers;
 };
 struct FireSpray {
   Id fire = none, item = none;
@@ -757,6 +771,7 @@ public:
   Config config;
   double time = 6 * 3600;
   std::uint64_t rng = 1, sequence = 0, newsSequence = 0;
+  std::uint64_t geometryRevision = 0; // Transient presentation cache generation, not a save clock.
   Id player = 0, dormOwner = 1, dormAccount = 1;
   Governance governance;
   bool gameOver = false;
@@ -948,6 +963,13 @@ public:
   Id ignite(Id facility, float intensity = .35f);
   void triggerFire(Id actor, Id facility);
   void spreadFireTick(const std::map<Id, double> &elapsed);
+  void smokeTick(const std::map<Id, double> &elapsed);
+  bool gasLine(int floor, Vec3 from, Vec3 to) const;
+  bool fireOpening(int floor, Vec3 point) const;
+  float fireHeatBetween(Vec3 from, Vec3 to) const;
+  float smokeAt(Vec3 position) const;
+  std::vector<FirePlume> firePlumes() const;
+  std::array<std::uint32_t, 32> smokeVisibility(int floor, Vec3 origin) const;
   float dangerAt(Vec3 position) const;
   void requestFireResponse(Id actor, Id fire);
   Id issueExtinguisher(Id actor, Id station);
@@ -1247,6 +1269,7 @@ public:
   void freightTick();
   void collectFreight(Id worker, Id freight);
   void deliverFreight(Id worker, Id freight);
+  void ruinFreight(Id);
   Id immigrate(Id home, Money capital);
   void listHome(Id actor, Id home, Money price);
   Vec3 homePosition(Id home) const;
