@@ -1,0 +1,2496 @@
+{
+  "schema_version": 1,
+  "plan_revision": 1,
+  "updated": "2026-11-03",
+  "title": "Mega Dormitory completion plan",
+  "purpose": "A sequential plan for finishing the accepted game, not another unbounded list of possible improvements.",
+  "baseline": {
+    "commit": "714b4440b81cdcabdab2ed8376289e24be15682c",
+    "recorded": "2026-11-03",
+    "verification": "Previously verified: 42 suites, headless memory checks, hardware/software rendered workflows and older saves. This planning update does not rerun or upgrade that evidence.",
+    "retain": [
+      "C++/Vulkan engine and software fallback",
+      "100,000-person/2,000-floor configurable world and three modes",
+      "Ownership, economy, physical jobs, queues, construction, transport and core NPC routines",
+      "Households/storage, companies/equity, estates, investigations and medical/death systems",
+      "Bounded connected-floor fire/smoke/cargo loss, multilingual UI, saved controls and procedural sound"
+    ]
+  },
+  "authoritative_requirements": "docs/requirements.md",
+  "historical_status": "docs/status.md",
+  "platform_target": "Complete Linux and Windows player packages; support claims require actual platform validation.",
+  "cancelled_scope": [
+    "Floating island / explorable outside city / separate outside hospital",
+    "Creative mode (superseded by Survival, Manager and Cheat)"
+  ],
+  "current": {
+    "milestone": "M00",
+    "task": "M00.1",
+    "next_action": "Audit native code and the preserved browser snapshots; record a feature-to-code inventory and identify the latest accepted prototype."
+  },
+  "execution_policy": [
+    "Read this tracker and completion-plan.md on every implementation continuation; resume the current task rather than choosing a new theme.",
+    "Execute milestone IDs in order. Finish and verify the current milestone before starting the next; do not restart already delivered baseline systems.",
+    "Work on one milestone at a time. A prerequisite bug fix belongs to that milestone; record what it unblocks and return immediately to the current task.",
+    "Acknowledge a user priority/scope change with a dated change_log entry; do not silently reorder, add release blockers or replace the accepted design.",
+    "New optional ideas go to future_ideas, not the release backlog. A required connecting task goes under its existing owner milestone with a reason.",
+    "Keep each accepted feature coherent across rules, actual movement/actions, NPC choice, player interaction, ownership/economy, interruption/death, saves, localization and presentation.",
+    "Complete a task only with relevant evidence; complete a milestone only when all its tasks and acceptance criteria pass. Test counts alone never prove feature or game completion.",
+    "Use appropriate focused/regression checks and real rendered play; broaden/repeat only after relevant changes, failures or unresolved concerns. Do not rerun the entire native suite for plan-only edits.",
+    "Preserve player saves and the old browser prototype. Verify/install/publish working code checkpoints using the already authorized project workflow.",
+    "Before ending an implementation turn, update task status, evidence, blocker/next action and next task pointer; report completed IDs and the exact next ID. Do not ask what to do next when this plan already answers it.",
+    "Only M32 passing its complete release gate permits an overall finished/shippable claim. An individual code checkpoint or portable archive remains a development update until then."
+  ],
+  "definition_of_done": [
+    "Rules and required edge/failure cases behave as specified; no decorative-only substitute for a required action.",
+    "Player and NPC actors use real movement, staffing, tools, resources, ownership, payments and permissions.",
+    "Interruption, cancellation, competing claims, surrender, death, emigration and changed availability retain valid state.",
+    "Persistent state round-trips and required older/browser fixtures continue without lost or duplicated resources.",
+    "English, French and Chinese names/text/input remain coherent; required UI and animation/feedback are usable.",
+    "Relevant invariant, regression, CPU/GPU and memory checks pass; appropriate rendered and manual play evidence is recorded.",
+    "Limits and remaining work are attributed to another numbered milestone or an explicit future idea, never silently declared complete."
+  ],
+  "phases": [
+    {
+      "id": "P0",
+      "title": "Scope and baseline",
+      "exit_goal": "Establish the finite acceptance register once; retain all existing work."
+    },
+    {
+      "id": "P1",
+      "title": "Resident autonomy and daily life",
+      "exit_goal": "Finish independent social, household and financial behaviour."
+    },
+    {
+      "id": "P2",
+      "title": "Flexible construction and property",
+      "exit_goal": "Complete live building changes, displacement and structural consequences."
+    },
+    {
+      "id": "P3",
+      "title": "Vehicles and physical interactions",
+      "exit_goal": "Complete contact physics, traffic and transport ownership."
+    },
+    {
+      "id": "P4",
+      "title": "Companies, work, schooling and inheritance",
+      "exit_goal": "Make careers, businesses and generational assets function as complete loops."
+    },
+    {
+      "id": "P5",
+      "title": "Crime, medicine and disasters",
+      "exit_goal": "Complete physical enforcement, care and emergency consequences."
+    },
+    {
+      "id": "P6",
+      "title": "World presentation, animation, UI and sound",
+      "exit_goal": "Bring the usable systems to the requested visual and interaction standard."
+    },
+    {
+      "id": "P7",
+      "title": "Compatibility, GPU scaling, balance and release",
+      "exit_goal": "Verify the complete game and produce supported player-ready builds."
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R01",
+      "title": "Dormitory-focused dystopia, reference architecture, lobby and crowded galleries",
+      "baseline": "Partial native foundation",
+      "milestones": [
+        "M00",
+        "M22",
+        "M26"
+      ]
+    },
+    {
+      "id": "R02",
+      "title": "Configurable 2,000-floor / 100,000-resident world; 512 m standard and 640 m entrance footprints",
+      "baseline": "Implemented baseline; final balancing pending",
+      "milestones": [
+        "M00",
+        "M22",
+        "M28",
+        "M29"
+      ]
+    },
+    {
+      "id": "R03",
+      "title": "Uneven residential, service, office and commercial floors; scarce interactive facilities",
+      "baseline": "Implemented foundation; density/content audit pending",
+      "milestones": [
+        "M00",
+        "M04",
+        "M15",
+        "M22"
+      ]
+    },
+    {
+      "id": "R04",
+      "title": "Continuous locomotion, queues, ladders, safe support, sleeping on beds and fitness",
+      "baseline": "Implemented foundation; full contacts/animation pending",
+      "milestones": [
+        "M07",
+        "M08",
+        "M10",
+        "M18",
+        "M24",
+        "M27",
+        "M29"
+      ]
+    },
+    {
+      "id": "R05",
+      "title": "Survival, Manager, Cheat, possession/inspection, AI owner and ownership takeover",
+      "baseline": "Implemented foundation; complete mode/rule audit pending",
+      "milestones": [
+        "M00",
+        "M25",
+        "M28",
+        "M31"
+      ]
+    },
+    {
+      "id": "R06",
+      "title": "Move-in/out, death/empty-world game over, retirement and succession",
+      "baseline": "Implemented foundation; final lifecycle audit pending",
+      "milestones": [
+        "M17",
+        "M25",
+        "M28",
+        "M31"
+      ]
+    },
+    {
+      "id": "R07",
+      "title": "Named slots, backups, recovery, migrations and browser feature parity",
+      "baseline": "Native slots/import implemented; archived-only browser features pending",
+      "milestones": [
+        "M00",
+        "M03",
+        "M25",
+        "M28",
+        "M32"
+      ]
+    },
+    {
+      "id": "R08",
+      "title": "Stable identities, age/personality/preferences and English/French/Chinese display names",
+      "baseline": "Implemented foundation; lifecycle/content audit pending",
+      "milestones": [
+        "M01",
+        "M03",
+        "M15",
+        "M23"
+      ]
+    },
+    {
+      "id": "R09",
+      "title": "Complete Chinese, English and French UI, text input and readable layouts",
+      "baseline": "Catalogues implemented; IME/full UI coverage pending",
+      "milestones": [
+        "M25",
+        "M28",
+        "M31",
+        "M32"
+      ]
+    },
+    {
+      "id": "R10",
+      "title": "Independent schedules, night shifts, sleep, meals, work, school and leisure",
+      "baseline": "Implemented foundation; richer planning pending",
+      "milestones": [
+        "M01",
+        "M02",
+        "M03",
+        "M12",
+        "M15",
+        "M20",
+        "M30"
+      ]
+    },
+    {
+      "id": "R11",
+      "title": "Communication, relationships, households, families and dependent care",
+      "baseline": "Partial households/communication; broader family/parity pending",
+      "milestones": [
+        "M01",
+        "M02",
+        "M03",
+        "M15",
+        "M17",
+        "M19"
+      ]
+    },
+    {
+      "id": "R12",
+      "title": "Personal items, shared/private storage, provisioning, wear, washing and clothes changes",
+      "baseline": "Implemented foundation; complete household/customization pending",
+      "milestones": [
+        "M02",
+        "M05",
+        "M08",
+        "M22",
+        "M23",
+        "M24"
+      ]
+    },
+    {
+      "id": "R13",
+      "title": "Own/buy/rent/sell homes and possessions; theft and robbery consequences",
+      "baseline": "Implemented foundation; deeper AI/property integration pending",
+      "milestones": [
+        "M01",
+        "M02",
+        "M06",
+        "M11",
+        "M17",
+        "M18",
+        "M23",
+        "M31"
+      ]
+    },
+    {
+      "id": "R14",
+      "title": "Food, water, toilets, showers, sinks, laundry, waste and repair facilities",
+      "baseline": "Implemented foundation; final facility/task audit pending",
+      "milestones": [
+        "M20",
+        "M21",
+        "M22"
+      ]
+    },
+    {
+      "id": "R15",
+      "title": "Sparse pools, arcades, playgrounds, cinemas, gardens, libraries, gyms and preference-driven recreation",
+      "baseline": "Mixed existing facilities; content/function audit pending",
+      "milestones": [
+        "M02",
+        "M22"
+      ]
+    },
+    {
+      "id": "R16",
+      "title": "Long real queues, capacity, prices, supplies, opening hours, workers and interruptions",
+      "baseline": "Implemented foundation; full integration/balance pending",
+      "milestones": [
+        "M02",
+        "M10",
+        "M12",
+        "M15",
+        "M25",
+        "M30"
+      ]
+    },
+    {
+      "id": "R17",
+      "title": "Conserved accounts, migration capital, happiness and causal economic failure",
+      "baseline": "Implemented foundation; long-run balance pending",
+      "milestones": [
+        "M02",
+        "M05",
+        "M06",
+        "M11",
+        "M16",
+        "M17",
+        "M20",
+        "M30"
+      ]
+    },
+    {
+      "id": "R18",
+      "title": "Property premiums based on actual service/job/transport access, crowding, risk and condition",
+      "baseline": "Basic premiums; complete dynamic pricing pending",
+      "milestones": [
+        "M17",
+        "M30"
+      ]
+    },
+    {
+      "id": "R19",
+      "title": "Live layout editing, beds/facilities/floors, expansion, planners, foremen and paid construction",
+      "baseline": "Implemented foundation; arbitrary edits/engineering pending",
+      "milestones": [
+        "M04",
+        "M05",
+        "M06",
+        "M07",
+        "M16",
+        "M21",
+        "M24",
+        "M31"
+      ]
+    },
+    {
+      "id": "R20",
+      "title": "Ownership/leases, compensation, negotiation, physical eviction, resistance and casualties",
+      "baseline": "Implemented foundation; complete proceedings pending",
+      "milestones": [
+        "M04",
+        "M05",
+        "M06",
+        "M17"
+      ]
+    },
+    {
+      "id": "R21",
+      "title": "Companies, workspace, hiring, team direction, jobs, wages, investment and real profit",
+      "baseline": "Implemented foundation; deeper management/finance pending",
+      "milestones": [
+        "M02",
+        "M05",
+        "M11",
+        "M12",
+        "M13",
+        "M14",
+        "M16",
+        "M25",
+        "M30",
+        "M31"
+      ]
+    },
+    {
+      "id": "R22",
+      "title": "Meaningful programming, administration and video-editing work",
+      "baseline": "Distinct existing activities; deeper minigames pending",
+      "milestones": [
+        "M13",
+        "M14"
+      ]
+    },
+    {
+      "id": "R23",
+      "title": "Actual delivery, construction, sanitation, repair, retail, teaching, medicine, piloting and security work",
+      "baseline": "Implemented foundation; every-job audit pending",
+      "milestones": [
+        "M05",
+        "M07",
+        "M09",
+        "M10",
+        "M11",
+        "M12",
+        "M13",
+        "M14",
+        "M16",
+        "M19",
+        "M20",
+        "M21",
+        "M24",
+        "M27"
+      ]
+    },
+    {
+      "id": "R24",
+      "title": "Staffed education, school schedules, learning and career qualifications",
+      "baseline": "Partial courses/skills; full progression pending",
+      "milestones": [
+        "M03",
+        "M12",
+        "M15"
+      ]
+    },
+    {
+      "id": "R25",
+      "title": "Devices, paid public/work computers and polished simulated DORMNET commerce/messages/work/news",
+      "baseline": "Implemented foundation; complete device/network experience pending",
+      "milestones": [
+        "M13",
+        "M14",
+        "M25",
+        "M31"
+      ]
+    },
+    {
+      "id": "R26",
+      "title": "Melee/firearms, injuries/fatigue, surrender, lethal choices and causal falling/shoving",
+      "baseline": "Implemented foundation; complete physical combat pending",
+      "milestones": [
+        "M06",
+        "M07",
+        "M08",
+        "M09",
+        "M18",
+        "M19",
+        "M21",
+        "M24",
+        "M27",
+        "M30"
+      ]
+    },
+    {
+      "id": "R27",
+      "title": "Witness-based responsibility, self-defence, investigations, arrests, cells, escapes and police misconduct",
+      "baseline": "Implemented foundation; cells/restraints/deeper evidence pending",
+      "milestones": [
+        "M01",
+        "M06",
+        "M11",
+        "M18",
+        "M19",
+        "M30"
+      ]
+    },
+    {
+      "id": "R28",
+      "title": "Internal infirmaries, staffed care, ambulance hangars/crews, paid tiers and armed response",
+      "baseline": "Implemented foundation; complete medical/subscription audit pending",
+      "milestones": [
+        "M03",
+        "M10",
+        "M18",
+        "M20",
+        "M24",
+        "M27",
+        "M30"
+      ]
+    },
+    {
+      "id": "R29",
+      "title": "Real corpse pickup, capacity-limited morgues and cremation with costs/sanitation",
+      "baseline": "Implemented foundation; complete lifecycle/visual audit pending",
+      "milestones": [
+        "M03",
+        "M07",
+        "M19",
+        "M20",
+        "M21",
+        "M24",
+        "M27"
+      ]
+    },
+    {
+      "id": "R30",
+      "title": "Rare disease/accidents, fire, smoke, property damage and disaster response",
+      "baseline": "Infection and bounded connected-floor fire implemented; broader damage/response pending",
+      "milestones": [
+        "M05",
+        "M07",
+        "M20",
+        "M21",
+        "M30"
+      ]
+    },
+    {
+      "id": "R31",
+      "title": "Expensive vehicles, stores, scarce paid parking, permission, fuel and maintenance",
+      "baseline": "Implemented foundation; enforcement/customization/fleet decisions pending",
+      "milestones": [
+        "M08",
+        "M09",
+        "M10",
+        "M11",
+        "M23"
+      ]
+    },
+    {
+      "id": "R32",
+      "title": "Physical ramps, selected-floor paid/subscribed lifts, transport queues and towing",
+      "baseline": "Implemented foundation; full contacts/traffic pending",
+      "milestones": [
+        "M04",
+        "M08",
+        "M09",
+        "M10",
+        "M11",
+        "M29"
+      ]
+    },
+    {
+      "id": "R33",
+      "title": "Custom C++ engine, Vulkan, suitable GPU parallel work and CPU/software fallback",
+      "baseline": "Implemented foundation; authoritative GPU work/streaming pending",
+      "milestones": [
+        "M26",
+        "M28",
+        "M29",
+        "M32"
+      ]
+    },
+    {
+      "id": "R34",
+      "title": "Licensed assets, multiple formats, modular people/clothes/beds/closets/vehicles",
+      "baseline": "Assets/importers and colour customization implemented; modular production content pending",
+      "milestones": [
+        "M09",
+        "M22",
+        "M23",
+        "M26",
+        "M29",
+        "M32"
+      ]
+    },
+    {
+      "id": "R35",
+      "title": "Good lighting/materials/shadows, stable rendering and polished interaction animation",
+      "baseline": "Partial procedural presentation; reference-quality production work pending",
+      "milestones": [
+        "M22",
+        "M23",
+        "M24",
+        "M26",
+        "M27",
+        "M29"
+      ]
+    },
+    {
+      "id": "R36",
+      "title": "Production UI, sound, input/accessibility and platform-ready packaging",
+      "baseline": "Basic native sound/preferences/packages implemented; production release gates pending",
+      "milestones": [
+        "M25",
+        "M26",
+        "M27",
+        "M28",
+        "M31",
+        "M32"
+      ]
+    },
+    {
+      "id": "R37",
+      "title": "Shares, acquisitions, deeper company finance, insolvency and personal/corporate inheritance",
+      "baseline": "Equity/subsidiaries/estates implemented; remaining finance/succession pending",
+      "milestones": [
+        "M16",
+        "M17"
+      ]
+    },
+    {
+      "id": "R38",
+      "title": "Finished playable loops, long-run scarcity balance, supported hardware and shipping quality",
+      "baseline": "Development checkpoints only; release acceptance pending",
+      "milestones": [
+        "M00",
+        "M28",
+        "M29",
+        "M30",
+        "M31",
+        "M32"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M00",
+      "phase": "P0",
+      "title": "Freeze the feature inventory and release acceptance register",
+      "status": "ready",
+      "depends_on": [],
+      "requirements": [
+        "R01",
+        "R02",
+        "R03",
+        "R05",
+        "R07",
+        "R38"
+      ],
+      "sources": [
+        "docs/requirements.md",
+        "docs/status.md",
+        "docs/importing.md",
+        "src/browser_import.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M00.1",
+          "title": "Audit native code and the preserved browser snapshots; record a feature-to-code inventory and identify the latest accepted prototype.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M00.2",
+          "title": "Classify every accepted feature as implemented, partial, missing or explicitly cancelled; archive-only imports count as partial.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M00.3",
+          "title": "Write reproducible end-to-end acceptance scenarios and a severity-ranked regression list; record baseline hardware and package behaviour.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M00.4",
+          "title": "Freeze the 1.0 scope against this register, attach remaining gaps to the existing milestones, and advance the tracker to M01.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Every accepted requirement and discovered retained browser feature has an owner milestone and a concrete acceptance scenario.",
+        "The existing 714b444 baseline is retained; no completed subsystem is restarted merely because a new session begins.",
+        "Any proposed extra feature is labelled future work unless required by an accepted scenario; scope changes have a dated explanation."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M01",
+      "phase": "P1",
+      "title": "Relationships and information that affect decisions",
+      "status": "pending",
+      "depends_on": [
+        "M00"
+      ],
+      "requirements": [
+        "R08",
+        "R10",
+        "R11",
+        "R13",
+        "R27"
+      ],
+      "sources": [
+        "src/social.cpp",
+        "src/households.cpp",
+        "src/security.cpp",
+        "src/economy.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M01.1",
+          "title": "Finish persistent friendship, rivalry, trust, encounter memory and relationship changes caused by actual events.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M01.2",
+          "title": "Connect face-to-face and device communication to information about services, work, trade, help, threats and witnessed events.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M01.3",
+          "title": "Use personality, history and relationships when choosing help, refusal, cooperation, theft, reporting and surrender.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M01.4",
+          "title": "Expose readable relationship/history controls and verify that information travels through real actors or available devices.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A repeated interaction changes later decisions; an unobserved event does not magically become shared knowledge.",
+        "Two residents with different personalities/history make different explainable choices in the same resource conflict.",
+        "Player and NPC relationship/information state survives interruptions, death and reload without identity changes."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M02",
+      "phase": "P1",
+      "title": "Complete household provisioning and independent planning",
+      "status": "pending",
+      "depends_on": [
+        "M01"
+      ],
+      "requirements": [
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R15",
+        "R16",
+        "R17",
+        "R21"
+      ],
+      "sources": [
+        "src/autonomy.cpp",
+        "src/households.cpp",
+        "src/storage.cpp",
+        "src/routines.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M02.1",
+          "title": "Complete plans for food, water, medicine, cleaning, clothing, recreation and protected savings across day/night schedules.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M02.2",
+          "title": "Coordinate household purchases, shared supplies and care without merging private ownership or spending funds twice.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M02.3",
+          "title": "Finish independent buying, selling, career changes, saving and small-business investment using actual affordability and travel.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M02.4",
+          "title": "Handle unavailable stock/staff, queues, interrupted delivery, job loss, illness and changing household membership with coherent replanning.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "An unattended household can buy, receive, store, collect and consume supplies through normal physical and financial rules.",
+        "Reserved money/goods cannot be spent or shared twice, and urgent needs can interrupt a longer plan safely.",
+        "The player can inspect why a plan is waiting or was changed; recurring benign availability changes do not create failure spam."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M03",
+      "phase": "P1",
+      "title": "Families, dependents and generational daily life",
+      "status": "pending",
+      "depends_on": [
+        "M02"
+      ],
+      "requirements": [
+        "R07",
+        "R08",
+        "R10",
+        "R11",
+        "R24",
+        "R28",
+        "R29"
+      ],
+      "sources": [
+        "src/households.cpp",
+        "src/social.cpp",
+        "src/education.cpp",
+        "src/medicine.cpp",
+        "src/estates.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M03.1",
+          "title": "Continue the accepted browser family/pregnancy/birth/lifecycle behaviour natively, based on the M00 parity inventory.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M03.2",
+          "title": "Implement persistent family/guardian/dependent relationships, ageing and age-appropriate needs and choices.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M03.3",
+          "title": "Connect dependent care to actual caregivers, food, housing, school, medical access and household finances.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M03.4",
+          "title": "Handle caregiver absence, separation, death, emigration and succession without abandoned references or invented care.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A dependent receives actual care/resources from available actors; missing care has visible, causal consequences.",
+        "Birth, ageing and death continue through saves and migrated browser fixtures with consistent identities and names.",
+        "Family features satisfy the retained prototype scenarios instead of merely retaining their data in an archive."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M04",
+      "phase": "P2",
+      "title": "Arbitrary supported interior layouts and partial floor edits",
+      "status": "pending",
+      "depends_on": [
+        "M03"
+      ],
+      "requirements": [
+        "R03",
+        "R19",
+        "R20",
+        "R32"
+      ],
+      "sources": [
+        "src/structures.cpp",
+        "src/housing_work.cpp",
+        "include/mega/layout.hpp",
+        "src/movement.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M04.1",
+          "title": "Finish placement/editing of rooms, walls, real doorways, beds, storage, facilities and work areas on actual usable footprints.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M04.2",
+          "title": "Add partial slab openings, intermediate floor edits and footprint expansion with previews, support/egress checks and persistent plans.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M04.3",
+          "title": "Make rendering, support, navigation, visibility, queues and lift/road links use the same edited geometry.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M04.4",
+          "title": "Expose a usable planning interface that identifies affected owners, tenants, contents, access routes and required clearance.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A player can change an interior and cut/rebuild part of a floor while the world runs; the same opening exists visually and physically.",
+        "An invalid plan explains the conflict and cannot silently remove occupancy, possessions or access.",
+        "NPCs reroute after completed edits and never teleport across missing support or sealed doors."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M05",
+      "phase": "P2",
+      "title": "Complete construction-company and worker execution",
+      "status": "pending",
+      "depends_on": [
+        "M04"
+      ],
+      "requirements": [
+        "R12",
+        "R17",
+        "R19",
+        "R20",
+        "R21",
+        "R23",
+        "R30"
+      ],
+      "sources": [
+        "src/construction.cpp",
+        "src/crew_contracts.cpp",
+        "src/structures.cpp",
+        "src/repairs.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M05.1",
+          "title": "Unify surveying, quotes, permits, funded contracts, procurement, deliveries and attended execution for all project types.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M05.2",
+          "title": "Finish foreman/team scheduling, tool requirements, separate work positions, progress, inspection and real wages.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M05.3",
+          "title": "Add damaged/missing construction-material recovery, paid replacement/top-up and cancellation/salvage settlement.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M05.4",
+          "title": "Complete playable planner, foreman and worker actions with physical tasks and ownership transfer to the payer.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A new facility remains unusable until the actual funded, supplied and attended contract finishes.",
+        "Off-shift, absent, dead, interrupted or unpaid workers cannot produce progress or duplicate wages/materials.",
+        "Every cancellation, damaged shipment and completion leaves valid accounts, cargo, ownership and worker assignments."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M06",
+      "phase": "P2",
+      "title": "Complete displacement, compensation and forced eviction",
+      "status": "pending",
+      "depends_on": [
+        "M05"
+      ],
+      "requirements": [
+        "R13",
+        "R17",
+        "R19",
+        "R20",
+        "R26",
+        "R27"
+      ],
+      "sources": [
+        "src/housing_work.cpp",
+        "src/structures.cpp",
+        "src/governance.cpp",
+        "src/security.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M06.1",
+          "title": "Finish notices, owner buyouts, tenant compensation, counteroffers, relocation and dispute state for every affected title/lease.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M06.2",
+          "title": "Fund compensation and replacement housing before ordinary work, preserving debts and genuine refusal rights.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M06.3",
+          "title": "Make forced eviction require actual enforcement, physical clearance and responsibility for resistance, injury or death.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M06.4",
+          "title": "Connect displacement to reputation, happiness, migration, interrupted possessions/businesses and contractor scheduling.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Neither ownership transfer nor construction bypasses an existing lease or deletes an unconsenting resident.",
+        "An agreed relocation uses actual travel and paid settlement; a failed/withdrawn project leaves claims intact.",
+        "A resisted eviction can stop work and trigger evidence-based consequences; casualties retain their causal history."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M07",
+      "phase": "P2",
+      "title": "Structural damage, failure and repair",
+      "status": "pending",
+      "depends_on": [
+        "M06"
+      ],
+      "requirements": [
+        "R04",
+        "R19",
+        "R23",
+        "R26",
+        "R29",
+        "R30"
+      ],
+      "sources": [
+        "src/structures.cpp",
+        "src/airborne.cpp",
+        "src/roads.cpp",
+        "src/emergencies.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M07.1",
+          "title": "Add a documented support/integrity model for editable slabs, galleries and structural elements, with visible unsafe states.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M07.2",
+          "title": "Connect sustained fire, overloading and destructive events to actual property/structure damage and support loss.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M07.3",
+          "title": "Make failure affect residents, vehicles, possessions, access and evacuation through real gravity and collisions.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M07.4",
+          "title": "Implement funded shoring, clearance, salvage and reconstruction using actual crews/materials and safe completion checks.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A failing structural element removes the same support in physics, paths and rendering; occupants fall or evacuate causally.",
+        "Inspection/warnings provide actionable information before predictable failures, while accidents remain possible.",
+        "Repair restores only paid, supplied and attended work; ownership, claims, debris and deaths are not erased."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M08",
+      "phase": "P3",
+      "title": "Complete furniture, body and moving-platform contacts",
+      "status": "pending",
+      "depends_on": [
+        "M07"
+      ],
+      "requirements": [
+        "R04",
+        "R12",
+        "R26",
+        "R31",
+        "R32"
+      ],
+      "sources": [
+        "src/movement.cpp",
+        "src/airborne.cpp",
+        "src/vehicles.cpp",
+        "src/roads.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M08.1",
+          "title": "Complete continuous contacts with furniture, doors, stairs/ramps, gallery edges, other bodies and moving platforms.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M08.2",
+          "title": "Keep walking/running, ladders, jumping, sleep/seating and carried objects aligned with supported geometry.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M08.3",
+          "title": "Handle stacked/movable objects, platform boarding/leaving, contacts during save/load and physically displaced occupants.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M08.4",
+          "title": "Resolve crowd jams and camera contact behaviour without bypassing body collision or hiding a real fall.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "People, furniture and vehicles cannot be used to pass through walls, floors or one another by ordinary controls.",
+        "A rider stays supported by a moving platform and leaves continuously at a real landing.",
+        "Dense contacts do not shake the camera; actual impacts, falls and blocked movement remain visible and causal."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M09",
+      "phase": "P3",
+      "title": "Complete vehicle handling, damage and servicing",
+      "status": "pending",
+      "depends_on": [
+        "M08"
+      ],
+      "requirements": [
+        "R23",
+        "R26",
+        "R31",
+        "R32",
+        "R34"
+      ],
+      "sources": [
+        "src/vehicles.cpp",
+        "src/roads.cpp",
+        "src/vehicle_services.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M09.1",
+          "title": "Finish wheel/support contact, steering, acceleration/braking, load/mass, ramps, freight-lift entry and overturning.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M09.2",
+          "title": "Complete fuel/energy use, damage, collision consequences and repair/tow eligibility for supported vehicle types.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M09.3",
+          "title": "Keep garages, keys/driver permissions, ownership, carried loads and recovery state persistent.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M09.4",
+          "title": "Provide complete playable refuelling, mechanic and tow work with real stock, time, tools, transport and payment.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A purchased vehicle can complete a real multi-floor journey and return through ramps/lifts without relocation shortcuts.",
+        "Crashes affect the correct vehicle/people/loads and require actual paid recovery/repair.",
+        "Interrupted towing, driver loss, save/load and an occupied freight lift preserve every attached physical asset."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M10",
+      "phase": "P3",
+      "title": "Traffic, pedestrian priority and congestion recovery",
+      "status": "pending",
+      "depends_on": [
+        "M09"
+      ],
+      "requirements": [
+        "R04",
+        "R16",
+        "R23",
+        "R28",
+        "R31",
+        "R32"
+      ],
+      "sources": [
+        "src/roads.cpp",
+        "src/movement.cpp",
+        "src/vehicle_services.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M10.1",
+          "title": "Add usable corridor traffic rules, lanes/yield points and pedestrian/emergency access priorities.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M10.2",
+          "title": "Finish vehicle/pedestrian route reservation, junction handling, queues at ramps/lifts and safe overtaking/reversing.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M10.3",
+          "title": "Make blocked drivers wait, detour or request recovery using real available space rather than forcing through actors.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M10.4",
+          "title": "Connect AI commuting, delivery/service routes and emergency vehicles to the same traffic rules.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Two-way traffic, a stopped vehicle and a pedestrian crowd can resolve without penetration or teleportation.",
+        "Emergency priority changes actual movement while preserving physical obstruction and ownership.",
+        "Genuine gridlock is reported distinctly from an unavailable destination; recoverable layouts do not loop indefinitely."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M11",
+      "phase": "P3",
+      "title": "Parking enforcement, dealerships and AI fleets",
+      "status": "pending",
+      "depends_on": [
+        "M10"
+      ],
+      "requirements": [
+        "R13",
+        "R17",
+        "R21",
+        "R23",
+        "R27",
+        "R31",
+        "R32"
+      ],
+      "sources": [
+        "src/vehicle_services.cpp",
+        "src/roads.cpp",
+        "src/autonomy.cpp",
+        "src/security.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M11.1",
+          "title": "Finish owned parking spaces, booking/leases, scarcity, access, occupancy and vehicle-store inventory.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M11.2",
+          "title": "Implement obstruction complaints, warnings/fines, authorized impound and actual paid towing with ownership disputes.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M11.3",
+          "title": "Add resident/company fleet purchases, fuel/maintenance reserves and sensible vehicle-versus-walking decisions.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M11.4",
+          "title": "Complete player purchase, driving, parking, subscription, servicing, resale and recovery interfaces.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Buying a vehicle creates no free parking; an occupied space cannot be allocated twice.",
+        "An impounded vehicle physically reaches a real depot and is released only under the applicable payment/permission rules.",
+        "AI owners can afford and operate their fleets using real business/customer income rather than injected rewards."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M12",
+      "phase": "P4",
+      "title": "Complete employment and every physical job loop",
+      "status": "pending",
+      "depends_on": [
+        "M11"
+      ],
+      "requirements": [
+        "R10",
+        "R16",
+        "R21",
+        "R23",
+        "R24"
+      ],
+      "sources": [
+        "src/routines.cpp",
+        "src/office.cpp",
+        "src/operations.cpp",
+        "src/administration.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M12.1",
+          "title": "Audit each accepted role and define its real tools, workplace, shift, inputs, task, output, pay and interruption rules.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M12.2",
+          "title": "Finish applications/hiring, promotions, team-leader assignments, vacancies and career decisions based on skill/preferences/commute.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M12.3",
+          "title": "Complete the missing physical tasks for retail/food, delivery, repair, construction, sanitation, medicine, piloting and security.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M12.4",
+          "title": "Connect staff absence, relief shifts, exhaustion, illness, wages/debts and closure to actual facility availability.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Every listed playable job has an observable causal task and an economic payer; decorative titles or timer-only substitutes fail.",
+        "A worker physically attends the task and produces an actual output before earning its task payment.",
+        "Unstaffed businesses cannot serve as if staffed, and night workers can maintain a coherent work/sleep schedule."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M13",
+      "phase": "P4",
+      "title": "Meaningful video-production work",
+      "status": "pending",
+      "depends_on": [
+        "M12"
+      ],
+      "requirements": [
+        "R21",
+        "R22",
+        "R23",
+        "R25"
+      ],
+      "sources": [
+        "src/office.cpp",
+        "src/application.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M13.1",
+          "title": "Build a usable clip timeline with trimming, ordering, transitions and an audio/pacing layer appropriate to the brief.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M13.2",
+          "title": "Implement continuity, coverage, pacing and technical-quality scoring that rewards different valid edits.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M13.3",
+          "title": "Connect real client briefs, deadlines, revisions, skill, team assignments, company receipts and worker pay.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M13.4",
+          "title": "Persist unfinished projects and make NPC editors produce valid work using the same scoring/accounting rules.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A player can improve a result through editing decisions rather than merely waiting or permuting text labels.",
+        "Different briefs reward different edits and explain the result; failed work consumes real time without fabricated payment.",
+        "Cancellation, employer changes, interruption and reload retain or settle the actual project and commission correctly."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M14",
+      "phase": "P4",
+      "title": "Meaningful programming, administration and client work",
+      "status": "pending",
+      "depends_on": [
+        "M13"
+      ],
+      "requirements": [
+        "R21",
+        "R22",
+        "R23",
+        "R25"
+      ],
+      "sources": [
+        "src/office.cpp",
+        "src/administration.cpp",
+        "src/companies.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M14.1",
+          "title": "Complete programming tasks involving logic/debugging/tests and measurable brief-specific outcomes.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M14.2",
+          "title": "Complete administration tasks involving actual budgets, supply orders, staffing, incidents and competing priorities.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M14.3",
+          "title": "Give other accepted office disciplines distinct work decisions using real available client jobs and resources.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M14.4",
+          "title": "Integrate quality, deadlines, revision, delegation, qualifications and actual employer/client settlement.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Programming and administration require different meaningful decisions and change real outputs/world tasks.",
+        "An administrative dispatch cannot create staff, stock, treatment or money; underlying jobs must actually complete.",
+        "Player and NPC work obey the same quality, attendance, funding and persistence rules."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M15",
+      "phase": "P4",
+      "title": "Complete school, training and qualifications",
+      "status": "pending",
+      "depends_on": [
+        "M14"
+      ],
+      "requirements": [
+        "R03",
+        "R08",
+        "R10",
+        "R11",
+        "R16",
+        "R24"
+      ],
+      "sources": [
+        "src/education.cpp",
+        "src/routines.cpp",
+        "src/autonomy.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M15.1",
+          "title": "Build age-appropriate school and adult vocational schedules, curricula and saved learning progression.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M15.2",
+          "title": "Finish teacher/class capacity, attendance, materials, fees, interruption and assessment.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M15.3",
+          "title": "Connect qualifications to hiring, promotion, work quality and believable career alternatives.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M15.4",
+          "title": "Expose student, teacher and school-owner play with household transport/care and actual school finances.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A student physically attends a staffed class and gains persistent knowledge through completed work.",
+        "A teacher/material shortage stops or changes teaching rather than awarding invisible progress.",
+        "A child-to-worker and an adult-retraining path lead to real job opportunities with explainable prerequisites."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M16",
+      "phase": "P4",
+      "title": "Complete company management, finance and insolvency",
+      "status": "pending",
+      "depends_on": [
+        "M15"
+      ],
+      "requirements": [
+        "R17",
+        "R19",
+        "R21",
+        "R23",
+        "R37"
+      ],
+      "sources": [
+        "src/companies.cpp",
+        "src/equity.cpp",
+        "src/economy.cpp",
+        "src/administration.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M16.1",
+          "title": "Finish owners/team leaders managing actual staff, tasks, workspace leases/purchases, supplies and expansion.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M16.2",
+          "title": "Complete negotiated investments, share transfers, acquisition/merger terms and clear corporate authority.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M16.3",
+          "title": "Implement bounded borrowing/credit, unpaid claims, insolvency, liquidation and settlement priorities.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M16.4",
+          "title": "Give AI businesses explainable budgets/investment plans and integrate owner death/departure/retirement.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A company can found, operate, grow, merge/acquire and fail while conserving accounts and preserving actual assets/contracts.",
+        "Missing payroll, rent or supplies has real consequences; no merger or insolvency duplicates cash or erases valid claims.",
+        "Absentee owners, directors and employees retain the correct limited permissions and income flows."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M17",
+      "phase": "P4",
+      "title": "Property valuation, succession and contested estates",
+      "status": "pending",
+      "depends_on": [
+        "M16"
+      ],
+      "requirements": [
+        "R06",
+        "R11",
+        "R13",
+        "R17",
+        "R18",
+        "R20",
+        "R37"
+      ],
+      "sources": [
+        "src/economy.cpp",
+        "src/estates.cpp",
+        "src/governance.cpp",
+        "src/equity.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M17.1",
+          "title": "Complete dynamic home/workspace pricing from actual service/job/transport access, queues, fares, noise, risk and condition.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M17.2",
+          "title": "Finish personal/corporate succession, dependents, contested nominations, creditor priority and unclaimed-property liquidation.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M17.3",
+          "title": "Finish dormant/absentee ownership, late refunds/wages, migration outflows and occupied leases during succession.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M17.4",
+          "title": "Complete voluntary sale/refusal, retirement and physical takeover of dorm ownership with playable economic/security consequences.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Adding/removing nearby services changes measured property value for understandable reasons without invalidating leases.",
+        "Death/succession distributes each actual asset, claim and debt once; late money reaches the right heir or outside economy.",
+        "The owner is not always for sale; every ownership route has actual actors, resources and consequences."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M18",
+      "phase": "P5",
+      "title": "Complete physical combat, surrender and injuries",
+      "status": "pending",
+      "depends_on": [
+        "M17"
+      ],
+      "requirements": [
+        "R04",
+        "R13",
+        "R26",
+        "R27",
+        "R28"
+      ],
+      "sources": [
+        "src/combat.cpp",
+        "src/society.cpp",
+        "src/airborne.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M18.1",
+          "title": "Finish melee/firearm controls, reach/obstruction, ammunition, fatigue, strength/fitness and meaningful injuries.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M18.2",
+          "title": "Complete personality/threat-based resistance, retreat, surrender, disarming and player choice after victory.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M18.3",
+          "title": "Preserve responsibility for shoves, falls, executions, self-defence and excessive force across interruptions.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M18.4",
+          "title": "Connect injury to movement, work, treatment, loss/death and the later evidence/custody workflow.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "An outmatched resident usually has a credible surrender/escape response, without making every opponent identical.",
+        "Attacks respect real reach, cover and bodies; an execution of a helpless person creates the correct severe offence.",
+        "Combat, falls, saves and medical intervention preserve injuries and causal responsibility without duplicate hits."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M19",
+      "phase": "P5",
+      "title": "Investigations, physical restraints and actual jail cells",
+      "status": "pending",
+      "depends_on": [
+        "M18"
+      ],
+      "requirements": [
+        "R11",
+        "R23",
+        "R26",
+        "R27",
+        "R29"
+      ],
+      "sources": [
+        "src/security.cpp",
+        "src/prison_rescues.cpp",
+        "src/society.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M19.1",
+          "title": "Finish witness memory/reliability, scene evidence, corroboration, recorded custody and bounded investigation/search behaviour.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M19.2",
+          "title": "Build individually usable cells, operating doors/locks and real restraint equipment with capacity/access checks.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M19.3",
+          "title": "Complete patrol, physical intervention/escort/booking, escape/rescue coordination, release and recovered-property handling.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M19.4",
+          "title": "Finish fault-based penalties, fines, police misuse of force, disputes and explainable consequences using known evidence.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Officers cannot act on hidden offender knowledge; enforcement depends on observations, reports and actual investigation.",
+        "A prisoner occupies a real usable cell, escapes through real actions, and retains charges/property across interrupted custody.",
+        "Wardens physically intervene and can themselves incur consequences; full/unsafe detention never fabricates a booking."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M20",
+      "phase": "P5",
+      "title": "Complete infirmaries, subscriptions, disease and death care",
+      "status": "pending",
+      "depends_on": [
+        "M19"
+      ],
+      "requirements": [
+        "R10",
+        "R14",
+        "R17",
+        "R23",
+        "R28",
+        "R29",
+        "R30"
+      ],
+      "sources": [
+        "src/medicine.cpp",
+        "src/death_reporting.cpp",
+        "src/emergencies.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M20.1",
+          "title": "Finish diagnosis/treatment, infection, hygiene/environmental exposure, medicines, capacity, staffing and real fees.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M20.2",
+          "title": "Complete internal infirmary-owned hangars, ambulance availability, pilots/medics and tiered subscription dispatch.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M20.3",
+          "title": "Connect armed protection, response priority and arrival time to actual crews/equipment/traffic and active violence.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M20.4",
+          "title": "Finish corpse discovery, transport, morgue capacity, cremation, supplies, costs and sanitation with family/estate effects.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A subscription purchases an available service priority, not instant transport or invulnerability.",
+        "An injured/infected person receives actual staffed treatment; shortages and contagious contacts cause traceable outcomes.",
+        "Each corpse has one physical history and is transported/stored/cremated by actual funded work."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M21",
+      "phase": "P5",
+      "title": "Complete connected disaster damage and recovery",
+      "status": "pending",
+      "depends_on": [
+        "M20"
+      ],
+      "requirements": [
+        "R14",
+        "R19",
+        "R23",
+        "R26",
+        "R29",
+        "R30"
+      ],
+      "sources": [
+        "src/fire_transport.cpp",
+        "src/fire_spread.cpp",
+        "src/emergencies.cpp",
+        "src/structures.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M21.1",
+          "title": "Finish operating fire doors, ventilation and room-to-room smoke behaviour beyond the current opening/layer model.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M21.2",
+          "title": "Extend fire damage to construction batches, furniture, vehicles/fuel and other accepted accidents, using real owned resources.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M21.3",
+          "title": "Connect damage to the M07 integrity/failure model, evacuation, triage, emergency work and service outages.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M21.4",
+          "title": "Finish ash/debris cleanup, salvage, repair/reconstruction, claims and rare-event tuning with visible recovery progress.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A disaster can progress from ignition/exposure through damage/failure to actual funded cleanup and reopening.",
+        "Closed barriers, ventilation and suppression visibly change hazards; stock, structure, bodies and claims remain consistent.",
+        "Rare disasters are causal and controllable within the game rules; recovery never creates free replacement assets."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M22",
+      "phase": "P6",
+      "title": "Reference-quality floor layouts and lived-in interiors",
+      "status": "pending",
+      "depends_on": [
+        "M21"
+      ],
+      "requirements": [
+        "R01",
+        "R02",
+        "R03",
+        "R12",
+        "R14",
+        "R15",
+        "R34",
+        "R35"
+      ],
+      "sources": [
+        "src/application.cpp",
+        "src/assets.cpp",
+        "include/mega/layout.hpp"
+      ],
+      "tasks": [
+        {
+          "id": "M22.1",
+          "title": "Complete generation of dense bunk galleries, bridges, shaft views and crowded ground-floor corridor/lobby from the references.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M22.2",
+          "title": "Fill useful portions of the large floor footprints with coherent residential, service, work and commercial areas.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M22.3",
+          "title": "Add varied clutter, laundry, bedding, personal storage, signage, shops and sparse preference-driven leisure venues.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M22.4",
+          "title": "Ensure every usable prop/facility has a real interaction, ownership, access, collision and navigation connection.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Ground corridor, residential gallery and commercial/service floor meet recorded visual acceptance captures at player eye height.",
+        "The default footprint does not consist primarily of empty decorative ground around a small repeated core.",
+        "Visual density preserves accessible queues, routes, private belongings and the intended sparse service distribution."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M23",
+      "phase": "P6",
+      "title": "Production asset pipeline and modular customization",
+      "status": "pending",
+      "depends_on": [
+        "M22"
+      ],
+      "requirements": [
+        "R08",
+        "R12",
+        "R13",
+        "R31",
+        "R34",
+        "R35"
+      ],
+      "sources": [
+        "src/assets.cpp",
+        "src/characters.cpp",
+        "src/customization.cpp",
+        "docs/assets.md"
+      ],
+      "tasks": [
+        {
+          "id": "M23.1",
+          "title": "Finish robust supported mesh/texture/animation imports, material handling, transforms, validation and asset provenance.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M23.2",
+          "title": "Create usable modular body/clothing/hair/age variants and bed/closet/vehicle components using approved assets.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M23.3",
+          "title": "Complete previews, fitting, saved variants, wear/cleanliness/damage appearance and paid modification work.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M23.4",
+          "title": "Apply ownership permissions and theft/forcible access through game rules rather than an unrestricted cosmetic editor.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "People/clothes/beds/closets/vehicles can be visibly customized beyond palette swaps, with persistent component identity.",
+        "Assets from every supported format load or fail clearly; all redistributed assets have recorded compatible licences.",
+        "Modification requires the correct ownership/access/payment; wrongdoing follows the actual crime workflow."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M24",
+      "phase": "P6",
+      "title": "Complete locomotion and interaction animation",
+      "status": "pending",
+      "depends_on": [
+        "M23"
+      ],
+      "requirements": [
+        "R04",
+        "R12",
+        "R19",
+        "R23",
+        "R26",
+        "R28",
+        "R29",
+        "R35"
+      ],
+      "sources": [
+        "src/characters.cpp",
+        "src/gpu_skinning.cpp",
+        "src/application.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M24.1",
+          "title": "Add/retarget production movement and activity clips with blending tied to actual speed, surfaces and tasks.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M24.2",
+          "title": "Finish foot/hand contact alignment for ladders, seats, beds, tools, doors, cargo, driving and workstations.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M24.3",
+          "title": "Complete combat/restraint, medical/body carrying, construction/repair and leisure interaction animations.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M24.4",
+          "title": "Keep first-person camera, collision body and rendered pose consistent through impacts, crowds and transitions.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Every accepted visible action uses an appropriate continuous animation and reaches its actual interaction target.",
+        "Sleeping/resting remains on real furniture; hands/feet do not routinely float or pass through task objects.",
+        "Animations never move the authoritative actor/cargo by teleportation or hide a real collision/fall."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M25",
+      "phase": "P6",
+      "title": "Complete mode UI, DORMNET, input and accessibility",
+      "status": "pending",
+      "depends_on": [
+        "M24"
+      ],
+      "requirements": [
+        "R05",
+        "R06",
+        "R07",
+        "R09",
+        "R16",
+        "R21",
+        "R25",
+        "R36"
+      ],
+      "sources": [
+        "src/application.cpp",
+        "src/ui.cpp",
+        "src/preferences.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M25.1",
+          "title": "Finish Survival essentials/submenus, Manager monitoring/control and full bounded Cheat entity/world-rule editing.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M25.2",
+          "title": "Complete the device-specific DORMNET experience for shopping, messaging, jobs/news, company tools and paid computer access.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M25.3",
+          "title": "Finish new-game controls, move-in/out, tutorials, camera/possession controls, named saves and clear failure/recovery flows.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M25.4",
+          "title": "Complete keyboard/mouse remapping, Chinese IME, multilingual input/search, scaling, focus, accessible critical cues and navigation.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "A new player can discover climbing, queues, work, devices, construction and mode controls without developer instructions.",
+        "All accepted detail options remain available in sensible submenus; Survival retains a minimal readable primary HUD.",
+        "Cheat changes obey explicit bounds and preserve engine/account invariants; all three languages remain usable at supported sizes."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M26",
+      "phase": "P6",
+      "title": "Complete lighting, materials and stable graphics",
+      "status": "pending",
+      "depends_on": [
+        "M25"
+      ],
+      "requirements": [
+        "R01",
+        "R33",
+        "R34",
+        "R35",
+        "R36"
+      ],
+      "sources": [
+        "src/renderer.cpp",
+        "shaders/scene.frag",
+        "shaders/scene.vert"
+      ],
+      "tasks": [
+        {
+          "id": "M26.1",
+          "title": "Finish believable indoor lighting, material response, shadows/contact shadows, transparency and exposure.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M26.2",
+          "title": "Remove ground/rail shimmer, depth fighting, clipping, unstable shadows and unreadable dark/bright regions.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M26.3",
+          "title": "Integrate character/facility/clutter assets, smoke/fire and useful visual damage cues at coherent scale.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M26.4",
+          "title": "Finish quality presets and reliable device/fallback behaviour with recorded hardware/software reference captures.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Residential, commercial, lobby, night and emergency scenes meet the recorded visual targets in motion, not only still images.",
+        "Camera rotation and ordinary movement do not cause flickering ground, broken shadows or repeated geometry popping.",
+        "The game remains readable and functional on the supported fallback preset, with graphics settings that actually work."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M27",
+      "phase": "P6",
+      "title": "Production sound and complete action feedback",
+      "status": "pending",
+      "depends_on": [
+        "M26"
+      ],
+      "requirements": [
+        "R04",
+        "R23",
+        "R26",
+        "R28",
+        "R29",
+        "R35",
+        "R36"
+      ],
+      "sources": [
+        "src/audio.cpp",
+        "src/application.cpp",
+        "docs/audio.md"
+      ],
+      "tasks": [
+        {
+          "id": "M27.1",
+          "title": "Finish licensed/original footsteps, tools, machinery, crowds, vehicles, combat, emergencies and interface sound.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M27.2",
+          "title": "Add coherent indoor distance/occlusion/reverberation and transitions tied to actual rooms, actors and events.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M27.3",
+          "title": "Complete volume/device/focus/pause controls, meaningful non-audio critical cues and platform output fallback.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M27.4",
+          "title": "Complete visual/audio feedback for accepted actions and evaluate repetition, loudness, interruption and timing in play.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Audible events correspond to actual nearby actions and stop/reset correctly; important hazards remain understandable when muted.",
+        "All distributed sound has recorded provenance, and missing output devices cannot make the game unusable.",
+        "Interaction feedback makes success, waiting, rejection and completion clear without drowning out the world."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M28",
+      "phase": "P7",
+      "title": "Finish browser parity, persistence and platform readiness",
+      "status": "pending",
+      "depends_on": [
+        "M27"
+      ],
+      "requirements": [
+        "R02",
+        "R05",
+        "R06",
+        "R07",
+        "R09",
+        "R33",
+        "R36",
+        "R38"
+      ],
+      "sources": [
+        "src/browser_import.cpp",
+        "src/persistence.cpp",
+        "include/mega/runtime_paths.hpp",
+        "tools/package_candidate.py"
+      ],
+      "tasks": [
+        {
+          "id": "M28.1",
+          "title": "Close every non-cancelled parity gap from M00 and validate native continuation of imported family, items, history and rules.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M28.2",
+          "title": "Finalize versioned native migrations, named-slot previews, backups, recovery, interruption and installation-independent saves.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M28.3",
+          "title": "Finish Linux/Windows builds, platform input/audio/filesystem support and relocatable player packages.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M28.4",
+          "title": "Run the old/new world-size, mode, language and corruption compatibility matrix and record unsupported cases explicitly.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "No accepted browser feature is marked complete solely because its data is archived; all parity scenarios are implemented or explicitly superseded by the user.",
+        "Older supported saves migrate without duplicating payments/items or discarding identities/contracts; damaged slots have a usable recovery path.",
+        "Linux and Windows candidates build and launch with their packaged resources; a platform is not labelled supported without its actual verification."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M29",
+      "phase": "P7",
+      "title": "GPU parallel simulation and streamed world scaling",
+      "status": "pending",
+      "depends_on": [
+        "M28"
+      ],
+      "requirements": [
+        "R02",
+        "R04",
+        "R32",
+        "R33",
+        "R34",
+        "R35",
+        "R38"
+      ],
+      "sources": [
+        "src/renderer.cpp",
+        "src/gpu_skinning.cpp",
+        "src/movement.cpp",
+        "shaders/pressure.comp"
+      ],
+      "tasks": [
+        {
+          "id": "M29.1",
+          "title": "Profile the completed game on the recorded reference GPU and CPU fallback before choosing expensive work to offload.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M29.2",
+          "title": "Implement streamed/cached geometry/textures, crowd/detail LOD and GPU animation sampling where it improves actual play.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M29.3",
+          "title": "Offload suitable resident/crowd/needs or other large parallel work with explicit CPU reference checks and safe synchronization.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M29.4",
+          "title": "Meet the documented default-world frame, responsiveness, memory and simulation-progress budgets without deleting features.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "The 100,000-resident/2,000-floor world keeps up at 1× compressed time with bounded processing backlog and responsive controls.",
+        "Reference GPU target: 1080p/60 FPS target, p95 frame time at most 33 ms and p99 at most 50 ms in the recorded dense-play route; ordinary UI responses at most 100 ms.",
+        "The recorded CPU-only 720p preset targets at least 15 FPS and usable controls; CPU/GPU paths preserve the same validated rules, ownership and accounting."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M30",
+      "phase": "P7",
+      "title": "Long-run scarcity balance and adversarial simulation",
+      "status": "pending",
+      "depends_on": [
+        "M29"
+      ],
+      "requirements": [
+        "R10",
+        "R16",
+        "R17",
+        "R18",
+        "R21",
+        "R26",
+        "R27",
+        "R28",
+        "R30",
+        "R38"
+      ],
+      "sources": [
+        "src/world.cpp",
+        "src/autonomy.cpp",
+        "src/operations.cpp",
+        "tests/world_tests.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M30.1",
+          "title": "Run at least five recorded default-size seeds for thirty game days, plus small/large/extreme configuration and disaster scenarios.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M30.2",
+          "title": "Tune initial shortages, queues, rents, wages, subscriptions, construction costs, migration, happiness and investment against actual outcomes.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M30.3",
+          "title": "Track crashes, conservation, resource duplication, unsupported residents, task failures, starvation loops, deadlocks and company/death cleanup.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M30.4",
+          "title": "Fix systemic failures and preserve failing seeds/replays as meaningful regression cases rather than masking errors.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Default scarcity produces meaningful long queues and hard choices while sustained survival has a demonstrated viable route.",
+        "Any depopulation, insolvency or game over has a traceable gameplay cause, not an impossible schedule or broken service loop.",
+        "Across the recorded matrix, accounts/resources remain consistent and eligible unobstructed tasks do not recur as permanent failure loops."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M31",
+      "phase": "P7",
+      "title": "Complete player acceptance and localization/accessibility QA",
+      "status": "pending",
+      "depends_on": [
+        "M30"
+      ],
+      "requirements": [
+        "R05",
+        "R06",
+        "R09",
+        "R13",
+        "R19",
+        "R21",
+        "R25",
+        "R36",
+        "R38"
+      ],
+      "sources": [
+        "docs/requirements.md",
+        "docs/releasing.md",
+        "src/application.cpp"
+      ],
+      "tasks": [
+        {
+          "id": "M31.1",
+          "title": "Play a fresh Survival run from move-in through needs, queues, real work, shopping/delivery, better housing and a business/vehicle purchase.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M31.2",
+          "title": "Play Manager through staffing, construction, displacement, service investment, emergencies and succession; test full Cheat controls and possession.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M31.3",
+          "title": "Exercise robbery/conflict, surrender/arrest/cells, rescue/treatment, disaster recovery, inheritance and each game-over/reload route.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M31.4",
+          "title": "Repeat required flows across English/French/Chinese, input/scaling/focus configurations and supported hardware, recording actual manual play as well as automated replays.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "Every accepted requirement has a completed player-visible acceptance scenario and evidence in the coverage register.",
+        "There are no hidden developer-only controls, placeholder options or language-dependent identity/payment bugs in the required flows.",
+        "Critical controls and dangers remain discoverable/readable with accessible alternatives; automated passing tests alone cannot close this milestone."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    },
+    {
+      "id": "M32",
+      "phase": "P7",
+      "title": "Release candidate, clean-install verification and version 1.0",
+      "status": "pending",
+      "depends_on": [
+        "M31"
+      ],
+      "requirements": [
+        "R07",
+        "R09",
+        "R33",
+        "R34",
+        "R36",
+        "R38"
+      ],
+      "sources": [
+        "tools/package_candidate.py",
+        "docs/releasing.md",
+        "CMakeLists.txt"
+      ],
+      "tasks": [
+        {
+          "id": "M32.1",
+          "title": "Build reproducible supported-platform candidates with integrity manifests, licences, version information, controls/help and troubleshooting.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M32.2",
+          "title": "Test clean installation and relocation on machines/environments without the development tree or compiler; verify save separation and upgrade/recovery.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M32.3",
+          "title": "Close all required milestones and P0/P1 defects; publish the requirement-to-evidence register and any non-blocking known issues.",
+          "done": false,
+          "evidence": []
+        },
+        {
+          "id": "M32.4",
+          "title": "Verify the exact shipping binaries, commit/tag/release artifacts and declare the game complete only after the release gate is satisfied.",
+          "done": false,
+          "evidence": []
+        }
+      ],
+      "acceptance": [
+        "M00–M31 are complete with reviewed evidence, every required acceptance scenario passes, and no P0/P1 defect remains open.",
+        "The actual shipped Linux/Windows packages launch, play, save, reload and recover correctly using only documented player dependencies.",
+        "The shipped build meets the accepted feature scope, visual/interaction targets and measured performance/balance gates; optional future ideas stay separate from the completed 1.0 scope."
+      ],
+      "evidence": [],
+      "blocker": null,
+      "acceptance_evidence": [],
+      "completed_on": null
+    }
+  ],
+  "release_scenarios": [
+    "Survival: configurable new game → move in → queue and meet needs → actual paid work → device purchase → real delivery → better housing → vehicle/business asset → ownership opportunity or refusal.",
+    "Manager: actual budget/staffing → planned funded construction → compensation or contested eviction → working profitable facility → emergency response/repair → succession or move-out game over.",
+    "Cheat: roleplay and inspect/possess residents → bounded edits to all supported rules/entities → coherent world, accounting and saves.",
+    "Conflict: queue cut/theft → witnesses/report → physical combat/surrender → evidence-based enforcement → cell/escape/rescue → actual release/recovered property.",
+    "Disaster: disease/fire/structural damage → warning/evacuation → staffed paid response → treatment/death/body handling → estate/claims → funded physical recovery.",
+    "Continuity: old native/browser import → preserve identities/titles/prepaid work/families → play each relevant system → save in another named slot → reload/recover after a corrupt primary."
+  ],
+  "future_ideas": [],
+  "change_log": [
+    {
+      "date": "2026-11-03",
+      "change": "Created the fixed sequential plan at the user’s request. Gameplay-first phase order follows the accepted priorities. Existing implementation is the baseline, not discarded work. No new gameplay milestone is marked complete by this planning-only change."
+    }
+  ],
+  "open_defects": []
+}

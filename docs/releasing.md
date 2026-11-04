@@ -1,5 +1,7 @@
 # Native release preparation
 
+The [ordered completion plan](completion-plan.md) governs release readiness. Only milestone **M32**, after all predecessor gates pass, permits a finished/shippable claim; a development package is an intermediate checkpoint.
+
 The current build is a development candidate. The accepted backlog, reference-quality interiors, production animation/audio, broader disaster/physics systems and final balancing remain release blockers in `status.md`.
 
 ## Verify and package

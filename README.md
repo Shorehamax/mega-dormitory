@@ -1,6 +1,6 @@
 # Mega Dormitory — native development build
 
-A C++20 dormitory society simulation with a custom Vulkan renderer, UI, navigation, movement and game rules. This is a playable development build, **not the complete requested production game**. The browser prototype is preserved separately. The accepted design and remaining work are recorded in `docs/requirements.md` and `docs/status.md`.
+A C++20 dormitory society simulation with a custom Vulkan renderer, UI, navigation, movement and game rules. This is a playable development build, **not the complete requested production game**. The browser prototype is preserved separately. The accepted design is recorded in [requirements](docs/requirements.md). Follow the [ordered completion plan](docs/completion-plan.md) and its [progress tracker](docs/completion-progress.json) for remaining work; [implementation status](docs/status.md) records historical evidence.
 
 ## Run on Linux
 

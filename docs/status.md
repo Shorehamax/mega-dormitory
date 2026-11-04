@@ -1,5 +1,7 @@
 # Native implementation status
 
+**Execution order:** follow the [completion plan](completion-plan.md) and [authoritative progress tracker](completion-progress.json). The entries below describe historical implementation checkpoints; they do not replace the current task or establish whole-game completion.
+
 This is a development build, not a declaration that the complete accepted design has shipped. The reference-image fidelity and production polish have not been achieved. The former island/city and Creative mode are superseded by the dormitory-focused requirements in `requirements.md`.
 
 ## Vertical fire, smoke and cargo damage (3 November 2026)
