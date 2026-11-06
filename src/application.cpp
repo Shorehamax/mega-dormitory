@@ -80,6 +80,45 @@ static const char *itemLabel(ItemKind kind) {
     return "trade.item";
   }
 }
+static const char *relationshipLabel(RelationshipStatus status) {
+  switch (status) {
+  case RelationshipStatus::Friend:
+    return "social.friend";
+  case RelationshipStatus::Rival:
+    return "social.rival";
+  case RelationshipStatus::Acquaintance:
+    return "social.acquaintance";
+  default:
+    return "social.stranger";
+  }
+}
+static const char *encounterLabel(EncounterKind kind) {
+  switch (kind) {
+  case EncounterKind::Greeting:
+    return "social.greeting";
+  case EncounterKind::Interests:
+    return "social.interests";
+  case EncounterKind::Work:
+    return "social.work";
+  case EncounterKind::Insult:
+    return "social.insult";
+  case EncounterKind::Apology:
+    return "social.apology";
+  case EncounterKind::Meal:
+    return "social.meal";
+  case EncounterKind::Trade:
+    return "social.trade";
+  case EncounterKind::Assault:
+    return "social.assault";
+  case EncounterKind::Theft:
+    return "social.theft";
+  case EncounterKind::Rescue:
+    return "social.rescue";
+  case EncounterKind::QueueCut:
+    return "social.queue_cut";
+  }
+  return "social.greeting";
+}
 static std::string hoursLabel(double start, double duration) {
   char b[48];
   int a = int(start * 60) % 1440, z = int((start + duration) * 60) % 1440;
@@ -2283,6 +2322,23 @@ public:
       ui.text(x, y, t("talk.trust") + " " + std::to_string(int(w.trust(selected, nearby) * 100)),
               13, hex(0xa5bcae));
       y += 27;
+      y = ui.wrap(x, y, width, t(relationshipLabel(w.relationshipStatus(selected, nearby))), 13,
+                  hex(0xb9c9bd)) +
+          10;
+      auto memories = w.relationshipHistory(selected, nearby);
+      int shown = 0;
+      for (auto it = memories.rbegin(); it != memories.rend() && shown < 3; ++it, ++shown) {
+        const auto &memory = *it;
+        float change = selected < nearby ? memory.changeA : memory.changeB;
+        std::string effect =
+            (change >= 0 ? "+" : "") + std::to_string(int(std::round(change * 100)));
+        y = ui.wrap(x, y, width,
+                    timeLabel(memory.time) + " · " + w.displayName(memory.actor, locale.language) +
+                        " · " + t(encounterLabel(memory.kind)) + " · " + t("social.regard") + " " +
+                        effect,
+                    12, hex(change < 0 ? 0xd3a39a : 0x9abcb1)) +
+            10;
+      }
       for (int topic = 0; topic < 6; ++topic) {
         if (ui.button("talk" + std::to_string(topic), {x, y, width, 30},
                       t("talk.topic" + std::to_string(topic))))
@@ -6993,7 +7049,45 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "estate-play") {
+      if (panel == "social") {
+        auto &w = *app.world;
+        while (!w.events.empty())
+          w.events.pop();
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.route.clear();
+          r.task = TaskKind::None;
+          r.automatic = false;
+          r.activity = Activity::Idle;
+          r.pos = {100 + r.id * 3.f, 0, 100};
+          r.aggression = 0;
+        }
+        w.crowd.clear();
+        w.residents[1].pos = {100, 0, 101.1f};
+        w.talk(0, 1, 0);
+        w.time += 301;
+        w.attack(0, 1);
+        w.surrender(1);
+        w.time += 301;
+        w.talk(0, 1, 4);
+        w.validate();
+        if (w.relationshipHistory(1, 0).size() != 3 || w.trust(1, 0) >= -.35f ||
+            !w.relationshipHistory(2, 0).empty())
+          throw std::runtime_error("Social display fixture lost actual encounter history");
+        app.selected = 1;
+        app.setFirstPerson(false);
+        app.tab = 0;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.currentFloor = 0;
+        app.cameraFocus = w.position(1);
+        app.distance = 8;
+        app.pitch = .3f;
+        app.orbit = .6f;
+        std::cout << "SOCIAL DISPLAY PASS: actual greeting, assault and apology; directional "
+                     "grievance and private history\n";
+      } else if (panel == "estate-play") {
         auto &w = *app.world;
         while (!w.events.empty())
           w.events.pop();

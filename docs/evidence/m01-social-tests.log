@@ -1,0 +1,19 @@
+PASS Unknown people have no invented contact history
+PASS Repeated real conversation creates friendship and chronological memories
+PASS Insults create asymmetric grievances and rivalry
+PASS Assault changes the victim's regard without informing strangers
+PASS Unnoticed sleeping-victim theft does not reveal the thief
+PASS Observed attempted theft creates a grievance even when no item changes hands
+PASS A robbery wakes the victim and preserves its known encounter
+PASS Invalid conversations and distant attacks create no memories
+PASS Only successful paid local trades create trust and one memory
+PASS Real meal aid has asymmetric gratitude and cannot farm the cooldown
+PASS A harmed resident refuses aid despite the donor's old shared trust
+PASS Trimming old memories never forgives accumulated grievances
+PASS Apologies repair slowly without resetting an attack
+PASS Directional and private memory round-trips once
+PASS Older shared-trust saves load without inventing directional events
+PASS Death and departure retain identities and actual encounter history
+PASS Malformed memories, hidden effects and future events are rejected
+PASS Directional trust governs fallback heirs rather than stale imported trust
+18 passed, 0 failed

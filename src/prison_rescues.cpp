@@ -130,6 +130,7 @@ void World::prisonRescueTick() {
     r.energy = std::max(0.f, r.energy - float(dt / 12000));
     if (rescue.progress >= 300) {
       escapeCustody(rescue.target);
+      rememberEncounter(actor, rescue.target, EncounterKind::Rescue, .08f, .3f);
       log("security.rescue_completed", actor, rescue.target);
       stop.push_back(actor);
     }

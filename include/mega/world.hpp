@@ -592,12 +592,36 @@ struct Shot {
   Vec3 from{}, to{};
   double time = 0;
 };
+enum class EncounterKind {
+  Greeting,
+  Interests,
+  Work,
+  Insult,
+  Apology,
+  Meal,
+  Trade,
+  Assault,
+  Theft,
+  Rescue,
+  QueueCut
+};
+enum class RelationshipStatus { Stranger, Acquaintance, Friend, Rival };
+struct EncounterMemory {
+  EncounterKind kind = EncounterKind::Greeting;
+  Id actor = none;
+  double time = 0;
+  float changeA = 0, changeB = 0;
+  bool knownToA = true, knownToB = true;
+};
 struct Relationship {
   Id a = none, b = none;
   float trust = 0;
   double lastTalk = -3600, lastAid = -86400;
   int sharedInterest = 0;
   int conversations = 0;
+  // The historical shared trust remains the migration baseline. Regard is directional.
+  float regardA = 0, regardB = 0;
+  std::vector<EncounterMemory> memories;
 };
 struct Education {
   std::array<float, 3> skills{};
@@ -989,6 +1013,15 @@ public:
   int lastEconomyDay = 0;
   std::vector<Message> messages;
   std::map<std::uint64_t, Relationship> relationships;
+  RelationshipStatus relationshipStatus(Id observer, Id other) const;
+  std::vector<EncounterMemory> relationshipHistory(Id observer, Id other) const;
+  void rememberEncounter(Id actor, Id other, EncounterKind kind, float actorChange,
+                         float otherChange, bool otherAware = true);
+
+private:
+  Relationship *ensureRelationship(Id a, Id b);
+
+public:
   std::vector<Incident> incidents;
   std::vector<EvidenceReceipt> evidenceReceipts;
   std::map<Id, CustodyRecord> custodyRecords;

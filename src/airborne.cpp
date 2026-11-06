@@ -223,6 +223,7 @@ void World::shove(Id actor, Id victim) {
   auto velocity = normalized(direction) * power;
   velocity.y = 1.7f;
   looseBodies[victim] = {velocity, actor, justified, time};
+  rememberEncounter(actor, victim, EncounterKind::Assault, -.05f, -.65f);
   ensurePhysicsTick();
   log("physics.shoved", actor, victim);
 }

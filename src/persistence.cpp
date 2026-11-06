@@ -104,8 +104,10 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(OfficeOrder, id, facility, worke
                                                 brief, budget, remaining, total, workAt, due,
                                                 submitted, quality, submission, client, employer,
                                                 liveRequests, tickets, dispatched, outcomes)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(EncounterMemory, kind, actor, time, changeA,
+                                                changeB, knownToA, knownToB)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Relationship, a, b, trust, lastTalk, sharedInterest,
-                                                lastAid, conversations)
+                                                lastAid, conversations, regardA, regardB, memories)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Education, skills, lessons, answers, subject, seed,
                                                 lastDay, school)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(StorageLease, id, facility, holder, custodian,

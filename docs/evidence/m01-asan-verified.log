@@ -1,0 +1,15 @@
+Test project /home/charlie/Documents/Codex/2026-10-18/files-pasted-by-the-user-project/work/native-asan
+    Start  4: browser_migration_and_personal_items
+1/5 Test  #4: browser_migration_and_personal_items ...   Passed    3.71 sec
+    Start  8: resident_autonomy
+2/5 Test  #8: resident_autonomy ......................   Passed    5.10 sec
+    Start 12: evidence_and_custody
+3/5 Test #12: evidence_and_custody ...................   Passed   13.99 sec
+    Start 19: personal_estates_and_inheritance
+4/5 Test #19: personal_estates_and_inheritance .......   Passed    3.71 sec
+    Start 24: social_encounter_memory
+5/5 Test #24: social_encounter_memory ................   Passed    5.42 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Total Test time (real) =  31.92 sec

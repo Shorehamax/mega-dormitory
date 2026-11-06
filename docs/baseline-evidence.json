@@ -1,0 +1,75 @@
+{
+  "recorded": "2026-11-03",
+  "code_commit": "714b4440b81cdcabdab2ed8376289e24be15682c",
+  "hardware": {
+    "os": "Ubuntu 26.04 LTS x86_64",
+    "cpu": "AMD Ryzen 7 7800X3D, 8 cores / 16 threads",
+    "memory_kib": 31446712,
+    "gpu": "NVIDIA GeForce RTX 5070",
+    "rendered_size": [
+      1000,
+      720
+    ],
+    "msaa": 4,
+    "build": "Release; MEGA_VULKAN_TESTS=ON"
+  },
+  "checks": [
+    {
+      "command": "ctest --test-dir <build> -R \"^(browser_migration_and_personal_items|resident_autonomy|relocatable_runtime_paths)$\" --output-on-failure",
+      "result": "3/3 passed",
+      "elapsed_seconds": 0.28
+    },
+    {
+      "command": "<build>/mega_dormitory --headless --mode cheat --autoplay --floors 2000 --population 100000 --seconds 0",
+      "result": {
+        "population": 100000,
+        "living": 100000,
+        "floors": 2000,
+        "facilities": 2051,
+        "queued": 11940,
+        "simulated_seconds": 0,
+        "happiness": 0.5,
+        "internal_money_cents": 8570976689,
+        "generation_seconds": 0.735351,
+        "run_seconds": 0.0175019
+      }
+    },
+    {
+      "command": "<build>/mega_dormitory --headless --mode cheat --autoplay --floors 40 --population 1000 --seconds 3600 --save /tmp/mega-audit.mdsave",
+      "result": {
+        "population": 1000,
+        "living": 1000,
+        "floors": 40,
+        "facilities": 61,
+        "queued": 140,
+        "resident_plans": 349,
+        "orders_placed": 0,
+        "orders_delivered": 0,
+        "simulated_seconds": 3600,
+        "happiness": 0.548085,
+        "internal_money_cents": 156622064,
+        "generation_seconds": 0.00822646,
+        "run_seconds": 0.219133
+      }
+    },
+    {
+      "command": "env MEGA_AUDIO_DEVICE=null VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation <build>/mega_dormitory --playtest-daily-life --lang en --width 1000 --height 720 --capture /tmp/mega-audit.ppm",
+      "result": "Passed: physical household meal aid, actual teacher commute, paid lesson/exercises, maximum movement step 0.720058 m; 257 frames. No Vulkan validation errors.",
+      "log": "docs/evidence/m00-daily-life.log",
+      "capture": "docs/evidence/m00-daily-life.png"
+    }
+  ],
+  "prior_evidence": {
+    "description": "Previous 42-suite candidate, memory checks and EN/FR/ZH hardware/software checks are historical; not rerun as part of this one-time baseline inventory.",
+    "source": "docs/status.md"
+  },
+  "inspection": {
+    "capture": "docs/evidence/m00-daily-life.png",
+    "finding": "The 1000x720 learning drawer fits; physical desks/teacher are visible. Large empty floor areas, repeated props and simple character/interaction poses confirm M22/M24/M26 remain unfinished."
+  },
+  "limitations": [
+    "No whole-game manual playthrough or Windows validation has been performed in this audit.",
+    "Generation and a one-hour small-world run do not establish long-run scarcity or default-world performance.",
+    "The first restricted display attempt could not initialize the desktop; the successful isolated run used normal desktop access. No player save was opened."
+  ]
+}

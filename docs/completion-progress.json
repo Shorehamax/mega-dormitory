@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan_revision": 1,
-  "updated": "2026-11-03",
+  "updated": "2026-11-06",
   "title": "Mega Dormitory completion plan",
   "purpose": "A sequential plan for finishing the accepted game, not another unbounded list of possible improvements.",
   "baseline": {
@@ -24,9 +24,9 @@
     "Creative mode (superseded by Survival, Manager and Cheat)"
   ],
   "current": {
-    "milestone": "M00",
-    "task": "M00.1",
-    "next_action": "Audit native code and the preserved browser snapshots; record a feature-to-code inventory and identify the latest accepted prototype."
+    "milestone": "M01",
+    "task": "M01.2",
+    "next_action": "Connect face-to-face and device communication to information about services, work, trade, help, threats and witnessed events."
   },
   "execution_policy": [
     "Read this tracker and completion-plan.md on every implementation continuation; resume the current task rather than choosing a new theme.",
@@ -573,7 +573,7 @@
       "id": "M00",
       "phase": "P0",
       "title": "Freeze the feature inventory and release acceptance register",
-      "status": "ready",
+      "status": "complete",
       "depends_on": [],
       "requirements": [
         "R01",
@@ -593,26 +593,38 @@
         {
           "id": "M00.1",
           "title": "Audit native code and the preserved browser snapshots; record a feature-to-code inventory and identify the latest accepted prototype.",
-          "done": false,
-          "evidence": []
+          "done": true,
+          "evidence": [
+            "docs/feature-inventory.md: native feature-to-code map and latest accepted browser selection.",
+            "docs/prototype-manifest.json: all preserved source/script hashes; latest output matches facility revision."
+          ]
         },
         {
           "id": "M00.2",
           "title": "Classify every accepted feature as implemented, partial, missing or explicitly cancelled; archive-only imports count as partial.",
-          "done": false,
-          "evidence": []
+          "done": true,
+          "evidence": [
+            "docs/acceptance-register.json: 38 accepted requirements and 14 fine-grained parity decisions; archived state is not execution."
+          ]
         },
         {
           "id": "M00.3",
           "title": "Write reproducible end-to-end acceptance scenarios and a severity-ranked regression list; record baseline hardware and package behaviour.",
-          "done": false,
-          "evidence": []
+          "done": true,
+          "evidence": [
+            "docs/acceptance-scenarios.md: 38 procedures/pass conditions mapped to owner milestones.",
+            "docs/baseline-evidence.json and docs/evidence/m00-daily-life.log: hardware, focused checks, isolated generation/simulation and rendered daily-life baseline.",
+            "Baseline D-M00-01–09: ranked confirmed gaps, each owned by an existing milestone; later resolutions remain recorded separately."
+          ]
         },
         {
           "id": "M00.4",
           "title": "Freeze the 1.0 scope against this register, attach remaining gaps to the existing milestones, and advance the tracker to M01.",
-          "done": false,
-          "evidence": []
+          "done": true,
+          "evidence": [
+            "docs/feature-inventory.md: frozen finite scope and bounded-model decisions.",
+            "All remaining requirements/parity details fit M01–M32; no milestone was added."
+          ]
         }
       ],
       "acceptance": [
@@ -620,16 +632,26 @@
         "The existing 714b444 baseline is retained; no completed subsystem is restarted merely because a new session begins.",
         "Any proposed extra feature is labelled future work unless required by an accepted scenario; scope changes have a dated explanation."
       ],
-      "evidence": [],
+      "evidence": [
+        "docs/feature-inventory.md",
+        "docs/acceptance-register.json",
+        "docs/prototype-manifest.json",
+        "docs/acceptance-scenarios.md",
+        "docs/baseline-evidence.json"
+      ],
       "blocker": null,
-      "acceptance_evidence": [],
-      "completed_on": null
+      "acceptance_evidence": [
+        "38/38 requirement IDs and 14/14 parity rows have valid owners and concrete AC01–AC38 scenarios in acceptance-register.json.",
+        "Code baseline 714b444 remains intact; native saves and all three browser copies were untouched during the isolated checks.",
+        "Finite scope rules explicitly exclude the cancelled city/Creative mode and distinguish bounded gameplay from additional unaccepted simulators; only existing milestone tasks own the gaps."
+      ],
+      "completed_on": "2026-11-03"
     },
     {
       "id": "M01",
       "phase": "P1",
       "title": "Relationships and information that affect decisions",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         "M00"
       ],
@@ -650,8 +672,12 @@
         {
           "id": "M01.1",
           "title": "Finish persistent friendship, rivalry, trust, encounter memory and relationship changes caused by actual events.",
-          "done": false,
-          "evidence": []
+          "done": true,
+          "evidence": [
+            "src/social.cpp and docs/social.md: bounded directional regard and private encounter memory from actual actions.",
+            "tests/social_tests.cpp: eighteen passing focused rule/migration/privacy/regression checks.",
+            "docs/evidence/m01-verification.json: focused release, memory, localized rendered and default-size continuation evidence."
+          ]
         },
         {
           "id": "M01.2",
@@ -2490,7 +2516,92 @@
     {
       "date": "2026-11-03",
       "change": "Created the fixed sequential plan at the user’s request. Gameplay-first phase order follows the accepted priorities. Existing implementation is the baseline, not discarded work. No new gameplay milestone is marked complete by this planning-only change."
+    },
+    {
+      "date": "2026-11-03",
+      "change": "Completed the one-time M00 inventory: 38 requirements, 14 parity decisions, frozen source manifests, 38 acceptance scenarios, ranked gaps and isolated hardware/headless/rendered baseline. Advanced to M01.1 without adding scope or restarting delivered systems."
+    },
+    {
+      "date": "2026-11-06",
+      "change": "Completed M01.1: persistent directional social opinions and private actual-event memories, localized nearby history, relevant aid/estate integration and verified regressions. Closed D-M00-01. M01 remains active; next task is M01.2 information transfer."
     }
   ],
-  "open_defects": []
+  "open_defects": [
+    {
+      "id": "D-M00-02",
+      "severity": "P1",
+      "milestone": "M03",
+      "description": "Imported family, pregnancy and births remain archive-only and do not continue natively.",
+      "classification": "confirmed_incomplete_feature",
+      "evidence": "src/browser_import.cpp, include/mega/world.hpp"
+    },
+    {
+      "id": "D-M00-03",
+      "severity": "P1",
+      "milestone": "M04",
+      "description": "Interior edits cannot yet create arbitrary partial slab openings with shared support/navigation/rendering.",
+      "classification": "confirmed_incomplete_feature",
+      "evidence": "src/structures.cpp"
+    },
+    {
+      "id": "D-M00-04",
+      "severity": "P2",
+      "milestone": "M09",
+      "description": "Vehicles lack the accepted fuller rolling/support/overturning and furniture contact model.",
+      "classification": "confirmed_incomplete_feature",
+      "evidence": "docs/traffic.md"
+    },
+    {
+      "id": "D-M00-05",
+      "severity": "P1",
+      "milestone": "M13",
+      "description": "Video work scores clip ordering but has no actual trim/timeline workflow.",
+      "classification": "confirmed_incomplete_feature",
+      "evidence": "src/office.cpp"
+    },
+    {
+      "id": "D-M00-06",
+      "severity": "P1",
+      "milestone": "M19",
+      "description": "Custody uses an intake footprint instead of individually lockable occupied cells and real restraint equipment.",
+      "classification": "confirmed_incomplete_feature",
+      "evidence": "docs/security.md"
+    },
+    {
+      "id": "D-M00-07",
+      "severity": "P1",
+      "milestone": "M22",
+      "description": "Large default floor areas remain mostly vacant and do not reach the supplied reference interior density.",
+      "classification": "confirmed_incomplete_feature",
+      "evidence": "docs/evidence/m00-daily-life.png"
+    },
+    {
+      "id": "D-M00-08",
+      "severity": "P2",
+      "milestone": "M25",
+      "description": "Cheat lacks the complete bounded entity/world-rule editor.",
+      "classification": "confirmed_incomplete_feature",
+      "evidence": "src/social.cpp, src/application.cpp"
+    },
+    {
+      "id": "D-M00-09",
+      "severity": "P2",
+      "milestone": "M25",
+      "description": "Browser history charts/CSV export have no complete native UI equivalent.",
+      "classification": "confirmed_incomplete_feature",
+      "evidence": "outputs/mega-dormitory/src/ui/StatisticsPanel.tsx, src/application.cpp"
+    }
+  ],
+  "resolved_defects": [
+    {
+      "id": "D-M00-01",
+      "severity": "P1",
+      "milestone": "M01",
+      "description": "Combat/theft have no persistent directional encounter memory; a victim can retain the same social regard for the offender.",
+      "classification": "confirmed_incomplete_feature",
+      "evidence": "src/social.cpp, src/society.cpp",
+      "closed_on": "2026-11-06",
+      "resolution": "M01.1; assault regression now changes victim trust from 0 to -0.85, with private directional history and save compatibility verified."
+    }
+  ]
 }

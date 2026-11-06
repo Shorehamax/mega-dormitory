@@ -54,6 +54,7 @@ bool World::stealItem(Id thief, Id victim, Id item, bool robbery) {
   auto &i = items.at(item);
   canAct(a);
   if (thief == victim || !v.alive || !v.present || !near(thief, position(victim), 1.5f) ||
+      !lineOfSight(position(thief) + Vec3{0, 1.3f, 0}, position(victim) + Vec3{0, 1.3f, 0}) ||
       i.owner != v.account || i.carrier != victim || i.reservedAt != none || i.order != none ||
       i.consumed || v.outfit == item ||
       std::find(v.items.begin(), v.items.end(), item) == v.items.end())
@@ -88,6 +89,7 @@ bool World::stealItem(Id thief, Id victim, Id item, bool robbery) {
     log("crime.stolen", thief, victim);
   } else
     log("crime.theft_failed", thief, victim);
+  rememberEncounter(thief, victim, EncounterKind::Theft, -.025f, -.65f, noticed);
   if (noticed) {
     v.happiness = std::max(0.f, v.happiness - .2f);
     if (!v.surrendered && (robbery || v.aggression > .55f)) {

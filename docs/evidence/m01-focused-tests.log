@@ -1,0 +1,21 @@
+Test project /home/charlie/Documents/Codex/2026-10-18/files-pasted-by-the-user-project/work/native-build
+    Start  4: browser_migration_and_personal_items
+1/8 Test  #4: browser_migration_and_personal_items ...   Passed    0.08 sec
+    Start  5: localization_catalogues
+2/8 Test  #5: localization_catalogues ................   Passed    0.04 sec
+    Start 25: persistent_body_physics
+3/8 Test #25: persistent_body_physics ................   Passed    0.14 sec
+    Start 27: resident_autonomy
+4/8 Test #27: resident_autonomy ......................   Passed    0.17 sec
+    Start 31: evidence_and_custody
+5/8 Test #31: evidence_and_custody ...................   Passed    0.36 sec
+    Start 35: household_storage_and_property
+6/8 Test #35: household_storage_and_property .........   Passed    0.07 sec
+    Start 38: personal_estates_and_inheritance
+7/8 Test #38: personal_estates_and_inheritance .......   Passed    0.11 sec
+    Start 43: social_encounter_memory
+8/8 Test #43: social_encounter_memory ................   Passed    0.14 sec
+
+100% tests passed, 0 tests failed out of 8
+
+Total Test time (real) =   1.11 sec

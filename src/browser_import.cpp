@@ -549,7 +549,12 @@ World World::importBrowser(const std::filesystem::path &path, Mode mode) {
         if (a > b)
           std::swap(a, b);
         float trust = float(std::clamp(number(pair[1], 0, 1e9) / 10, 0., 1.));
-        w.relationships[(std::uint64_t(a) << 32) | std::uint32_t(b)] = {a, b, trust, w.time, 0};
+        Relationship bond;
+        bond.a = a;
+        bond.b = b;
+        bond.trust = trust;
+        bond.lastTalk = w.time;
+        w.relationships[(std::uint64_t(a) << 32) | std::uint32_t(b)] = std::move(bond);
       }
     }
     json archive = {{"version", version}, {"time", minutes}};

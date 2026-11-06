@@ -1,0 +1,21 @@
+Asset old_bed_frame: 49990 triangles
+Asset plastic_monobloc_chair_01: 3356 triangles
+Asset painted_wooden_table: 600 triangles
+Asset metal_trash_can: 13960 triangles
+Asset painted_wooden_cabinet_02: 966 triangles
+Asset wheelchair_01: 40252 triangles
+Asset concrete_floor_02: 2 triangles
+Asset sedan: 2032 triangles
+Asset van: 2082 triangles
+Asset ambulance: 2804 triangles
+Asset resident_Male: 14318 triangles
+Character LOD resident_Male: 3085 triangles
+Asset resident_Female: 15060 triangles
+Character LOD resident_Female: 2760 triangles
+Vulkan device: llvmpipe (LLVM 21.1.8, 256 bits) (software); MSAA 1x
+SOCIAL DISPLAY PASS: actual greeting, assault and apology; directional grievance and private history
+Render loop seconds: 0.167306
+CPU scene build seconds: 0.031132
+GPU floor instances: 0
+GPU skinned vertices: 0
+Rendered 3 frames

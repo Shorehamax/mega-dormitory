@@ -19,6 +19,8 @@ compile_commands.json
 *.mdsave.*
 *.tmp
 *.log
+# Curated milestone verification evidence belongs with the execution tracker.
+!/docs/evidence/*.log
 *.ppm
 
 # Local credentials and editor/OS metadata

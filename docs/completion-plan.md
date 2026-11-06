@@ -4,13 +4,13 @@
 
 A sequential plan for finishing the accepted game, not another unbounded list of possible improvements.
 
-Updated: **2026-11-03** · Plan revision: **1**
+Updated: **2026-11-06** · Plan revision: **1**
 
 ## Current work
 
-**M00.1** — Audit native code and the preserved browser snapshots; record a feature-to-code inventory and identify the latest accepted prototype.
+**M01.2** — Connect face-to-face and device communication to information about services, work, trade, help, threats and witnessed events.
 
-This register contains **33 milestones / 132 tasks** for remaining work. **0 milestones have passed their gates.** This is not a percentage of the whole game: the working baseline below already exists.
+This register contains **33 milestones / 132 tasks** for remaining work. **1 milestones have passed their gates.** This is not a percentage of the whole game: the working baseline below already exists.
 
 The JSON [progress tracker](completion-progress.json) is authoritative. To update this document, edit that tracker and run `python3 tools/render_completion_plan.py` from the project root; use `--check` to check for drift. Root [AGENTS.md](../AGENTS.md) tells implementation sessions to resume this pointer.
 
@@ -80,14 +80,22 @@ Every completed task needs evidence in its `evidence` list. A completed mileston
 
 ### M00 — Freeze the feature inventory and release acceptance register
 
-**Status:** ready · **Depends on:** retained baseline · **Phase:** P0
+**Status:** complete · **Depends on:** retained baseline · **Phase:** P0
 
 **Tasks**
 
-- [ ] **M00.1** Audit native code and the preserved browser snapshots; record a feature-to-code inventory and identify the latest accepted prototype.
-- [ ] **M00.2** Classify every accepted feature as implemented, partial, missing or explicitly cancelled; archive-only imports count as partial.
-- [ ] **M00.3** Write reproducible end-to-end acceptance scenarios and a severity-ranked regression list; record baseline hardware and package behaviour.
-- [ ] **M00.4** Freeze the 1.0 scope against this register, attach remaining gaps to the existing milestones, and advance the tracker to M01.
+- [x] **M00.1** Audit native code and the preserved browser snapshots; record a feature-to-code inventory and identify the latest accepted prototype.
+  - Evidence: docs/feature-inventory.md: native feature-to-code map and latest accepted browser selection.
+  - Evidence: docs/prototype-manifest.json: all preserved source/script hashes; latest output matches facility revision.
+- [x] **M00.2** Classify every accepted feature as implemented, partial, missing or explicitly cancelled; archive-only imports count as partial.
+  - Evidence: docs/acceptance-register.json: 38 accepted requirements and 14 fine-grained parity decisions; archived state is not execution.
+- [x] **M00.3** Write reproducible end-to-end acceptance scenarios and a severity-ranked regression list; record baseline hardware and package behaviour.
+  - Evidence: docs/acceptance-scenarios.md: 38 procedures/pass conditions mapped to owner milestones.
+  - Evidence: docs/baseline-evidence.json and docs/evidence/m00-daily-life.log: hardware, focused checks, isolated generation/simulation and rendered daily-life baseline.
+  - Evidence: Baseline D-M00-01–09: ranked confirmed gaps, each owned by an existing milestone; later resolutions remain recorded separately.
+- [x] **M00.4** Freeze the 1.0 scope against this register, attach remaining gaps to the existing milestones, and advance the tracker to M01.
+  - Evidence: docs/feature-inventory.md: frozen finite scope and bounded-model decisions.
+  - Evidence: All remaining requirements/parity details fit M01–M32; no milestone was added.
 
 **Gate — all must pass**
 
@@ -99,15 +107,32 @@ Every completed task needs evidence in its `evidence` list. A completed mileston
 
 **Starting references:** [docs/requirements.md](requirements.md), [docs/status.md](status.md), [docs/importing.md](importing.md), [src/browser_import.cpp](../src/browser_import.cpp)
 
+**Recorded milestone evidence:**
+
+- docs/feature-inventory.md
+- docs/acceptance-register.json
+- docs/prototype-manifest.json
+- docs/acceptance-scenarios.md
+- docs/baseline-evidence.json
+
+Gate 1 evidence: 38/38 requirement IDs and 14/14 parity rows have valid owners and concrete AC01–AC38 scenarios in acceptance-register.json.
+
+Gate 2 evidence: Code baseline 714b444 remains intact; native saves and all three browser copies were untouched during the isolated checks.
+
+Gate 3 evidence: Finite scope rules explicitly exclude the cancelled city/Creative mode and distinguish bounded gameplay from additional unaccepted simulators; only existing milestone tasks own the gaps.
+
 <a id="m01"></a>
 
 ### M01 — Relationships and information that affect decisions
 
-**Status:** pending · **Depends on:** M00 · **Phase:** P1
+**Status:** in_progress · **Depends on:** M00 · **Phase:** P1
 
 **Tasks**
 
-- [ ] **M01.1** Finish persistent friendship, rivalry, trust, encounter memory and relationship changes caused by actual events.
+- [x] **M01.1** Finish persistent friendship, rivalry, trust, encounter memory and relationship changes caused by actual events.
+  - Evidence: src/social.cpp and docs/social.md: bounded directional regard and private encounter memory from actual actions.
+  - Evidence: tests/social_tests.cpp: eighteen passing focused rule/migration/privacy/regression checks.
+  - Evidence: docs/evidence/m01-verification.json: focused release, memory, localized rendered and default-size continuation evidence.
 - [ ] **M01.2** Connect face-to-face and device communication to information about services, work, trade, help, threats and witnessed events.
 - [ ] **M01.3** Use personality, history and relationships when choosing help, refusal, cooperation, theft, reporting and surrender.
 - [ ] **M01.4** Expose readable relationship/history controls and verify that information travels through real actors or available devices.
@@ -891,7 +916,14 @@ Baseline classifications describe existing foundations; they are not completion 
 
 ## Open defects
 
-No defects have been entered in this planning-only register yet. This is not a defect-free claim; M00 records the reproduced baseline defects.
+- **D-M00-02 (P1)** Imported family, pregnancy and births remain archive-only and do not continue natively. — owner M03
+- **D-M00-03 (P1)** Interior edits cannot yet create arbitrary partial slab openings with shared support/navigation/rendering. — owner M04
+- **D-M00-04 (P2)** Vehicles lack the accepted fuller rolling/support/overturning and furniture contact model. — owner M09
+- **D-M00-05 (P1)** Video work scores clip ordering but has no actual trim/timeline workflow. — owner M13
+- **D-M00-06 (P1)** Custody uses an intake footprint instead of individually lockable occupied cells and real restraint equipment. — owner M19
+- **D-M00-07 (P1)** Large default floor areas remain mostly vacant and do not reach the supplied reference interior density. — owner M22
+- **D-M00-08 (P2)** Cheat lacks the complete bounded entity/world-rule editor. — owner M25
+- **D-M00-09 (P2)** Browser history charts/CSV export have no complete native UI equivalent. — owner M25
 
 ## Future ideas outside the release gate
 
@@ -900,3 +932,5 @@ None recorded. Optional new ideas go here rather than silently expanding release
 ## Plan changes
 
 - **2026-11-03** — Created the fixed sequential plan at the user’s request. Gameplay-first phase order follows the accepted priorities. Existing implementation is the baseline, not discarded work. No new gameplay milestone is marked complete by this planning-only change.
+- **2026-11-03** — Completed the one-time M00 inventory: 38 requirements, 14 parity decisions, frozen source manifests, 38 acceptance scenarios, ranked gaps and isolated hardware/headless/rendered baseline. Advanced to M01.1 without adding scope or restarting delivered systems.
+- **2026-11-06** — Completed M01.1: persistent directional social opinions and private actual-event memories, localized nearby history, relevant aid/estate integration and verified regressions. Closed D-M00-01. M01 remains active; next task is M01.2 information transfer.

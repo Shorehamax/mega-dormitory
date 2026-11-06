@@ -66,10 +66,8 @@ void World::openEstate(Id who) {
         e.candidates.insert(id);
   for (const auto &[key, relation] : relationships) {
     (void)key;
-    if (relation.trust < .6f)
-      continue;
     Id other = relation.a == who ? relation.b : relation.b == who ? relation.a : none;
-    if (eligible(*this, other))
+    if (eligible(*this, other) && trust(who, other) >= .6f)
       e.candidates.insert(other);
   }
   auto will = personalHeirs.find(who);

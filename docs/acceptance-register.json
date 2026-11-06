@@ -1,0 +1,1010 @@
+{
+  "schema_version": 1,
+  "audited": "2026-11-03",
+  "code_baseline": "714b4440b81cdcabdab2ed8376289e24be15682c",
+  "planning_baseline": "1c77959f2643ba54092f480e4f3b6e717d129278",
+  "classification_note": "Partial means executable foundations exist but at least one accepted rule, parity detail or production gate remains. This is not a whole-game percentage.",
+  "requirements": [
+    {
+      "id": "R01",
+      "title": "Dormitory-focused dystopia, reference architecture, lobby and crowded galleries",
+      "classification": "partial",
+      "owners": [
+        "M00",
+        "M22",
+        "M26"
+      ],
+      "sources": [
+        "src/world.cpp",
+        "include/mega/layout.hpp",
+        "src/application.cpp"
+      ],
+      "implemented": "Deep shaft, bunk banks, lobby and configurable footprints exist.",
+      "remaining": "Large vacant floor areas and repeated interiors need the reference-density pass.",
+      "scenario": "AC01",
+      "procedure": "Inspect a default lobby, residential gallery and commercial floor at eye height, day and night; walk every connecting route.",
+      "pass_condition": "Crowding and architecture match the recorded references while all occupied areas remain supported and reachable."
+    },
+    {
+      "id": "R02",
+      "title": "Configurable 2,000-floor / 100,000-resident world; 512 m standard and 640 m entrance footprints",
+      "classification": "partial",
+      "owners": [
+        "M00",
+        "M22",
+        "M28",
+        "M29"
+      ],
+      "sources": [
+        "src/world.cpp",
+        "src/housing_work.cpp",
+        "src/construction.cpp"
+      ],
+      "implemented": "Default and independent floor/lobby dimensions, seed/population and paid extensions execute.",
+      "remaining": "Large-world usable density and measured scaling are not accepted yet.",
+      "scenario": "AC02",
+      "procedure": "Generate defaults and alternate dimensions; save/reload; expand an occupied floor with a funded crew.",
+      "pass_condition": "2,000 floors/100,000 identities and 512/640 m defaults persist; expansion consumes actual materials/work without moving existing titles."
+    },
+    {
+      "id": "R03",
+      "title": "Uneven residential, service, office and commercial floors; scarce interactive facilities",
+      "classification": "partial",
+      "owners": [
+        "M00",
+        "M04",
+        "M15",
+        "M22"
+      ],
+      "sources": [
+        "src/world.cpp",
+        "src/operations.cpp",
+        "src/education.cpp"
+      ],
+      "implemented": "Residential/service/commercial generation and usable typed businesses exist.",
+      "remaining": "Complete layout editing and production population of the footprint remain.",
+      "scenario": "AC03",
+      "procedure": "Visit housing-only, service and commercial floors; attempt each service with valid and missing staff, supplies and access.",
+      "pass_condition": "Uneven scarcity is visible; every advertised usable facility performs its actual action or explains its real unavailable prerequisite."
+    },
+    {
+      "id": "R04",
+      "title": "Continuous locomotion, queues, ladders, safe support, sleeping on beds and fitness",
+      "classification": "partial",
+      "owners": [
+        "M07",
+        "M08",
+        "M10",
+        "M18",
+        "M24",
+        "M27",
+        "M29"
+      ],
+      "sources": [
+        "src/movement.cpp",
+        "src/queues.cpp",
+        "src/airborne.cpp",
+        "src/routines.cpp"
+      ],
+      "implemented": "Continuous walking/climbing, bed poses, queues, falls and fitness execute.",
+      "remaining": "Comprehensive contacts, general crowd recovery and production contact animation remain.",
+      "scenario": "AC04",
+      "procedure": "Walk/run through a crowd; queue; climb and dismount; sleep in both bunks; jump/fall; reload during movement.",
+      "pass_condition": "No unsupported standing, body penetration, teleportation or camera shaking; injuries, fitness and poses agree with physical state."
+    },
+    {
+      "id": "R05",
+      "title": "Survival, Manager, Cheat, possession/inspection, AI owner and ownership takeover",
+      "classification": "partial",
+      "owners": [
+        "M00",
+        "M25",
+        "M28",
+        "M31"
+      ],
+      "sources": [
+        "src/application.cpp",
+        "src/governance.cpp",
+        "src/social.cpp"
+      ],
+      "implemented": "Three modes, possession/free camera, owner succession and bounded resident cheats execute.",
+      "remaining": "Cheat world/entity editing and complete mode UI remain.",
+      "scenario": "AC05",
+      "procedure": "Start each mode, switch permitted viewpoints, inspect/possess, edit a supported rule, then reload.",
+      "pass_condition": "Survival presents essentials; Manager has owner authority; Cheat supports the complete bounded editor without corrupting accounts."
+    },
+    {
+      "id": "R06",
+      "title": "Move-in/out, death/empty-world game over, retirement and succession",
+      "classification": "partial",
+      "owners": [
+        "M17",
+        "M25",
+        "M28",
+        "M31"
+      ],
+      "sources": [
+        "src/society.cpp",
+        "src/governance.cpp",
+        "src/routines.cpp"
+      ],
+      "implemented": "Arrival/departure, death/empty-population ends, voluntary sale and retirement exist.",
+      "remaining": "Complete physical takeover and succession consequences require final play acceptance.",
+      "scenario": "AC06",
+      "procedure": "Move in; depart in Survival/Manager; empty a world; refuse a sale; trigger retirement and a contested takeover.",
+      "pass_condition": "Correct runs end with explained causes; refusal is real and successor/contested ownership preserves existing obligations."
+    },
+    {
+      "id": "R07",
+      "title": "Named slots, backups, recovery, migrations and browser feature parity",
+      "classification": "partial",
+      "owners": [
+        "M00",
+        "M03",
+        "M25",
+        "M28",
+        "M32"
+      ],
+      "sources": [
+        "src/persistence.cpp",
+        "src/browser_import.cpp",
+        "include/mega/runtime_paths.hpp"
+      ],
+      "implemented": "Versioned native slots, metadata, backup recovery and bounded browser conversion execute.",
+      "remaining": "Archived family/history/rules are not native continuation; full migration matrix is unverified.",
+      "scenario": "AC07",
+      "procedure": "Load native and browser fixtures, finish prepaid work, save a separate named slot, corrupt its primary and recover the backup.",
+      "pass_condition": "Identities, property, escrow, active tasks and required browser behaviour continue once without losing the source."
+    },
+    {
+      "id": "R08",
+      "title": "Stable identities, age/personality/preferences and English/French/Chinese display names",
+      "classification": "partial",
+      "owners": [
+        "M01",
+        "M03",
+        "M15",
+        "M23"
+      ],
+      "sources": [
+        "src/world.cpp",
+        "src/social.cpp",
+        "src/characters.cpp"
+      ],
+      "implemented": "Stable IDs, three name forms, aggression and preferences exist.",
+      "remaining": "Family/age lifecycle and modular visible age/personality variety remain.",
+      "scenario": "AC08",
+      "procedure": "Follow the same resident through language switches, relationships, age milestones, clothing changes and reload.",
+      "pass_condition": "All references retain identity and appropriate age/personality choices; no duplicate or substituted resident is created."
+    },
+    {
+      "id": "R09",
+      "title": "Complete Chinese, English and French UI, text input and readable layouts",
+      "classification": "partial",
+      "owners": [
+        "M25",
+        "M28",
+        "M31",
+        "M32"
+      ],
+      "sources": [
+        "src/application.cpp",
+        "src/ui.cpp",
+        "assets/locales/en.json",
+        "assets/locales/fr.json",
+        "assets/locales/zh.json"
+      ],
+      "implemented": "Matching EN/FR/ZH catalogues and native text rendering execute.",
+      "remaining": "Chinese composition, complete input/remapping and full-size/layout QA remain.",
+      "scenario": "AC09",
+      "procedure": "In each language enter/search a name using relevant keyboard/IME; exercise every screen at small and large supported sizes.",
+      "pass_condition": "Names and controls remain readable, editable and reachable without clipping, hidden buttons or broken focus."
+    },
+    {
+      "id": "R10",
+      "title": "Independent schedules, night shifts, sleep, meals, work, school and leisure",
+      "classification": "partial",
+      "owners": [
+        "M01",
+        "M02",
+        "M03",
+        "M12",
+        "M15",
+        "M20",
+        "M30"
+      ],
+      "sources": [
+        "src/routines.cpp",
+        "src/autonomy.cpp",
+        "src/education.cpp"
+      ],
+      "implemented": "Day/night shifts, needs, sleep, service choices and limited training exist.",
+      "remaining": "Deeper planning, dependents, qualifications and long-run schedule balance remain.",
+      "scenario": "AC10",
+      "procedure": "Observe day workers, night workers, students and carers for several days; remove their normal service or workplace.",
+      "pass_condition": "Actors visibly attend real activities, sleep on beds and replan needs/commutes without permanent task-failure loops."
+    },
+    {
+      "id": "R11",
+      "title": "Communication, relationships, households, families and dependent care",
+      "classification": "partial",
+      "owners": [
+        "M01",
+        "M02",
+        "M03",
+        "M15",
+        "M17",
+        "M19"
+      ],
+      "sources": [
+        "src/social.cpp",
+        "src/households.cpp",
+        "src/economy.cpp",
+        "src/browser_import.cpp"
+      ],
+      "implemented": "Nearby talks, shared trust, adult households, real meal aid and device messages exist.",
+      "remaining": "Event memory/rivalry/information decisions and native dependent families remain.",
+      "scenario": "AC11",
+      "procedure": "Build friendship, cause a grievance, communicate a witnessed fact, form a consenting household and interrupt a care errand.",
+      "pass_condition": "History changes later choices; only acquired information is known and real family/care commitments survive interruption/reload."
+    },
+    {
+      "id": "R12",
+      "title": "Personal items, shared/private storage, provisioning, wear, washing and clothes changes",
+      "classification": "partial",
+      "owners": [
+        "M02",
+        "M05",
+        "M08",
+        "M22",
+        "M23",
+        "M24"
+      ],
+      "sources": [
+        "src/personal_items.cpp",
+        "src/storage.cpp",
+        "src/washing.cpp",
+        "src/economy.cpp"
+      ],
+      "implemented": "Owned/carried items, consent-based lockers, tableware/cookers, laundry and spare outfits execute.",
+      "remaining": "Broader provisioning, movable contacts and modular paid wear/customization remain.",
+      "scenario": "AC12",
+      "procedure": "Purchase and deliver supplies; store/share/retrieve them; cook, wash and change clothes; attempt unauthorized access.",
+      "pass_condition": "Each item has one title/location; reservations, dirt/wear and ownership remain valid after theft, cancellation and reload."
+    },
+    {
+      "id": "R13",
+      "title": "Own/buy/rent/sell homes and possessions; theft and robbery consequences",
+      "classification": "partial",
+      "owners": [
+        "M01",
+        "M02",
+        "M06",
+        "M11",
+        "M17",
+        "M18",
+        "M23",
+        "M31"
+      ],
+      "sources": [
+        "src/economy.cpp",
+        "src/social.cpp",
+        "src/society.cpp",
+        "src/security.cpp"
+      ],
+      "implemented": "Homes/businesses and personal resale transfer real money/title; theft/recovery exists.",
+      "remaining": "Complete negotiation, parking/fleet decisions and cause-based consequences remain.",
+      "scenario": "AC13",
+      "procedure": "Rent/buy/list/sell an occupied home and a personal item; attempt theft; recover property through real custody.",
+      "pass_condition": "Leases, meeting distance, consent, payment and provenance prevent free transfers or remote handovers."
+    },
+    {
+      "id": "R14",
+      "title": "Food, water, toilets, showers, sinks, laundry, waste and repair facilities",
+      "classification": "partial",
+      "owners": [
+        "M20",
+        "M21",
+        "M22"
+      ],
+      "sources": [
+        "src/operations.cpp",
+        "src/washing.cpp",
+        "src/repairs.cpp",
+        "src/routines.cpp"
+      ],
+      "implemented": "Food/water/toilet/bathing/laundry/waste/repair/washing services execute.",
+      "remaining": "Fuller physical interiors, daily-life coverage and disaster cleanup remain.",
+      "scenario": "AC14",
+      "procedure": "Visit all daily-life services; exhaust staff, stock and waste capacity; close/reopen and repair a service.",
+      "pass_condition": "Unstaffed or unsupplied services stop appropriately; unattended permitted services continue; no stock or sanitation disappears for free."
+    },
+    {
+      "id": "R15",
+      "title": "Sparse pools, arcades, playgrounds, cinemas, gardens, libraries, gyms and preference-driven recreation",
+      "classification": "partial",
+      "owners": [
+        "M02",
+        "M22"
+      ],
+      "sources": [
+        "src/world.cpp",
+        "src/routines.cpp",
+        "src/operations.cpp"
+      ],
+      "implemented": "Sparse typed recreation and preference-sensitive visits exist.",
+      "remaining": "Density, venue variety and coupled happiness/scarcity tuning need acceptance.",
+      "scenario": "AC15",
+      "procedure": "Give contrasting preferences access to a cinema, food venue, gym/pool and shop with differing queues/prices.",
+      "pass_condition": "Residents choose explainably different affordable activities; recreation uses actual capacity and affects happiness."
+    },
+    {
+      "id": "R16",
+      "title": "Long real queues, capacity, prices, supplies, opening hours, workers and interruptions",
+      "classification": "partial",
+      "owners": [
+        "M02",
+        "M10",
+        "M12",
+        "M15",
+        "M25",
+        "M30"
+      ],
+      "sources": [
+        "src/queues.cpp",
+        "src/operations.cpp",
+        "src/routines.cpp"
+      ],
+      "implemented": "Visible tails, station reservations, shift gates, hours, prices and interruptions execute.",
+      "remaining": "General congestion recovery and whole-economy queue balance remain.",
+      "scenario": "AC16",
+      "procedure": "Join/cut a scarce service line; remove a worker; resume a prepaid visit; block and later clear the route.",
+      "pass_condition": "Physical queue order and paid progress persist, cutting can cause consequences, and benign changes do not duplicate charges or strand tasks."
+    },
+    {
+      "id": "R17",
+      "title": "Conserved accounts, migration capital, happiness and causal economic failure",
+      "classification": "partial",
+      "owners": [
+        "M02",
+        "M05",
+        "M06",
+        "M11",
+        "M16",
+        "M17",
+        "M20",
+        "M30"
+      ],
+      "sources": [
+        "src/economy.cpp",
+        "src/world.cpp",
+        "src/autonomy.cpp",
+        "src/companies.cpp"
+      ],
+      "implemented": "Conserved transfers, external sources/sinks, wages, migration and business accounts execute.",
+      "remaining": "Complete multi-day autonomous investment and adversarial economy balancing remain.",
+      "scenario": "AC17",
+      "procedure": "Track every account while residents arrive/leave, buy/work/build, die, receive refunds and suffer shortages.",
+      "pass_condition": "Internal changes net to zero except explicit external entries; happiness/migration and game over follow actual economic conditions."
+    },
+    {
+      "id": "R18",
+      "title": "Property premiums based on actual service/job/transport access, crowding, risk and condition",
+      "classification": "partial",
+      "owners": [
+        "M17",
+        "M30"
+      ],
+      "sources": [
+        "src/economy.cpp",
+        "src/housing_work.cpp",
+        "src/estates.cpp"
+      ],
+      "implemented": "Basic nearby-service housing premiums and retained leases execute.",
+      "remaining": "Actual queue/fare/noise/risk/condition pricing and contested succession remain.",
+      "scenario": "AC18",
+      "procedure": "Compare equivalent homes before/after service closure, transport access changes, crowding and damage; keep an active lease.",
+      "pass_condition": "Price changes reflect measured accessibility/conditions and never rewrite an existing lease by accident."
+    },
+    {
+      "id": "R19",
+      "title": "Live layout editing, beds/facilities/floors, expansion, planners, foremen and paid construction",
+      "classification": "partial",
+      "owners": [
+        "M04",
+        "M05",
+        "M06",
+        "M07",
+        "M16",
+        "M21",
+        "M24",
+        "M31"
+      ],
+      "sources": [
+        "src/structures.cpp",
+        "src/construction.cpp",
+        "src/crew_contracts.cpp",
+        "src/housing_work.cpp"
+      ],
+      "implemented": "Funded walls, bed/floor work, expansions, materials and cooperative crews execute.",
+      "remaining": "Partial slabs, arbitrary supported layouts, company workflows and structural consequences remain.",
+      "scenario": "AC19",
+      "procedure": "Plan a mixed interior, partial slab edit and extension; survey, quote, fund, deliver, build, cancel and reopen.",
+      "pass_condition": "Preview and actual geometry/nav/support agree; site access, paid work and real materials gate progress and payer title."
+    },
+    {
+      "id": "R20",
+      "title": "Ownership/leases, compensation, negotiation, physical eviction, resistance and casualties",
+      "classification": "partial",
+      "owners": [
+        "M04",
+        "M05",
+        "M06",
+        "M17"
+      ],
+      "sources": [
+        "src/construction.cpp",
+        "src/housing_work.cpp",
+        "src/structures.cpp"
+      ],
+      "implemented": "Owner checks, tenant consent, compensation and bounded forced bed relocation execute.",
+      "remaining": "Complete notices, negotiation, displacement and physical enforcement workflows remain.",
+      "scenario": "AC20",
+      "procedure": "Attempt ordinary and forced projects on rented, owned, shared-storage and commercial spaces with insufficient funds/refusal.",
+      "pass_condition": "Rights and funded compensation are preserved; forced action requires actual actors and can cause resistance/crime/casualties."
+    },
+    {
+      "id": "R21",
+      "title": "Companies, workspace, hiring, team direction, jobs, wages, investment and real profit",
+      "classification": "partial",
+      "owners": [
+        "M02",
+        "M05",
+        "M11",
+        "M12",
+        "M13",
+        "M14",
+        "M16",
+        "M25",
+        "M30",
+        "M31"
+      ],
+      "sources": [
+        "src/companies.cpp",
+        "src/office.cpp",
+        "src/equity.cpp",
+        "src/autonomy.cpp"
+      ],
+      "implemented": "Companies, leased workspaces, payroll/debt, leader assignments, shares and expansions execute.",
+      "remaining": "Full role/minigame, merger, insolvency and AI investment loops remain.",
+      "scenario": "AC21",
+      "procedure": "Found/rent/staff a company, assign work, meet a client contract, pay wages and grow or default.",
+      "pass_condition": "Profit comes from completed funded work, workspace and authority stay valid, and losses/claims persist across ownership changes."
+    },
+    {
+      "id": "R22",
+      "title": "Meaningful programming, administration and video-editing work",
+      "classification": "partial",
+      "owners": [
+        "M13",
+        "M14"
+      ],
+      "sources": [
+        "src/office.cpp",
+        "src/administration.cpp"
+      ],
+      "implemented": "Programming transforms datasets, admin handles real dispatch tickets, video scores clip order.",
+      "remaining": "A real trimming timeline and deeper distinct discipline tasks remain.",
+      "scenario": "AC22",
+      "procedure": "Play each discipline against a concrete brief; submit poor/good revisions, delegate and miss a deadline.",
+      "pass_condition": "Controls and scoring are discipline-specific; actual quality, time, staffing and client funds determine settlement."
+    },
+    {
+      "id": "R23",
+      "title": "Actual delivery, construction, sanitation, repair, retail, teaching, medicine, piloting and security work",
+      "classification": "partial",
+      "owners": [
+        "M05",
+        "M07",
+        "M09",
+        "M10",
+        "M11",
+        "M12",
+        "M13",
+        "M14",
+        "M16",
+        "M19",
+        "M20",
+        "M21",
+        "M24",
+        "M27"
+      ],
+      "sources": [
+        "src/economy.cpp",
+        "src/operations.cpp",
+        "src/medicine.cpp",
+        "src/security.cpp",
+        "src/crew_contracts.cpp"
+      ],
+      "implemented": "Core courier, builder, cleaner, medic, pilot, security and repair actions execute.",
+      "remaining": "Every accepted physical role needs complete player/NPC, interruption and presentation acceptance.",
+      "scenario": "AC23",
+      "procedure": "Play each physical job from paid offer to pickup/tools, travel, on-site action, delivery/result and wages; interrupt it mid-route.",
+      "pass_condition": "No timer awards remote work; people, equipment, client goods and funds reach their actual required places exactly once."
+    },
+    {
+      "id": "R24",
+      "title": "Staffed education, school schedules, learning and career qualifications",
+      "classification": "partial",
+      "owners": [
+        "M03",
+        "M12",
+        "M15"
+      ],
+      "sources": [
+        "src/education.cpp",
+        "src/routines.cpp"
+      ],
+      "implemented": "Staffed paid attendance, three exercise subjects and saved skills execute.",
+      "remaining": "Child curricula, qualifications and promotion progression remain.",
+      "scenario": "AC24",
+      "procedure": "Attend/teach school with capacity/material/staff limits, finish exercises, miss lessons and apply a qualification to work.",
+      "pass_condition": "Knowledge requires real attendance/results and affects legitimate opportunities; absent teaching cannot grant a diploma."
+    },
+    {
+      "id": "R25",
+      "title": "Devices, paid public/work computers and polished simulated DORMNET commerce/messages/work/news",
+      "classification": "partial",
+      "owners": [
+        "M13",
+        "M14",
+        "M25",
+        "M31"
+      ],
+      "sources": [
+        "src/economy.cpp",
+        "src/application.cpp"
+      ],
+      "implemented": "Device/paid terminal access, shopping, messages, real deliveries and business pages execute.",
+      "remaining": "Complete device-specific DORMNET, input and integration polish remain.",
+      "scenario": "AC25",
+      "procedure": "Use owned phone/laptop, employee computer and paid public terminal; lose access during work/order/message actions.",
+      "pass_condition": "Access and charges are real; offline/remote access does not fabricate information, stock or delivery and screens stay usable."
+    },
+    {
+      "id": "R26",
+      "title": "Melee/firearms, injuries/fatigue, surrender, lethal choices and causal falling/shoving",
+      "classification": "partial",
+      "owners": [
+        "M06",
+        "M07",
+        "M08",
+        "M09",
+        "M18",
+        "M19",
+        "M21",
+        "M24",
+        "M27",
+        "M30"
+      ],
+      "sources": [
+        "src/society.cpp",
+        "src/combat.cpp",
+        "src/airborne.cpp"
+      ],
+      "implemented": "Melee/firearms, intervening hits, fatigue, surrender, gravity and causal falls execute.",
+      "remaining": "Full contacts, injury depth, threat/personality choices and production feedback remain.",
+      "scenario": "AC26",
+      "procedure": "Fight, defend, surrender, execute, shove and fall with cover/bystanders, then seek care and reload.",
+      "pass_condition": "Hits respect reach/support, helpless killing is severe, injuries affect action and culpability persists."
+    },
+    {
+      "id": "R27",
+      "title": "Witness-based responsibility, self-defence, investigations, arrests, cells, escapes and police misconduct",
+      "classification": "partial",
+      "owners": [
+        "M01",
+        "M06",
+        "M11",
+        "M18",
+        "M19",
+        "M30"
+      ],
+      "sources": [
+        "src/security.cpp",
+        "src/death_reporting.cpp",
+        "src/prison_rescues.cpp"
+      ],
+      "implemented": "Observed reports, last-seen search, escorts, intake, escapes and recovered goods execute.",
+      "remaining": "Lockable cells, standalone restraints, richer evidence/search and misuse consequences remain.",
+      "scenario": "AC27",
+      "procedure": "Report witnessed/unwitnessed offences, investigate, arrest/escort, book into a real cell, escape/rescue and recover property.",
+      "pass_condition": "Unknown facts stay unknown; every arrest/custody/escape uses actual actors, cell space and known evidence."
+    },
+    {
+      "id": "R28",
+      "title": "Internal infirmaries, staffed care, ambulance hangars/crews, paid tiers and armed response",
+      "classification": "partial",
+      "owners": [
+        "M03",
+        "M10",
+        "M18",
+        "M20",
+        "M24",
+        "M27",
+        "M30"
+      ],
+      "sources": [
+        "src/medicine.cpp",
+        "src/transport.cpp"
+      ],
+      "implemented": "Internal clinics, real flying ambulances, staff and paid tiers/guards execute.",
+      "remaining": "Complete diagnosis, staffed hangars, coordinated armed response and capacity feedback remain.",
+      "scenario": "AC28",
+      "procedure": "Dispatch each tier under active violence, missing crews/fuel/space and traffic; treat after physical handover.",
+      "pass_condition": "Tier priority improves real available response, never instant rescue; equipment/staff/payment and patient location remain causal."
+    },
+    {
+      "id": "R29",
+      "title": "Real corpse pickup, capacity-limited morgues and cremation with costs/sanitation",
+      "classification": "partial",
+      "owners": [
+        "M03",
+        "M07",
+        "M19",
+        "M20",
+        "M21",
+        "M24",
+        "M27"
+      ],
+      "sources": [
+        "src/medicine.cpp",
+        "src/death_reporting.cpp",
+        "src/estates.cpp"
+      ],
+      "implemented": "Actual remains, carry/store/cremate, capacity, staffing and estates execute.",
+      "remaining": "Full sanitation/family effects, contacts/animation and disaster recovery remain.",
+      "scenario": "AC29",
+      "procedure": "Find a body, notify workers, transport to a full/available morgue, cremate with supplies and settle the estate.",
+      "pass_condition": "One body and one title/debt history persist; no remote disposal, duplicated inheritance or unpaid cremation."
+    },
+    {
+      "id": "R30",
+      "title": "Rare disease/accidents, fire, smoke, property damage and disaster response",
+      "classification": "partial",
+      "owners": [
+        "M05",
+        "M07",
+        "M20",
+        "M21",
+        "M30"
+      ],
+      "sources": [
+        "src/emergencies.cpp",
+        "src/fire_spread.cpp",
+        "src/fire_transport.cpp"
+      ],
+      "implemented": "Infection/immunity, local/connected-floor fire, smoke, goods/cargo loss and paid response execute.",
+      "remaining": "Ventilation/doors, construction/vehicle fire damage, structural failure and cleanup remain.",
+      "scenario": "AC30",
+      "procedure": "Cause a rare bounded outbreak/fire, operate barriers, evacuate, lose goods, treat casualties, clean and fund repairs.",
+      "pass_condition": "Traceable hazards respect geometry; losses, response and recovery consume real resources and never replace assets for free."
+    },
+    {
+      "id": "R31",
+      "title": "Expensive vehicles, stores, scarce paid parking, permission, fuel and maintenance",
+      "classification": "partial",
+      "owners": [
+        "M08",
+        "M09",
+        "M10",
+        "M11",
+        "M23"
+      ],
+      "sources": [
+        "src/vehicles.cpp",
+        "src/vehicle_services.cpp",
+        "src/economy.cpp"
+      ],
+      "implemented": "Owned vehicles/dealers, scarce bays, fuel, condition, repair and physical towing execute.",
+      "remaining": "Rolling/suspension, fuller damage/contacts, enforcement and autonomous fleets remain.",
+      "scenario": "AC31",
+      "procedure": "Buy with/without parking, drive loaded, collide/run out of fuel, request repair/tow and attempt an unauthorized drive.",
+      "pass_condition": "Purchase grants no free space; handling/load/permission matter and paid physical work recovers the actual vehicle."
+    },
+    {
+      "id": "R32",
+      "title": "Physical ramps, selected-floor paid/subscribed lifts, transport queues and towing",
+      "classification": "partial",
+      "owners": [
+        "M04",
+        "M08",
+        "M09",
+        "M10",
+        "M11",
+        "M29"
+      ],
+      "sources": [
+        "src/transport.cpp",
+        "src/roads.cpp",
+        "src/vehicle_services.cpp"
+      ],
+      "implemented": "Selected paid lifts, calls/capacity, ramps/freight platforms and continuous towing execute.",
+      "remaining": "General traffic/contacts/congestion and fuller operator interaction remain.",
+      "scenario": "AC32",
+      "procedure": "Queue at a sparse paid lift, board/ride/exit, take a loaded vehicle over a ramp/platform and interrupt/cancel transport.",
+      "pass_condition": "Fares/subscriptions/whitelists and capacity apply; no teleportation, clipped support or duplicated occupancy."
+    },
+    {
+      "id": "R33",
+      "title": "Custom C++ engine, Vulkan, suitable GPU parallel work and CPU/software fallback",
+      "classification": "partial",
+      "owners": [
+        "M26",
+        "M28",
+        "M29",
+        "M32"
+      ],
+      "sources": [
+        "src/renderer.cpp",
+        "src/gpu_skinning.cpp",
+        "src/world.cpp",
+        "CMakeLists.txt"
+      ],
+      "implemented": "Custom C++ engine/Vulkan, GPU instances/skinning and CPU/headless/software paths execute.",
+      "remaining": "Broad suitable simulation offload, streaming budgets and platform validation remain.",
+      "scenario": "AC33",
+      "procedure": "Run supported hardware and CPU presets on the same dense world; compare rules and profile parallel workloads.",
+      "pass_condition": "Both paths preserve validated simulation/accounting; documented performance and responsiveness budgets are measured."
+    },
+    {
+      "id": "R34",
+      "title": "Licensed assets, multiple formats, modular people/clothes/beds/closets/vehicles",
+      "classification": "partial",
+      "owners": [
+        "M09",
+        "M22",
+        "M23",
+        "M26",
+        "M29",
+        "M32"
+      ],
+      "sources": [
+        "src/assets.cpp",
+        "src/characters.cpp",
+        "src/customization.cpp",
+        "assets/models/manifest.json"
+      ],
+      "implemented": "glTF/GLB/OBJ and PBR assets have provenance; tint/style configuration exists.",
+      "remaining": "Modular paid components and robust full import/animation/customization pipeline remain.",
+      "scenario": "AC34",
+      "procedure": "Load each supported format and malformed input; fit/modify owned people, beds, closets and vehicles through paid work.",
+      "pass_condition": "Imports fail clearly; licensed components persist, alter visible geometry and obey ownership rather than free palette-only upgrades."
+    },
+    {
+      "id": "R35",
+      "title": "Good lighting/materials/shadows, stable rendering and polished interaction animation",
+      "classification": "partial",
+      "owners": [
+        "M22",
+        "M23",
+        "M24",
+        "M26",
+        "M27",
+        "M29"
+      ],
+      "sources": [
+        "src/renderer.cpp",
+        "src/characters.cpp",
+        "src/application.cpp"
+      ],
+      "implemented": "PBR, shadows/lights, procedural blended poses, body clothing snapshots and smoke execute.",
+      "remaining": "Reference art, contact IK, imported animation, final lighting and motion stability remain.",
+      "scenario": "AC35",
+      "procedure": "Inspect all reference scenes in motion while walking, climbing, sleeping, using tools, fighting and carrying.",
+      "pass_condition": "Good lighting/material scale and correct contacts remain stable under camera rotation and interruption."
+    },
+    {
+      "id": "R36",
+      "title": "Production UI, sound, input/accessibility and platform-ready packaging",
+      "classification": "partial",
+      "owners": [
+        "M25",
+        "M26",
+        "M27",
+        "M28",
+        "M31",
+        "M32"
+      ],
+      "sources": [
+        "src/ui.cpp",
+        "src/application.cpp",
+        "src/audio.cpp",
+        "src/preferences.cpp",
+        "tools/package_candidate.py"
+      ],
+      "implemented": "Minimal Survival drawer, saved controls/audio, procedural sound and Linux packages execute.",
+      "remaining": "Complete polished UI/input/IME/accessibility, sound acoustics and Windows validation remain.",
+      "scenario": "AC36",
+      "procedure": "Use complete loops with keyboard/mouse at supported sizes/languages, mute/unplug audio, relocate install and recover saves.",
+      "pass_condition": "Critical controls remain discoverable/reachable, cues work without audio, and supported clean player installs need no compiler."
+    },
+    {
+      "id": "R37",
+      "title": "Shares, acquisitions, deeper company finance, insolvency and personal/corporate inheritance",
+      "classification": "partial",
+      "owners": [
+        "M16",
+        "M17"
+      ],
+      "sources": [
+        "src/equity.cpp",
+        "src/companies.cpp",
+        "src/estates.cpp"
+      ],
+      "implemented": "Conserved shares/dividends, voted subsidiary acquisition and personal/simple corporate succession execute.",
+      "remaining": "Negotiated legal mergers, insolvency/liquidation and contested estates remain.",
+      "scenario": "AC37",
+      "procedure": "Trade/finance/merge businesses, default with creditors, die with disputed assets and receive a late refund.",
+      "pass_condition": "Authority/claims/assets transfer once with priority, consent and actual funds; debts and leases never disappear."
+    },
+    {
+      "id": "R38",
+      "title": "Finished playable loops, long-run scarcity balance, supported hardware and shipping quality",
+      "classification": "partial",
+      "owners": [
+        "M00",
+        "M28",
+        "M29",
+        "M30",
+        "M31",
+        "M32"
+      ],
+      "sources": [
+        "docs/status.md",
+        "docs/releasing.md",
+        "tools/package_candidate.py"
+      ],
+      "implemented": "Bounded native/rendered/memory checks and portable development candidates exist.",
+      "remaining": "Full scenario acceptance, multi-seed long runs, measured hardware and final release gates remain.",
+      "scenario": "AC38",
+      "procedure": "Run the M30 seed matrix, M31 whole-game scenarios and M32 clean-install release procedure against the exact candidate.",
+      "pass_condition": "All accepted gates pass with retained evidence, no P0/P1 defect remains and the exact shipped packages are verified."
+    }
+  ],
+  "browser_parity": [
+    {
+      "id": "B01",
+      "feature": "Identity, names, wallets and home titles",
+      "classification": "implemented",
+      "source": "src/browser_import.cpp",
+      "owner": "M28",
+      "scenario": "AC07",
+      "policy": "IDs/title holders remain stable; native names gain EN/FR forms. Continue normal native accounts without replaying historical money."
+    },
+    {
+      "id": "B02",
+      "feature": "Facility types, stock, queues and prepaid service",
+      "classification": "implemented",
+      "source": "src/browser_import.cpp",
+      "owner": "M28",
+      "scenario": "AC16",
+      "policy": "All 14 browser facility kinds map natively; queue order and remaining prepaid work are retained without charging twice."
+    },
+    {
+      "id": "B03",
+      "feature": "Phone/fan/coat/tableware/rice cooker/food and timed use",
+      "classification": "implemented",
+      "source": "src/browser_import.cpp",
+      "owner": "M28",
+      "scenario": "AC12",
+      "policy": "Six legacy items and their ownership/listings convert; actual native household use replaces the browser activity scheduler."
+    },
+    {
+      "id": "B04",
+      "feature": "Daily appointments, bath/meals/toilet/sleep/work/school",
+      "classification": "partial",
+      "source": "src/routines.cpp",
+      "owner": "M02",
+      "scenario": "AC10",
+      "policy": "Native schedules replace browser markers; dependent family/school progression still needs completion."
+    },
+    {
+      "id": "B05",
+      "feature": "Free-floor camera, possession, ladder interaction and physical queues",
+      "classification": "partial",
+      "source": "src/application.cpp",
+      "owner": "M25",
+      "scenario": "AC04",
+      "policy": "Native equivalents execute; complete collision/input/help and presentation acceptance remain."
+    },
+    {
+      "id": "B06",
+      "feature": "Ageing, partner, mother/father and dependents",
+      "classification": "archive_only",
+      "source": "src/browser_import.cpp",
+      "owner": "M03",
+      "scenario": "AC11",
+      "policy": "Age at conversion is retained; kin/partner records are archived. No active native family lifecycle exists."
+    },
+    {
+      "id": "B07",
+      "feature": "Pregnancy, fertility, birth event and newborn care",
+      "classification": "archive_only",
+      "source": "src/browser_import.cpp",
+      "owner": "M03",
+      "scenario": "AC11",
+      "policy": "Pregnancy/birth records and experimental fertility survive only in browserArchive; no native scheduled birth continues."
+    },
+    {
+      "id": "B08",
+      "feature": "Friendship encounter counts and social needs",
+      "classification": "partial",
+      "source": "src/browser_import.cpp",
+      "owner": "M01",
+      "scenario": "AC11",
+      "policy": "Encounter counts become bounded trust; original social state/history is archived and richer event memory remains."
+    },
+    {
+      "id": "B09",
+      "feature": "Earned/spent, causes, marriages/birth/death totals and time-series statistics",
+      "classification": "archive_only",
+      "source": "src/browser_import.cpp",
+      "owner": "M28",
+      "scenario": "AC07",
+      "policy": "Historical counters/logs are archived rather than mapped to native analytics; restore as history without posting money twice."
+    },
+    {
+      "id": "B10",
+      "feature": "Experiment settings and interventions",
+      "classification": "archive_only",
+      "source": "src/browser_import.cpp",
+      "owner": "M25",
+      "scenario": "AC05",
+      "policy": "Original parameters remain archived; native policies/cheats do not yet expose every equivalent rule."
+    },
+    {
+      "id": "B11",
+      "feature": "Deterministic browser event/RNG continuation",
+      "classification": "replaced",
+      "source": "src/browser_import.cpp",
+      "owner": "M28",
+      "scenario": "AC07",
+      "policy": "No bit-identical cross-engine schedule replay is promised. The native engine regenerates routes and clocks; preserve required gameplay outcomes and identities."
+    },
+    {
+      "id": "B12",
+      "feature": "CSV statistics export and charts",
+      "classification": "missing",
+      "source": "src/application.cpp",
+      "owner": "M25",
+      "scenario": "AC05",
+      "policy": "Browser StatisticsPanel exports CSV; the native summary does not yet provide the same history chart/export workflow."
+    },
+    {
+      "id": "B13",
+      "feature": "Outside city/island and Creative mode",
+      "classification": "cancelled",
+      "source": "docs/requirements.md",
+      "owner": "M00",
+      "scenario": "AC01",
+      "policy": "Explicitly cancelled by later user revisions. Do not implement their legacy visuals as release blockers."
+    },
+    {
+      "id": "B14",
+      "feature": "IndexedDB autosave and bounded fast-forward/cancel",
+      "classification": "partial",
+      "source": "src/application.cpp",
+      "owner": "M28",
+      "scenario": "AC07",
+      "policy": "Native named slots/backups/time controls exist; match safe autosave and cancellable long-run workflow, not browser storage APIs."
+    }
+  ],
+  "scope_rules": [
+    "All 38 requirements and 14 parity rows belong to existing M00–M32; no extra milestone was introduced.",
+    "Family scope is the retained browser lifecycle plus causal dependent care, not an unlimited family-law simulator.",
+    "Evidence/search, structural integrity and smoke are bounded gameplay models; scientific fluid simulation, an entire court system and deformable car bodies are not additional release blockers.",
+    "Preserve historical browser counters as labelled pre-conversion history; never replay their transactions into native balances.",
+    "Platform claims require real validation. Linux is primary; Windows remains a recorded plan gate, not verified support."
+  ]
+}

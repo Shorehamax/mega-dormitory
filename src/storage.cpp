@@ -202,9 +202,13 @@ void World::withdrawStorage(Id actor, Id item, bool steal) {
   i.pos = position(actor);
   r.items.push_back(item);
   log(permitted ? "storage.collected" : "crime.stolen", actor, permitted ? item : victim);
-  if (victim != none && residents[victim].alive && residents[victim].present &&
+  bool noticed =
+      victim != none && residents[victim].alive && residents[victim].present &&
       residents[victim].activity != Activity::Sleeping && near(victim, position(actor), 4) &&
-      lineOfSight(position(victim) + Vec3{0, 1.5f, 0}, position(actor) + Vec3{0, 1.5f, 0})) {
+      lineOfSight(position(victim) + Vec3{0, 1.5f, 0}, position(actor) + Vec3{0, 1.5f, 0});
+  if (victim != none)
+    rememberEncounter(actor, victim, EncounterKind::Theft, -.025f, -.65f, noticed);
+  if (noticed) {
     auto &owner = residents[victim];
     owner.happiness = std::max(0.f, owner.happiness - .2f);
     if (!owner.surrendered && owner.aggression > .55f)

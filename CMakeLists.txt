@@ -186,3 +186,15 @@ add_executable(mega_fire_transport_tests tests/fire_transport_tests.cpp)
 target_include_directories(mega_fire_transport_tests PRIVATE third_party)
 target_link_libraries(mega_fire_transport_tests PRIVATE mega_world)
 add_test(NAME vertical_fire_smoke_and_cargo COMMAND mega_fire_transport_tests)
+
+add_executable(mega_social_tests tests/social_tests.cpp)
+target_include_directories(mega_social_tests PRIVATE third_party)
+target_link_libraries(mega_social_tests PRIVATE mega_world)
+add_test(NAME social_encounter_memory COMMAND mega_social_tests)
+
+if(MEGA_VULKAN_TESTS)
+  add_test(NAME vulkan_social_history COMMAND mega_dormitory --demo --floors 20 --population 40 --panel social --frames 3 --menu-scroll 920 --width 1000 --height 720)
+  set_tests_properties(vulkan_social_history PROPERTIES
+    ENVIRONMENT "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;MEGA_AUDIO_DEVICE=null"
+    FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
+endif()

@@ -45,6 +45,9 @@ void World::cutQueue(Id id, Id fid, std::size_t place) {
   f.queue.insert(f.queue.begin() + static_cast<std::ptrdiff_t>(place), id);
   layoutQueue(fid);
   recordCrime(CrimeKind::QueueCutting, id, victim);
+  bool noticed = near(victim, position(id), 24) &&
+                 lineOfSight(position(victim) + Vec3{0, 1.3f, 0}, position(id) + Vec3{0, 1.3f, 0});
+  rememberEncounter(id, victim, EncounterKind::QueueCut, -.01f, -.2f, noticed);
   residents[victim].happiness = std::max(0.f, residents[victim].happiness - .12f);
   if (residents[victim].aggression > .7f && random() < residents[victim].aggression) {
     leaveQueue(victim);
@@ -107,6 +110,10 @@ void World::combatHit(Id attacker, Id victim, bool lethal, float reach) {
   }
   float damage = lethal ? (helpless ? 110 : 38) : std::clamp(a.strength * .23f, 5.f, 24.f);
   v.health -= damage;
+  bool recognized =
+      near(victim, position(attacker), 24) &&
+      lineOfSight(position(victim) + Vec3{0, 1.3f, 0}, position(attacker) + Vec3{0, 1.3f, 0});
+  rememberEncounter(attacker, victim, EncounterKind::Assault, -.05f, -.85f, recognized);
   a.energy = std::max(0.f, a.energy - .025f);
   if (v.health <= 0) {
     kill(victim, attacker, justified);
@@ -742,13 +749,30 @@ void World::validate() const {
   if (governance.askingPrice < 0 ||
       (governance.successor != none && !residentValid(governance.successor)))
     throw std::runtime_error("Invalid succession record");
-  for (auto &[key, b] : relationships)
+  for (auto &[key, b] : relationships) {
     if (!residentValid(b.a) || !residentValid(b.b) || b.a >= b.b ||
         key != ((std::uint64_t(b.a) << 32) | std::uint32_t(b.b)) || !std::isfinite(b.trust) ||
         b.trust < -1 || b.trust > 1 || !std::isfinite(b.lastTalk) || !std::isfinite(b.lastAid) ||
         b.lastAid > time || b.sharedInterest < 0 || b.sharedInterest > 7 || b.conversations < 0 ||
         b.conversations > 1000000)
       throw std::runtime_error("Invalid relationship");
+    if (!std::isfinite(b.regardA) || !std::isfinite(b.regardB) || b.regardA < -2 || b.regardA > 2 ||
+        b.regardB < -2 || b.regardB > 2 || std::abs(b.trust + b.regardA) > 1.00001f ||
+        std::abs(b.trust + b.regardB) > 1.00001f || b.memories.size() > 16)
+      throw std::runtime_error("Invalid directional relationship");
+    double previous = 0;
+    for (const auto &memory : b.memories) {
+      if (int(memory.kind) < 0 || int(memory.kind) > int(EncounterKind::QueueCut) ||
+          (memory.actor != b.a && memory.actor != b.b) || !std::isfinite(memory.time) ||
+          memory.time < previous || memory.time > time || !std::isfinite(memory.changeA) ||
+          !std::isfinite(memory.changeB) || std::abs(memory.changeA) > 2 ||
+          std::abs(memory.changeB) > 2 || (!memory.knownToA && memory.changeA != 0) ||
+          (!memory.knownToB && memory.changeB != 0) ||
+          (memory.actor == b.a ? !memory.knownToA : !memory.knownToB))
+        throw std::runtime_error("Invalid encounter memory");
+      previous = memory.time;
+    }
+  }
   for (std::size_t i = 0; i < housingWorks.size(); ++i) {
     const auto &p = housingWorks[i];
     if (p.id != Id(i) || !residentValid(p.actor) || !accountValid(p.payer) ||

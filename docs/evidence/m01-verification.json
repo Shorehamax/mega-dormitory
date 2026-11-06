@@ -1,0 +1,71 @@
+{
+  "recorded": "2026-11-06",
+  "task": "M01.1",
+  "code_predecessor": "1c77959f2643ba54092f480e4f3b6e717d129278",
+  "executable_sha256": "1eaff9f4097a95f97d24f541e7a5824388b1774caa1a73431c6be06a4b5e49d4",
+  "checks": [
+    {
+      "name": "Assault regression before/after",
+      "before": "Victim trust before=0, after assault=0; probe failed as expected.",
+      "after": "Victim trust before=0, after assault=-0.85; probe passed.",
+      "evidence": [
+        "docs/evidence/m01-baseline-social.log",
+        "docs/evidence/m01-fixed-social.log"
+      ]
+    },
+    {
+      "name": "Dedicated social rule checks",
+      "result": "18 passed, 0 failed",
+      "evidence": "docs/evidence/m01-social-tests.log"
+    },
+    {
+      "name": "Relevant release regressions",
+      "result": "8/8 passed in 1.11 seconds: import, locale, body physics, autonomy, evidence/custody, storage, estates and social memory.",
+      "evidence": "docs/evidence/m01-focused-tests.log"
+    },
+    {
+      "name": "Address/undefined-behavior/leak checks",
+      "result": "5/5 passed in 31.92 seconds: import, autonomy, evidence/custody, estates and social memory.",
+      "evidence": "docs/evidence/m01-asan-verified.log",
+      "note": "The restricted traced process could not run LeakSanitizer. The final normal-desktop process reran the same five suites with leak detection enabled; no sanitizer error was reported."
+    },
+    {
+      "name": "Localized rendered interface",
+      "result": "French NVIDIA RTX 5070 and Chinese llvmpipe software-Vulkan both passed the actual greeting/assault/apology fixture at 1000x720 under Vulkan validation. Captures inspected for labels, wrapping and control access.",
+      "evidence": [
+        "docs/evidence/m01-social-final-fr.log",
+        "docs/evidence/m01-social-final-zh.log",
+        "docs/evidence/m01-social-fr.png",
+        "docs/evidence/m01-social-zh.png"
+      ]
+    },
+    {
+      "name": "Default-size continuity",
+      "result": {
+        "population": 100000,
+        "living": 100000,
+        "floors": 2000,
+        "facilities": 2051,
+        "queued": 14472,
+        "resident_plans": 38712,
+        "orders_placed": 0,
+        "orders_delivered": 0,
+        "simulated_seconds": 3600,
+        "happiness": 0.54215,
+        "internal_money_cents": 8575164689,
+        "generation_seconds": 0.842086,
+        "run_seconds": 21.9619
+      }
+    },
+    {
+      "name": "Localization and inventory",
+      "result": "1,126 matching locale keys; 38 requirements and 14 parity decisions have concrete acceptance scenarios and valid owners."
+    }
+  ],
+  "limits": [
+    "M01.2–M01.4 remain incomplete; no whole-milestone or finished-game claim.",
+    "The rendered fixture is scripted in-game play, not a manual whole-game playthrough.",
+    "A default-size one-hour continuation does not establish long-run balance or performance acceptance.",
+    "Complete package verification is recorded by the generated candidate report and adjacent check log."
+  ]
+}

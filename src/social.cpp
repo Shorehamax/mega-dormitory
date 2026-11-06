@@ -7,7 +7,94 @@ static std::uint64_t pairKey(Id a, Id b) {
 }
 float World::trust(Id a, Id b) const {
   auto it = relationships.find(pairKey(a, b));
-  return it == relationships.end() ? 0 : it->second.trust;
+  if (it == relationships.end())
+    return 0;
+  const auto &bond = it->second;
+  return std::clamp(bond.trust + (a == bond.a ? bond.regardA : bond.regardB), -1.f, 1.f);
+}
+Relationship *World::ensureRelationship(Id a, Id b) {
+  if (a == b)
+    return nullptr;
+  auto key = pairKey(a, b);
+  auto found = relationships.find(key);
+  if (found != relationships.end())
+    return &found->second;
+  if (relationships.size() >= 100000) {
+    auto candidate = relationships.end();
+    double oldest = time;
+    for (auto it = relationships.begin(); it != relationships.end(); ++it) {
+      const auto &bond = it->second;
+      // Retain real friendships, grievances and household ties before weak contacts.
+      if (trust(bond.a, bond.b) >= .5f || trust(bond.b, bond.a) >= .5f ||
+          trust(bond.a, bond.b) <= -.35f || trust(bond.b, bond.a) <= -.35f ||
+          (householdOf(bond.a) != none && householdOf(bond.a) == householdOf(bond.b)))
+        continue;
+      double recent = bond.memories.empty() ? bond.lastTalk : bond.memories.back().time;
+      if (recent < oldest) {
+        oldest = recent;
+        candidate = it;
+      }
+    }
+    if (candidate == relationships.end())
+      return nullptr;
+    relationships.erase(candidate);
+  }
+  auto &bond = relationships[key];
+  bond.a = std::min(a, b);
+  bond.b = std::max(a, b);
+  return &bond;
+}
+std::vector<EncounterMemory> World::relationshipHistory(Id observer, Id other) const {
+  std::vector<EncounterMemory> result;
+  auto found = relationships.find(pairKey(observer, other));
+  if (found == relationships.end())
+    return result;
+  const auto &bond = found->second;
+  for (const auto &memory : bond.memories)
+    if (observer == bond.a ? memory.knownToA : memory.knownToB)
+      result.push_back(memory);
+  return result;
+}
+RelationshipStatus World::relationshipStatus(Id observer, Id other) const {
+  float opinion = trust(observer, other);
+  if (opinion >= .5f)
+    return RelationshipStatus::Friend;
+  if (opinion <= -.35f)
+    return RelationshipStatus::Rival;
+  auto found = relationships.find(pairKey(observer, other));
+  bool known = found != relationships.end() &&
+               (found->second.conversations > 0 || !relationshipHistory(observer, other).empty());
+  return known ? RelationshipStatus::Acquaintance : RelationshipStatus::Stranger;
+}
+void World::rememberEncounter(Id actor, Id other, EncounterKind kind, float actorChange,
+                              float otherChange, bool otherAware) {
+  auto person = [&](Id who) { return who >= 0 && std::size_t(who) < residents.size(); };
+  if (!person(actor) || !person(other) || actor == other || int(kind) < 0 ||
+      int(kind) > int(EncounterKind::QueueCut) || !std::isfinite(actorChange) ||
+      !std::isfinite(otherChange))
+    throw std::runtime_error("Invalid social encounter");
+  auto *bond = ensureRelationship(actor, other);
+  if (!bond)
+    return;
+  EncounterMemory memory;
+  memory.kind = kind;
+  memory.actor = actor;
+  memory.time = time;
+  memory.knownToA = actor == bond->a || otherAware;
+  memory.knownToB = actor == bond->b || otherAware;
+  auto adjust = [&](float &regard, float change) {
+    float before = std::clamp(bond->trust + regard, -1.f, 1.f);
+    float after = std::clamp(before + change, -1.f, 1.f);
+    regard = after - bond->trust;
+    return after - before;
+  };
+  float changeA = actor == bond->a ? actorChange : (otherAware ? otherChange : 0);
+  float changeB = actor == bond->b ? actorChange : (otherAware ? otherChange : 0);
+  memory.changeA = adjust(bond->regardA, changeA);
+  memory.changeB = adjust(bond->regardB, changeB);
+  bond->memories.push_back(memory);
+  if (bond->memories.size() > 16)
+    bond->memories.erase(bond->memories.begin());
 }
 std::string World::talk(Id speaker, Id listener, int topic) {
   auto &a = residents.at(speaker);
@@ -15,21 +102,17 @@ std::string World::talk(Id speaker, Id listener, int topic) {
   if (speaker == listener || !a.alive || !a.present || !b.alive || !b.present || topic < 0 ||
       topic > 5 || !near(speaker, position(listener), 2.5f) || b.activity == Activity::Sleeping ||
       b.activity == Activity::Fighting || a.activity == Activity::Fighting ||
+      a.activity == Activity::Sleeping ||
       !lineOfSight(position(speaker) + Vec3{0, 1.4f, 0}, position(listener) + Vec3{0, 1.4f, 0}))
     throw std::runtime_error("Reach an awake resident who can hear you");
   auto key = pairKey(speaker, listener);
   auto it = relationships.find(key);
   if (it != relationships.end() && time - it->second.lastTalk < 300)
     throw std::runtime_error("Give this person time before talking again");
-  if (relationships.size() >= 100000 && !relationships.contains(key)) {
-    auto oldest = std::min_element(
-        relationships.begin(), relationships.end(),
-        [](const auto &a, const auto &b) { return a.second.lastTalk < b.second.lastTalk; });
-    relationships.erase(oldest);
-  }
-  auto &bond = relationships[key];
-  bond.a = std::min(speaker, listener);
-  bond.b = std::max(speaker, listener);
+  auto *contact = ensureRelationship(speaker, listener);
+  if (!contact)
+    throw std::runtime_error("Too many active social commitments");
+  auto &bond = *contact;
   bond.lastTalk = time;
   bond.conversations = std::min(1000000, bond.conversations + 1);
   int interest =
@@ -37,23 +120,26 @@ std::string World::talk(Id speaker, Id listener, int topic) {
   bond.sharedInterest = interest;
   std::string reply;
   if (topic == 0) {
-    bond.trust = std::min(1.f, bond.trust + .05f * (1 - b.aggression));
+    float change = .05f * (1 - b.aggression);
+    rememberEncounter(speaker, listener, EncounterKind::Greeting, change, change);
     reply = b.aggression > .6f ? "talk.guarded" : "talk.greet_reply";
   }
   if (topic == 1) {
     float affinity = 1 - std::abs(a.interests[interest] - b.interests[interest]);
-    bond.trust = std::clamp(bond.trust + .1f * affinity - .02f, -1.f, 1.f);
+    float change = .1f * affinity - .02f;
+    rememberEncounter(speaker, listener, EncounterKind::Interests, change, change);
     reply = "talk.interest" + std::to_string(interest);
     a.happiness = std::min(1.f, a.happiness + .015f * affinity);
     b.happiness = std::min(1.f, b.happiness + .015f * affinity);
   }
   if (topic == 2) {
+    rememberEncounter(speaker, listener, EncounterKind::Work, 0, 0);
     reply = b.role == Role::Unemployed ? "talk.job_seeking"
             : onShift(listener)        ? "talk.job_busy"
                                        : "talk.job_rest";
   }
   if (topic == 3) {
-    bond.trust = std::max(-1.f, bond.trust - .3f);
+    rememberEncounter(speaker, listener, EncounterKind::Insult, -.05f, -.3f);
     b.happiness = std::max(0.f, b.happiness - .03f);
     reply = "talk.insult_reply";
     if (b.aggression > .65f && b.strength > a.strength * .75f && time >= b.nextHit &&
@@ -66,8 +152,8 @@ std::string World::talk(Id speaker, Id listener, int topic) {
     }
   }
   if (topic == 4) {
-    if (bond.trust < .1f)
-      bond.trust = std::min(.1f, bond.trust + .12f);
+    float repair = std::clamp(.1f - trust(listener, speaker), 0.f, .12f);
+    rememberEncounter(speaker, listener, EncounterKind::Apology, std::min(.02f, repair), repair);
     reply = "talk.apology_reply";
   }
   if (topic == 5)
@@ -105,7 +191,8 @@ void World::buyItem(Id buyer, Id id) {
     throw std::runtime_error("This item is not available for purchase");
   auto &seller = residents.at(i.seller);
   if (!seller.alive || !seller.present || i.owner != seller.account || i.carrier != seller.id ||
-      seller.outfit == id || !near(buyer, position(seller.id), 2.5f))
+      seller.outfit == id || !near(buyer, position(seller.id), 2.5f) ||
+      !lineOfSight(position(buyer) + Vec3{0, 1.3f, 0}, position(seller.id) + Vec3{0, 1.3f, 0}))
     throw std::runtime_error("Meet the seller for a physical handover");
   pay(r.account, seller.account, i.askingPrice, "personal-item-resale");
   std::erase(seller.items, id);
@@ -116,6 +203,7 @@ void World::buyItem(Id buyer, Id id) {
   i.seller = none;
   i.askingPrice = 0;
   itemOffers.erase(id);
+  rememberEncounter(buyer, seller.id, EncounterKind::Trade, .025f, .025f);
   log("trade.completed", buyer, id);
 }
 bool World::shareFood(Id donor, Id recipient) {
@@ -126,8 +214,8 @@ bool World::shareFood(Id donor, Id recipient) {
   if (donor == recipient || !a.alive || !a.present || !b.alive || !b.present ||
       a.aggression > .6f || b.hunger < .55f || a.surrendered || a.activity == Activity::Fighting ||
       b.activity == Activity::Fighting || bond == relationships.end() ||
-      bond->second.trust < .35f || time - bond->second.lastAid < 21600 ||
-      !near(donor, position(recipient), 2.5f) ||
+      trust(donor, recipient) < .35f || trust(recipient, donor) < .35f ||
+      time - bond->second.lastAid < 21600 || !near(donor, position(recipient), 2.5f) ||
       !lineOfSight(position(donor) + Vec3{0, 1.3f, 0}, position(recipient) + Vec3{0, 1.3f, 0}))
     return false;
   std::vector<Id> meals;
@@ -150,7 +238,7 @@ bool World::shareFood(Id donor, Id recipient) {
   meal.seller = none;
   itemOffers.erase(item);
   bond->second.lastAid = time;
-  bond->second.trust = std::min(1.f, bond->second.trust + .12f);
+  rememberEncounter(donor, recipient, EncounterKind::Meal, .04f, .12f);
   a.happiness = std::min(1.f, a.happiness + .025f);
   b.happiness = std::min(1.f, b.happiness + .04f);
   if (residentPlans.contains(donor))

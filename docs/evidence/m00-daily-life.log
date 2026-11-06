@@ -1,0 +1,24 @@
+Asset old_bed_frame: 49990 triangles
+Asset plastic_monobloc_chair_01: 3356 triangles
+Asset painted_wooden_table: 600 triangles
+Asset metal_trash_can: 13960 triangles
+Asset painted_wooden_cabinet_02: 966 triangles
+Asset wheelchair_01: 40252 triangles
+Asset concrete_floor_02: 2 triangles
+Asset sedan: 2032 triangles
+Asset van: 2082 triangles
+Asset ambulance: 2804 triangles
+Asset resident_Male: 14318 triangles
+Character LOD resident_Male: 3085 triangles
+Asset resident_Female: 15060 triangles
+Character LOD resident_Female: 2760 triangles
+Vulkan device: NVIDIA GeForce RTX 5070; MSAA 4x
+LIFE PLAYTEST: hungry housemate, stocked donor, teacher walking to class
+LIFE PLAYTEST: physical meal handover; teacher on site, walking to class
+LIFE PLAYTEST: attended lesson and exercises completed; skill 0.04
+LIFE PLAYTEST PASS: physical household aid, actual teacher commute, paid lesson, exercises and continuous movement; max step 0.720058 m
+Render loop seconds: 4.67224
+CPU scene build seconds: 0.308697
+GPU floor instances: 4247
+GPU skinned vertices: 104772
+Rendered 257 frames

@@ -4,6 +4,14 @@
 
 This is a development build, not a declaration that the complete accepted design has shipped. The reference-image fidelity and production polish have not been achieved. The former island/city and Creative mode are superseded by the dormitory-focused requirements in `requirements.md`.
 
+## One-time baseline audit and resident encounter memory (6 November 2026)
+
+- M00 inventories the 38 accepted requirements and fourteen browser parity decisions, with concrete acceptance scenarios and source references. The latest preserved output matches the facility revision source exactly. Family/pregnancy/birth continuation and historical charts/CSV are explicitly unfinished; archived state is not treated as execution. See [feature inventory](feature-inventory.md), [acceptance register](acceptance-register.json) and [baseline evidence](baseline-evidence.json).
+- M01.1 adds directional regard, friendship/rivalry status and bounded persistent encounters caused by real conversations, paid trades, meal aid, violence, recognized theft, queue cutting and rescue. Unknown offences do not reveal a named offender through a victim's private history. Earlier shared-trust saves migrate without invented events; death/departure preserves history.
+- Conversation controls show the nearby person's status and recent known encounters in all three languages. Meal consent and fallback inheritance respect directional opinions. M01.2 information transfer, M01.3 richer decisions and M01.4 complete history controls remain active work. Read [social rules and limits](social.md).
+
+Verification for this task is recorded in `docs/evidence/m01-verification.json`; these bounded checks do not complete M01 or the game.
+
 ## Vertical fire, smoke and cargo damage (3 November 2026)
 
 - Intact slabs now block immediate upstairs hazards. Heat can ignite exposed upper businesses through real openings; smoke fills connected upper levels over time, respects partitions/doorway gaps and freight platforms, and persists after source containment. Funds are not refunded as an all-clear while upper smoke remains. Obsolete arriving responders finish without a false task interruption.
