@@ -57,6 +57,9 @@ void World::observeCrime(Id id) {
                            knows, false});
     c.witnesses.back().seenScene = c.pos;
     c.discovered = true;
+    observeInformation(id, InformationKind::Witness, c.id);
+    if (id == c.victim && (c.kind == CrimeKind::Assault || c.kind == CrimeKind::ExcessiveForce))
+      observeInformation(id, InformationKind::Threat, c.id);
   }
   if (c.kind == CrimeKind::Murder) {
     for (auto it = incidents.rbegin(); it != incidents.rend(); ++it)

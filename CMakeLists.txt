@@ -8,7 +8,7 @@ find_package(glfw3 3.3 REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(ZLIB REQUIRED)
 pkg_check_modules(ZSTD REQUIRED IMPORTED_TARGET libzstd)
-add_library(mega_world src/world.cpp src/economy.cpp src/society.cpp src/persistence.cpp src/vehicles.cpp src/routines.cpp src/customization.cpp src/movement.cpp src/construction.cpp src/medicine.cpp src/operations.cpp src/transport.cpp src/office.cpp src/combat.cpp src/governance.cpp src/repairs.cpp src/housing_work.cpp src/social.cpp src/administration.cpp src/companies.cpp src/emergencies.cpp src/browser_import.cpp src/personal_items.cpp src/airborne.cpp src/washing.cpp src/autonomy.cpp src/structures.cpp src/roads.cpp src/vehicle_services.cpp src/equity.cpp src/security.cpp src/queues.cpp src/death_reporting.cpp src/households.cpp src/education.cpp src/prison_rescues.cpp src/fire_spread.cpp src/fire_transport.cpp src/storage.cpp src/crew_contracts.cpp src/estates.cpp)
+add_library(mega_world src/world.cpp src/economy.cpp src/society.cpp src/persistence.cpp src/vehicles.cpp src/routines.cpp src/customization.cpp src/movement.cpp src/construction.cpp src/medicine.cpp src/operations.cpp src/transport.cpp src/office.cpp src/combat.cpp src/governance.cpp src/repairs.cpp src/housing_work.cpp src/social.cpp src/administration.cpp src/companies.cpp src/emergencies.cpp src/browser_import.cpp src/personal_items.cpp src/airborne.cpp src/washing.cpp src/autonomy.cpp src/structures.cpp src/roads.cpp src/vehicle_services.cpp src/equity.cpp src/security.cpp src/queues.cpp src/death_reporting.cpp src/households.cpp src/education.cpp src/prison_rescues.cpp src/fire_spread.cpp src/fire_transport.cpp src/storage.cpp src/crew_contracts.cpp src/estates.cpp src/communication.cpp)
 target_include_directories(mega_world PUBLIC include PRIVATE third_party)
 target_link_libraries(mega_world PRIVATE PkgConfig::ZSTD ZLIB::ZLIB)
 target_compile_options(mega_world PRIVATE -Wall -Wextra -Wpedantic)
@@ -209,6 +209,18 @@ endif()
 if(MEGA_VULKAN_TESTS)
   add_test(NAME vulkan_custody_cell_interaction COMMAND mega_dormitory --playtest-security --verify-custody-control --width 1000 --height 720)
   set_tests_properties(vulkan_custody_cell_interaction PROPERTIES
+    ENVIRONMENT "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;MEGA_AUDIO_DEVICE=null"
+    FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
+endif()
+
+add_executable(mega_information_tests tests/information_tests.cpp)
+target_include_directories(mega_information_tests PRIVATE third_party)
+target_link_libraries(mega_information_tests PRIVATE mega_world)
+add_test(NAME social_information_channels COMMAND mega_information_tests)
+
+if(MEGA_VULKAN_TESTS)
+  add_test(NAME vulkan_information_delivery COMMAND mega_dormitory --playtest-information --width 1000 --height 720)
+  set_tests_properties(vulkan_information_delivery PROPERTIES
     ENVIRONMENT "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;MEGA_AUDIO_DEVICE=null"
     FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 endif()

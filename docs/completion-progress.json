@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan_revision": 1,
-  "updated": "2026-11-07",
+  "updated": "2026-11-08",
   "title": "Mega Dormitory completion plan",
   "purpose": "A sequential plan for finishing the accepted game, not another unbounded list of possible improvements.",
   "baseline": {
@@ -25,8 +25,8 @@
   ],
   "current": {
     "milestone": "M01",
-    "task": "M01.2",
-    "next_action": "Connect face-to-face and device communication to information about services, work, trade, help, threats and witnessed events."
+    "task": "M01.3",
+    "next_action": "Use personality, history and relationships when choosing help, refusal, cooperation, theft, reporting and surrender."
   },
   "execution_policy": [
     "Read this tracker and completion-plan.md on every implementation continuation; resume the current task rather than choosing a new theme.",
@@ -682,8 +682,12 @@
         {
           "id": "M01.2",
           "title": "Connect face-to-face and device communication to information about services, work, trade, help, threats and witnessed events.",
-          "done": false,
-          "evidence": []
+          "done": true,
+          "evidence": [
+            "src/communication.cpp and docs/communication.md: real observation, local/device transfer, source/time/place-preserving reports, paid delivery and original-witness callbacks.",
+            "tests/information_tests.cpp: 33 passing rule, NPC, privacy, ownership/access and save/migration checks.",
+            "docs/evidence/information-verification.json: complete installed 48-suite regression, memory/leak checks, localized hardware/software UI and default-size save continuation."
+          ]
         },
         {
           "id": "M01.3",
@@ -2528,6 +2532,10 @@
     {
       "date": "2026-11-07",
       "change": "The user clarified physics.error.body occurs at cells after escort. Reproduced the exact chain and fixed jail interaction dispatch, authoritative custody, booked legacy-state recovery and shared first-person input. Added ten physics cases, six security cases and exact E-handler rendered coverage. M01.2 remains the next feature task."
+    },
+    {
+      "date": "2026-11-08",
+      "change": "Completed M01.2: persistent source/time/place-preserving service, work, trade, help, threat and witness reports through real contact or usable devices; paid delayed inbox delivery, actual seller meeting replies, local/NPC sharing and original-witness callbacks. Installed/native/rendered/memory/locale/default-size checks pass. M01 remains active; next is M01.3."
     }
   ],
   "open_defects": [

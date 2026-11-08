@@ -51,6 +51,7 @@ Id World::discoverBody(Id finder, Id id) {
       log("security.body_found", finder, c.victim);
     }
     c.discovered = true;
+    observeInformation(finder, InformationKind::Witness, c.id);
     try {
       fileCrimeReport(finder, c.id);
     } catch (const std::runtime_error &e) {

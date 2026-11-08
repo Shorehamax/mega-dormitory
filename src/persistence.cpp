@@ -107,7 +107,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(OfficeOrder, id, facility, worke
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(EncounterMemory, kind, actor, time, changeA,
                                                 changeB, knownToA, knownToB)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Relationship, a, b, trust, lastTalk, sharedInterest,
-                                                lastAid, conversations, regardA, regardB, memories)
+                                                lastAid, conversations, regardA, regardB, memories,
+                                                lastInformation)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Education, skills, lessons, answers, subject, seed,
                                                 lastDay, school)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(StorageLease, id, facility, holder, custodian,
@@ -119,7 +120,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     reserve, spentToday, tradePrice, day, tradeRetries, order, tradeItem, seller, lastBusiness,
     wanted, action, nextHousehold, helpDeadline, helpTarget, helpRetries, storageItem,
     storageDeadline, nextStorage, storageGroup, nextEstate)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Message, from, to, time, text, read)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Information, id, kind, channel, subject, origin,
+                                                via, suspect, observedAt, learnedAt, where, price,
+                                                stock, waiting, detail, available, locationKnown)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Message, from, to, time, text, read, hasInformation,
+                                                information)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Vehicle, id, owner, dealer, driver, bay, kind, pos,
                                                 yaw, speed, condition, askingPrice, originalPrice,
                                                 look, fuel, verticalSpeed, pitch, airborne,
@@ -246,6 +251,8 @@ void World::save(const std::filesystem::path &path) const {
             {"liftJourneys", liftJourneys},
             {"lastEconomyDay", lastEconomyDay},
             {"messages", messages},
+            {"informationSequence", informationSequence},
+            {"residentInformation", residentInformation},
             {"relationships", relationships},
             {"households", households},
             {"storageLeases", storageLeases},
@@ -561,6 +568,10 @@ static World readSave(const std::filesystem::path &path) {
     j.at("liftJourneys").get_to(w.liftJourneys);
   w.lastEconomyDay = j.value("lastEconomyDay", int(w.time / 86400));
   READ(messages);
+  w.informationSequence = j.value("informationSequence", std::uint64_t(0));
+  if (j.contains("residentInformation"))
+    j.at("residentInformation").get_to(w.residentInformation);
+  w.rebuildInformationMail();
   if (j.contains("relationships"))
     j.at("relationships").get_to(w.relationships);
   if (j.contains("households"))

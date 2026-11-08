@@ -11,9 +11,13 @@ bool World::hasDevice(Id id) const {
         items[i].owner == r.account && items[i].carrier == id && items[i].durability > 0 &&
         (items[i].kind == ItemKind::Phone || items[i].kind == ItemKind::Laptop))
       return true;
-  return r.terminal != none && r.terminalUntil > time && facilities.at(r.terminal).open &&
-         near(id, facilities[r.terminal].pos,
-              facilities[r.terminal].kind == FacilityKind::Office ? 3.f : 1.8f);
+  if (r.terminal == none || r.terminalUntil <= time)
+    return false;
+  const auto &terminal = facilities.at(r.terminal);
+  return operational(r.terminal) && accessAllowed(id, r.terminal) &&
+         (terminal.kind == FacilityKind::Terminal ||
+          (terminal.kind == FacilityKind::Office && r.employer == operatingAccount(r.terminal))) &&
+         near(id, terminal.pos, terminal.kind == FacilityKind::Office ? 3.f : 1.8f);
 }
 void World::useTerminal(Id id, Id fid, double minutes) {
   auto &r = residents.at(id);
@@ -49,7 +53,13 @@ void World::sendMessage(Id from, Id to, const std::string &text) {
   if (!hasDevice(from) || to < 0 || std::size_t(to) >= residents.size() || !residents[to].alive ||
       !residents[to].present || text.empty() || text.size() > 2000)
     throw std::runtime_error("Cannot send message");
-  messages.push_back({from, to, time, text, false});
+  Message message;
+  message.from = from;
+  message.to = to;
+  message.time = time;
+  message.text = text;
+  messages.push_back(std::move(message));
+  unreadInformation[to].push_back(messages.size() - 1);
   log("message.sent", from, to);
 }
 Id World::order(Id buyer, Id shop, ItemKind product) {

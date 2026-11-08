@@ -1,0 +1,34 @@
+PASS Visible facility gives a dated service snapshot, not live state
+PASS Walls prevent local observation
+PASS Distant service status cannot be queried even with a phone
+PASS Published jobs can be read online but respect private access
+PASS Remote trade listing has no hidden seller location
+PASS Face-to-face offer preserves the place and price actually seen
+PASS Help must originate in the resident's own real need
+PASS Nearby conversation relays original source, time and place
+PASS Contact requires proximity, line of sight and awake peaceful actors
+PASS Invalid requested conversations have no collection side effect
+PASS Unknown and other people's private notes cannot be sent
+PASS Device delivery waits for access and reads once
+PASS Sleeping device owner receives only after waking
+PASS Public computer charges the actual owner and access expires
+PASS Leaving a paid terminal stops further reception
+PASS Stale information remains dated when relayed
+PASS Unchanged observation reuses its identity; changed observation replaces it
+PASS Actor cache retains at most 24 independent recent reports
+PASS Uninvolved residents cannot fabricate threats or eyewitness notes
+PASS Witness and victim observations retain actual identity
+PASS A relayed report never creates eyewitness testimony
+PASS Independent sources retain identifying and anonymous reports together
+PASS Death preserves received history but prevents a fake callback
+PASS NPC face-to-face exchange uses actual contact
+PASS Trusted NPCs send device reports with an hourly cooldown
+PASS Round-trip restores pending delivery and duplicate indices
+PASS Old text-only saves gain no invented knowledge
+PASS Malformed records and derived mail indices are rejected
+PASS A remote meeting needs an awake connected seller and records their reply
+PASS Local sellers can explain their own real offers
+PASS Receipt records delivery time in both inbox and resident knowledge
+PASS Broken, closed, demolished or access-revoked terminals stop delivery
+PASS Forged eyewitness origin and suspect cannot be loaded as real reports
+33 passed, 0 failed

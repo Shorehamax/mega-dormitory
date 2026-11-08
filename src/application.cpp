@@ -175,7 +175,8 @@ public:
   std::string floorWidth = "512", floorDepth = "512", lobbyWidth = "640", lobbyDepth = "640";
   float networkScroll = 0, helpScroll = 0;
   int customCategory = 0, buildKind = 1, cheatStat = 0;
-  bool householdOpen = false, educationOpen = false;
+  bool householdOpen = false, educationOpen = false, informationScreen = false;
+  float messageContentHeight = 1600;
   std::string cheatValue = "100";
   bool savesOpen = false, savingSlots = false, savesWasPaused = false, savesEscapeHeld = false;
   int overwriteSlot = 0;
@@ -771,6 +772,7 @@ public:
     estateItemList.clear();
     estateListActor = none;
     nextEstateList = 0;
+    informationScreen = false;
     estateScreen = storageScreen = educationOpen = securityScreen = emergencyScreen =
         companyScreen = companyConstruction = cheatOpen = false;
     securityPage = 0;
@@ -1497,7 +1499,7 @@ public:
     Id id = none;
   };
   void openSecurityControls() {
-    estateScreen = storageScreen = educationOpen = emergencyScreen = false;
+    estateScreen = storageScreen = educationOpen = emergencyScreen = informationScreen = false;
     securityScreen = true;
     phone = false;
     tab = 0;
@@ -2075,6 +2077,126 @@ public:
     }
     return y;
   }
+  std::string informationKindLabel(InformationKind kind) {
+    switch (kind) {
+    case InformationKind::Service:
+      return t("info.service");
+    case InformationKind::Work:
+      return t("info.work");
+    case InformationKind::Trade:
+      return t("info.trade");
+    case InformationKind::Help:
+      return t("info.help");
+    case InformationKind::Threat:
+      return t("info.threat");
+    case InformationKind::Witness:
+      return t("info.witness");
+    }
+    return t("info.service");
+  }
+  std::string informationDescription(const Information &info) {
+    std::string text = informationKindLabel(info.kind) + " · ";
+    if (info.kind == InformationKind::Service || info.kind == InformationKind::Work) {
+      text += t(facilityKey(FacilityKind(info.detail))) + " · #" + std::to_string(info.subject + 1);
+      text += " · " + t(info.kind == InformationKind::Work ? "info.wage" : "info.price") + " " +
+              preciseMoney(info.price);
+      if (info.kind == InformationKind::Service)
+        text += " · " + t("info.stock") + " " + std::to_string(info.stock) + " · " +
+                t("info.queue") + " " + std::to_string(info.waiting);
+      text += " · " + t(info.available ? "info.available" : "info.unavailable");
+    } else if (info.kind == InformationKind::Trade) {
+      text += t(itemLabel(ItemKind(info.detail))) + " #" + std::to_string(info.subject + 1) +
+              " · " + preciseMoney(info.price);
+    } else if (info.kind == InformationKind::Help) {
+      text += world->displayName(info.subject, locale.language) + " · " +
+              t(info.detail == 2   ? "info.need_care"
+                : info.detail == 1 ? "info.need_water"
+                                   : "info.need_food");
+    } else {
+      static const char *crimes[] = {
+          "security.queue", "security.assault", "security.excessive",  "security.murder",
+          "security.theft", "security.escape",  "security.obstruction"};
+      text += t(crimes[info.detail]) + " · #" + std::to_string(info.subject + 1) + " · " +
+              (info.suspect == none ? t("info.unidentified")
+                                    : world->displayName(info.suspect, locale.language));
+    }
+    return text;
+  }
+  std::string informationProvenance(const Information &info, bool received = true) {
+    return t("info.origin") + " " + world->displayName(info.origin, locale.language) + " · " +
+           t("info.via") + " " + world->displayName(info.via, locale.language) + " · " +
+           t("info.observed") + " " + timeLabel(info.observedAt) +
+           (received ? " · " + t("info.learned") + " " + timeLabel(info.learnedAt) : "");
+  }
+  Id informationRecipient() {
+    try {
+      std::size_t count = 0;
+      int value = std::stoi(recipient, &count);
+      if (count == recipient.size() && value > 0 && std::size_t(value) <= world->residents.size())
+        return value - 1;
+    } catch (const std::exception &) {
+    }
+    throw std::runtime_error("info.error.contact");
+  }
+  float informationPanel(float x, float y, float width) {
+    auto &w = *world;
+    ui.text(x, y, t("info.title"), 23, hex(0xe6e8df));
+    y += 38;
+    if (ui.button("informationBack", {x, y, width, 31}, t("fire.back"))) {
+      informationScreen = false;
+      scrollOffset = 0;
+    }
+    y += 41;
+    y = ui.wrap(x, y, width, t("info.explain"), 13, hex(0xa9bdbe)) + 14;
+    if (ui.button("informationObserve", {x, y, width, 32}, t("info.observe")))
+      act([&] { w.collectInformation(selected); });
+    y += 42;
+    ui.text(x, y, t("network.recipient"), 13, hex(0xa9bdbe));
+    y += 23;
+    ui.input("informationRecipient", {x, y, width, 32}, recipient, true);
+    y += 44;
+    auto found = w.residentInformation.find(selected);
+    if (found == w.residentInformation.end() || found->second.empty())
+      return ui.wrap(x, y, width, t("info.empty"), 14, hex(0xa9bdbe)) + 20;
+    auto notes = found->second;
+    for (auto it = notes.rbegin(); it != notes.rend(); ++it) {
+      const auto &info = *it;
+      std::string key = std::to_string(info.id);
+      y = ui.wrap(x, y, width, informationDescription(info), 14, hex(0xc0d4c5)) + 9;
+      y = ui.wrap(x, y, width, informationProvenance(info), 12, hex(0x9bb0b3)) + 8;
+      std::string status = t(info.channel == InformationChannel::Observation    ? "info.direct"
+                             : info.channel == InformationChannel::Conversation ? "info.spoken"
+                                                                                : "info.device");
+      status += " · " + t(w.informationStale(info) ? "info.stale" : "info.fresh");
+      status += info.locationKnown ? " · " + t("info.floor") + " " +
+                                         std::to_string(int(std::floor(info.where.y / 3)) + 1)
+                                   : " · " + t("info.no_location");
+      y = ui.wrap(x, y, width, status, 12, hex(w.informationStale(info) ? 0xd5ad7c : 0x9bb0b3)) +
+          12;
+      if (info.locationKnown) {
+        if (ui.button("informationFollow" + key, {x, y, width, 30}, t("info.follow")))
+          act([&] {
+            w.followInformation(selected, info.id);
+            paused = false;
+          });
+        y += 38;
+      }
+      if (ui.button("informationSpeak" + key, {x, y, width / 2 - 4, 30}, t("info.tell")))
+        act([&] { w.shareInformation(selected, informationRecipient(), info.id); });
+      if (ui.button("informationSend" + key, {x + width / 2 + 4, y, width / 2 - 4, 30},
+                    t("info.send")))
+        act([&] { w.shareInformation(selected, informationRecipient(), info.id, true); });
+      y += 38;
+      if (info.kind == InformationKind::Threat || info.kind == InformationKind::Witness) {
+        if (ui.button("informationReport" + key, {x, y, width, 30}, t("info.report")))
+          act([&] { w.reportInformation(selected, info.id); });
+        y += 38;
+      }
+      ui.line(x, y, x + width, y, hex(0x34464b));
+      y += 18;
+    }
+    return y;
+  }
   float lifePanel(float x, float y, float width) {
     if (estateScreen)
       return estatePanel(x, y, width);
@@ -2086,6 +2208,8 @@ public:
       return securityPanel(x, y, width);
     if (emergencyScreen)
       return emergencyPanel(x, y, width);
+    if (informationScreen)
+      return informationPanel(x, y, width);
     if (ui.button("openEmergencies", {x, y, width, 33}, t("fire.title"))) {
       emergencyScreen = true;
       securityScreen = false;
@@ -2227,6 +2351,11 @@ public:
       y = ui.wrap(x, y, width, t("household.explain"), 12, hex(0x8da5aa)) + 12;
       y = ui.wrap(x, y, width, t("autonomy.explain"), 12, hex(0x8da5aa)) + 20;
     }
+    if (ui.button("informationScreen", {x, y, width, 36}, t("info.title"))) {
+      informationScreen = true;
+      scrollOffset = 0;
+    }
+    y += 44;
     if (ui.button("estateScreen", {x, y, width, 36}, t("estate.title"))) {
       estateScreen = true;
       nextEstateList = 0;
@@ -2357,6 +2486,12 @@ public:
         if (ui.button("talk" + std::to_string(topic), {x, y, width, 30},
                       t("talk.topic" + std::to_string(topic))))
           act([&] { notify(t(w.talk(selected, nearby, topic))); });
+        y += 38;
+      }
+      for (int kind = 0; kind < 6; ++kind) {
+        if (ui.button("askInformation" + std::to_string(kind), {x, y, width, 30},
+                      t("info.ask") + " · " + informationKindLabel(InformationKind(kind))))
+          act([&] { w.shareLatestInformation(nearby, selected, InformationKind(kind)); });
         y += 38;
       }
       if (w.householdOf(selected) != none && w.householdOf(nearby) == none) {
@@ -3114,7 +3249,13 @@ public:
           ui.button("job" + std::to_string(int(role)), {x + width - 105, y - 4, 105, 31},
                     t("action.accept"), false, r.role == role))
         act([&] { w.chooseJob(w.player, role, fid); });
-      y += 47;
+      y += 39;
+      if (fid != none) {
+        if (ui.button("saveJob" + std::to_string(int(role)), {x, y, width, 29}, t("info.save_job")))
+          act([&] { w.observeInformation(w.player, InformationKind::Work, fid); });
+        y += 39;
+      }
+      y += 8;
     }
     y += 10;
     ui.line(x, y, x + width, y, hex(0x34464b));
@@ -4899,7 +5040,8 @@ public:
       }
     float x = left + 28, y = top + 116;
     ui.clip({left + 16, top + 99, width - 32, height - 116});
-    if (networkTab == 4 || networkTab == 6 || networkTab == 3 || networkTab == 0) {
+    if (networkTab == 4 || networkTab == 6 || networkTab == 3 || networkTab == 0 ||
+        networkTab == 1) {
       int count = 0;
       for (auto &v : w.vehicles)
         if (v.askingPrice > 0 || v.owner == w.residents[selected].account)
@@ -4909,7 +5051,8 @@ public:
         if ((i.seller != none && i.askingPrice > 0) ||
             (i.owner == w.residents[selected].account && !i.consumed && i.carrier == selected))
           ++saleRows;
-      float contentHeight = networkTab == 0   ? 840 + std::min(80, saleRows) * 95
+      float contentHeight = networkTab == 1   ? messageContentHeight
+                            : networkTab == 0 ? 840 + std::min(80, saleRows) * 140
                             : networkTab == 3 ? 760
                             : networkTab == 6 ? 640
                                               : 100 + count * 157 + 58 + w.parking.size() * 122;
@@ -5004,41 +5147,69 @@ public:
                       15, hex(0xd1ddd8)) +
               8;
           if (ui.button("meetSeller" + std::to_string(item.id), {x, y, (width - 64) / 2, 30},
-                        t("trade.meet")))
+                        t("info.meeting")))
             act([&] {
-              w.travel(selected, w.position(item.seller), TaskKind::None, none);
+              auto report = w.requestTradeMeeting(selected, item.id);
+              w.followInformation(selected, report);
               paused = false;
             });
           if (ui.button("buyUsed" + std::to_string(item.id),
                         {x + (width - 64) / 2 + 8, y, (width - 64) / 2, 30}, t("trade.handover")))
             act([&] { w.buyItem(selected, item.id); });
+          y += 40;
+          if (ui.button("saveOffer" + std::to_string(item.id), {x, y, width - 56, 30},
+                        t("info.save_offer")))
+            act([&] { w.observeInformation(selected, InformationKind::Trade, item.id); });
           y += 48;
         }
     }
     if (networkTab == 1) {
+      if (w.residents[selected].activity == Activity::Sleeping) {
+        ui.wrap(x, y, width - 56, t("info.error.asleep"), 16, hex(0xa9bdbe));
+        ui.clip({0, 0, float(ui.width), float(ui.height)});
+        return;
+      }
+      w.readMessages(selected);
+      float begin = y;
+      y -= networkScroll;
       ui.text(x, y, t("network.recipient"), 14, hex(0xa0b4b7));
       ui.input("recipient", {x, y + 27, 160, 37}, recipient, true);
       ui.input("msg", {x + 178, y + 27, width - 354, 37}, message);
       if (ui.button("send", {x + width - 156, y + 27, 100, 37}, t("action.send"), true))
         act([&] {
-          w.sendMessage(selected, std::stoi(recipient) - 1, message);
+          w.sendMessage(selected, informationRecipient(), message);
           message.clear();
         });
       y += 100;
       int n = 0;
       for (auto it = w.messages.rbegin(); it != w.messages.rend() && n < 8; ++it)
         if (it->from == selected || it->to == selected) {
-          ui.fill({x, y, width - 56, 73}, hex(0x202730), 7);
-          ui.text(x + 14, y + 10,
-                  w.displayName(it->from, locale.language) + " → " +
-                      w.displayName(it->to, locale.language),
-                  13, hex(0xa5cbb9));
-          ui.text(x + 14, y + 36, it->text, 16, hex(0xe0e5de));
-          y += 83;
+          y = ui.wrap(x, y, width - 56,
+                      w.displayName(it->from, locale.language) + " → " +
+                          w.displayName(it->to, locale.language),
+                      13, hex(0xa5cbb9)) +
+              10;
+          y = ui.wrap(x, y, width - 56,
+                      it->hasInformation ? informationDescription(it->information) : it->text, 15,
+                      hex(0xe0e5de)) +
+              10;
+          if (it->hasInformation) {
+            y = ui.wrap(x, y, width - 56, informationProvenance(it->information, it->read), 12,
+                        hex(0x9bb0b3)) +
+                8;
+            y = ui.wrap(x, y, width - 56,
+                        t(it->read ? "info.read" : "info.pending") + " · " +
+                            t(w.informationStale(it->information) ? "info.stale" : "info.fresh"),
+                        12, hex(0xc1cbb7)) +
+                10;
+          }
+          ui.line(x, y, x + width - 56, y, hex(0x34464b));
+          y += 20;
           ++n;
         }
       if (!n)
-        ui.text(x, y, t("network.no_messages"), 16, hex(0x91aaaf));
+        y = ui.wrap(x, y, width - 56, t("network.no_messages"), 16, hex(0x91aaaf)) + 20;
+      messageContentHeight = std::max(220.f, y + networkScroll - begin + 24);
     }
     if (networkTab == 2) {
       const char *state[] = {"waiting", "pickup", "delivering", "delivered", "cancelled", "lost"};
@@ -6826,7 +6997,14 @@ int runApplication(int argc, char **argv) {
          playConstruction = false, playVehicles = false, playCompany = false, playSecurity = false,
          playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
          playRescue = false, playFire = false, playAngled = false, playStorage = false,
-         playCrew = false, playEstates = false, playChimney = false, playBodyControl = false;
+         playCrew = false, playEstates = false, playChimney = false, playBodyControl = false,
+         playInformation = false;
+    Id informationTerminal = none, informationService = none;
+    std::uint64_t informationFact = 0;
+    int informationStage = 0, informationFinish = -1;
+    Vec3 informationPrior{};
+    float informationMaxStep = 0;
+    Money informationBalance = 0, informationOwnerBalance = 0;
     Id bodyControlFacility = none;
     Vec3 bodyControlStart{};
     Id chimneySource = none, chimneyTarget = none, chimneyShipment = none;
@@ -6952,6 +7130,13 @@ int runApplication(int argc, char **argv) {
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
         app.config.accidentRate = 0;
+      } else if (arg == "--playtest-information") {
+        playInformation = demo = animate = true;
+        panel = "information-play";
+        app.config.population = 40;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
       } else if (arg == "--playtest-body-control") {
         playBodyControl = demo = animate = true;
         panel = "body-control";
@@ -7054,7 +7239,7 @@ int runApplication(int argc, char **argv) {
     }
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
         playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
-        playStorage || playCrew || playEstates || playChimney) {
+        playStorage || playCrew || playEstates || playChimney || playInformation) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
@@ -7264,6 +7449,81 @@ int runApplication(int argc, char **argv) {
         app.orbit = .6f;
         std::cout << "CREW PLAYTEST: actual workshop staff commute; lead collects supplies and "
                      "helper walks to site\n";
+      } else if (panel == "information-play") {
+        auto &w = *app.world;
+        while (!w.events.empty())
+          w.events.pop();
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.automatic = false;
+          r.route.clear();
+          ++r.routeVersion;
+          r.task = TaskKind::None;
+          r.activity = Activity::Idle;
+          r.role = Role::Unemployed;
+          r.jobSite = r.employer = none;
+          r.pos = {150 + r.id * 2.f, 0, 150};
+          r.age = 30;
+          r.hunger = r.thirst = r.bladder = .1f;
+          r.hygiene = r.energy = 1;
+          r.needsAt = w.time;
+        }
+        w.crowd.clear();
+        for (auto &f : w.facilities)
+          if (f.floor == 0) {
+            if (f.kind == FacilityKind::Water && informationService == none) {
+              informationService = f.id;
+              f.pos = {120, 0, 110};
+            } else if (f.kind == FacilityKind::Terminal && informationTerminal == none) {
+              informationTerminal = f.id;
+              f.pos = {110, 0, 110};
+              f.owner = w.dormAccount;
+              f.price = 20;
+            } else
+              continue;
+            f.open = f.publicAccess = true;
+            f.staffNeeded = 0;
+            f.opensAt = 0;
+            f.openHours = 24;
+          }
+        if (informationService == none || informationTerminal == none)
+          throw std::runtime_error("Information playtest needs real water and terminal facilities");
+        w.invalidateGeometry(0);
+        w.residents[0].pos = {120, 0, 114};
+        auto &receiver = w.residents[1];
+        receiver.pos = {110, 0, 116};
+        for (Id id : receiver.items) {
+          auto &item = w.items[id];
+          if (item.kind == ItemKind::Phone || item.kind == ItemKind::Laptop) {
+            item.carrier = none;
+            item.pos = receiver.pos;
+          }
+        }
+        std::erase_if(receiver.items, [&](Id id) { return w.items[id].carrier != 1; });
+        receiver.terminal = none;
+        receiver.terminalUntil = 0;
+        informationFact = w.observeInformation(0, InformationKind::Service, informationService);
+        w.shareInformation(0, 1, informationFact, true);
+        if (w.hasDevice(1) || w.residentInformation.contains(1))
+          throw std::runtime_error("Offline recipient learned a pending device report");
+        informationBalance = w.accounts[receiver.account].balance;
+        informationOwnerBalance = w.accounts[w.operatingAccount(informationTerminal)].balance;
+        w.travel(1, w.accessible(w.facilities[informationTerminal].pos + Vec3{0, 0, 1.6f}),
+                 TaskKind::None, none);
+        app.setFirstPerson(false);
+        app.selected = 1;
+        w.residents[0].automatic = false;
+        app.currentFloor = 0;
+        app.cameraFocus = receiver.pos;
+        app.observerHeight = 0;
+        app.distance = 12;
+        app.pitch = .5f;
+        app.informationScreen = app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        informationPrior = w.position(1);
+        std::cout << "INFORMATION PLAYTEST: offline pending report, walking to a paid terminal\n";
       } else if (panel == "storage-play") {
         auto &w = *app.world;
         for (auto &r : w.residents) {
@@ -8149,7 +8409,7 @@ int runApplication(int argc, char **argv) {
       app.paused = false;
       if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
           playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
-          playStorage || playCrew || playEstates || playChimney)
+          playStorage || playCrew || playEstates || playChimney || playInformation)
         app.speed = 6;
     }
     if (computeTest) {
@@ -8252,6 +8512,41 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playInformation) {
+        auto &w = *app.world;
+        informationMaxStep = std::max(informationMaxStep, length(w.position(1) - informationPrior));
+        informationPrior = w.position(1);
+        if (informationStage == 0 && w.residents[1].route.empty()) {
+          w.useTerminal(1, informationTerminal, 5);
+          w.readMessages(1);
+          const auto &fact = w.knownInformation(1, informationFact);
+          if (fact.origin != 0 || fact.channel != InformationChannel::Device ||
+              fact.observedAt >= w.time || !w.messages.back().read)
+            throw std::runtime_error("Paid computer did not deliver original dated report");
+          app.networkTab = 1;
+          app.openNetwork();
+          app.frame(0, capture.empty()
+                           ? std::filesystem::path{}
+                           : capture.parent_path() / (capture.stem().string() + "-inbox.ppm"));
+          app.phone = false;
+          w.followInformation(1, informationFact);
+          informationStage = 1;
+          std::cout
+              << "INFORMATION PLAYTEST: paid owner, received report, following reported address\n";
+        } else if (informationStage == 1 && w.residents[1].route.empty()) {
+          if (w.hasDevice(1) || !w.near(1, w.facilities[informationService].pos, 3))
+            throw std::runtime_error("Reported destination or terminal departure failed");
+          informationStage = 2;
+          informationFinish = frames;
+          app.paused = true;
+        }
+        app.cameraFocus = w.position(1);
+        if (informationFinish >= 0 && frames >= informationFinish + 15) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playEstates) {
         auto &w = *app.world;
         estateMaxStep = std::max(estateMaxStep, length(w.position(2) - estatePrior));
@@ -8757,6 +9052,18 @@ int runApplication(int argc, char **argv) {
       }
       app.frame(dt, frameCapture);
       ++frames;
+    }
+    if (playInformation) {
+      auto &w = *app.world;
+      w.validate();
+      if (informationStage != 2 || informationMaxStep > 2 ||
+          w.accounts[w.residents[1].account].balance != informationBalance - 100 ||
+          w.accounts[w.operatingAccount(informationTerminal)].balance !=
+              informationOwnerBalance + 100)
+        throw std::runtime_error("Information playthrough failed continuous travel or payment");
+      std::cout << "INFORMATION PLAYTEST PASS: queued offline, real terminal approach, paid owner, "
+                   "received once, retained source/time, walked to reported service; max step "
+                << informationMaxStep << " m\n";
     }
     if (playBodyControl) {
       auto &w = *app.world;

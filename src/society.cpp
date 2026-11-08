@@ -474,6 +474,7 @@ void World::validate() const {
   validateStructures();
   validateVehicles();
   validateSecurity();
+  validateCommunication();
   for (const auto &r : residents)
     if (!std::isfinite(r.fitness) || r.fitness < 0 || r.fitness > 100)
       throw std::runtime_error("Invalid resident fitness");

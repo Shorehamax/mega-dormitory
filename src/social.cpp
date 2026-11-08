@@ -247,6 +247,7 @@ bool World::shareFood(Id donor, Id recipient) {
   return true;
 }
 void World::socialTick() {
+  communicationTick();
   using Cell = std::tuple<int, int, int>;
   std::map<Cell, std::vector<Id>> neighbors;
   auto available = [&](const Resident &r) {
@@ -282,6 +283,7 @@ void World::socialTick() {
               int topic = r.aggression > .7f && trust(r.id, other) < -.2f && random() < .1f ? 3 : 1;
               try {
                 talk(r.id, other, topic);
+                exchangeInformation(r.id, other);
                 if (residents[other].hunger > .65f)
                   shareFood(r.id, other);
                 if (r.hunger > .65f)

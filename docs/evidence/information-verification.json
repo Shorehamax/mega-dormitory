@@ -1,0 +1,67 @@
+{
+  "recorded": "2026-11-08",
+  "task": "M01.2",
+  "code_predecessor": "cffcd6be08db86c816019162dc3b164bc5f706ce",
+  "installed_executable_sha256": "41196b979a8b4ac0e23d488c588b4df050597f8fb67e9bfe317243246d133106",
+  "checks": [
+    {
+      "name": "Focused information rules",
+      "result": "33 cases passed: real perception/privacy, channels/relays, service/work/trade/help/threat/witness reports, delayed and paid delivery, stale snapshots, callbacks, independent sources, bounded caches, NPCs, persistence, old text-only saves and malformed records.",
+      "evidence": "docs/evidence/information-final-focused.log"
+    },
+    {
+      "name": "Complete installed regressions and launcher",
+      "result": "All 48 native/rendered suites passed in the normal RelWithDebInfo launcher cache; isolated run.sh menu startup rendered 3 frames. Includes the exact warden escort/cell interaction regression.",
+      "evidence": "docs/evidence/information-installed-tests.log"
+    },
+    {
+      "name": "Final headless regressions",
+      "result": "25/25 passed.",
+      "evidence": "docs/evidence/information-final-headless.log"
+    },
+    {
+      "name": "Targeted connected rendered workflows",
+      "result": "Information delivery, custody/cells, company work and storage passed.",
+      "evidence": "docs/evidence/information-final-rendered.log"
+    },
+    {
+      "name": "Memory, undefined behavior and leaks",
+      "result": "Information/social/security suites passed with AddressSanitizer, UBSan and leak detection.",
+      "evidence": "docs/evidence/information-asan-final-verified.log"
+    },
+    {
+      "name": "Localized actual communication play",
+      "result": "English and French on NVIDIA RTX 5070; Chinese on llvmpipe software Vulkan. At 1000x720: offline pending report, actual walk to a public terminal, payment to owner, inbox reception/source/time, loss of device access after walking away, arrival at reported service. Inbox and report cards rendered and visually inspected in all three languages.",
+      "evidence": [
+        "docs/evidence/information-live-en-final.log",
+        "docs/evidence/information-live-fr-final.log",
+        "docs/evidence/information-live-zh-final.log",
+        "docs/evidence/information-en.png",
+        "docs/evidence/information-en-inbox.png",
+        "docs/evidence/information-fr.png",
+        "docs/evidence/information-fr-inbox.png",
+        "docs/evidence/information-zh.png",
+        "docs/evidence/information-zh-inbox.png"
+      ]
+    },
+    {
+      "name": "Default-size save continuation",
+      "result": "100,000 residents / 2,000 floors continued for one game hour, saved, reloaded, then continued for another minute with world invariants intact.",
+      "evidence": "docs/evidence/information-default-size.log"
+    },
+    {
+      "name": "Regression discovered and repaired",
+      "result": "Strict witness validation initially rejected a historical anonymous body report after the investigation replaced its bounded unfiled observation. Kept valid anonymous history while retaining named-source/identity validation; the existing saturated-witness case and final installed/security memory suites pass."
+    },
+    {
+      "name": "Language coverage",
+      "result": "1,179 matching English/French/Chinese locale keys; required literal/dynamic references resolve."
+    }
+  ],
+  "limits": [
+    "M01.3 personality/history-dependent decisions remain unfinished.",
+    "M01.4 broader relationship/history controls and the M01 acceptance gate remain unfinished.",
+    "Report caches are bounded to 24 source-specific notes per resident. Full message history pauses automatic structured sending at one million entries; explicit sends return a localized capacity error.",
+    "This is a development checkpoint; M01 and the whole game are not declared complete."
+  ]
+}

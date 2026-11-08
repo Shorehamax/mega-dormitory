@@ -1,0 +1,2 @@
+{"population":100000,"living":100000,"floors":2000,"facilities":2051,"queued":14472,"resident_plans":38712,"orders_placed":0,"orders_delivered":0,"simulated_seconds":3600,"happiness":0.54215,"internal_money_cents":8575164689,"generation_seconds":0.743684,"run_seconds":28.7985}
+{"population":100000,"living":100000,"floors":2000,"facilities":2051,"queued":14520,"resident_plans":40903,"orders_placed":0,"orders_delivered":0,"simulated_seconds":60,"happiness":0.542973,"internal_money_cents":8575164689,"generation_seconds":7.85387,"run_seconds":1.78419}

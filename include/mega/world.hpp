@@ -8,6 +8,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 namespace mega {
@@ -623,6 +624,7 @@ struct Relationship {
   // The historical shared trust remains the migration baseline. Regard is directional.
   float regardA = 0, regardB = 0;
   std::vector<EncounterMemory> memories;
+  double lastInformation = -3600;
 };
 struct Education {
   std::array<float, 3> skills{};
@@ -644,11 +646,25 @@ struct StorageLease {
   bool active = true, released = false, open = false;
   std::vector<Id> items;
 };
+enum class InformationKind { Service, Work, Trade, Help, Threat, Witness };
+enum class InformationChannel { Observation, Conversation, Device };
+struct Information {
+  std::uint64_t id = 0;
+  InformationKind kind = InformationKind::Service;
+  InformationChannel channel = InformationChannel::Observation;
+  Id subject = none, origin = none, via = none, suspect = none;
+  double observedAt = 0, learnedAt = 0;
+  Vec3 where{};
+  Money price = 0;
+  int stock = 0, waiting = 0, detail = 0;
+  bool available = false, locationKnown = true;
+};
 struct Message {
   Id from = none, to = none;
   double time = 0;
   std::string text;
-  bool read = false;
+  bool read = false, hasInformation = false;
+  Information information;
 };
 struct Testimony {
   Id witness = none;
@@ -1018,6 +1034,29 @@ public:
   std::map<Id, LiftJourney> liftJourneys;
   int lastEconomyDay = 0;
   std::vector<Message> messages;
+  std::uint64_t informationSequence = 0;
+  std::map<Id, std::vector<Information>> residentInformation;
+  std::map<Id, std::vector<std::size_t>> unreadInformation;    // Rebuilt, not serialized.
+  std::set<std::tuple<Id, Id, std::uint64_t>> informationMail; // Rebuilt, not serialized.
+  std::uint64_t observeInformation(Id actor, InformationKind kind, Id subject);
+  void collectInformation(Id actor);
+  bool shareInformation(Id from, Id to, std::uint64_t information, bool device = false);
+  bool shareLatestInformation(Id from, Id to, InformationKind kind, bool device = false);
+  void readMessages(Id actor);
+  std::uint64_t requestTradeMeeting(Id buyer, Id item);
+  void communicationTick();
+  void exchangeInformation(Id a, Id b);
+  void followInformation(Id actor, std::uint64_t information);
+  void reportInformation(Id actor, std::uint64_t information);
+  const Information &knownInformation(Id actor, std::uint64_t information) const;
+  bool informationStale(const Information &) const;
+  void rebuildInformationMail();
+  void validateCommunication() const;
+
+private:
+  bool retainInformation(Id actor, Information information);
+
+public:
   std::map<std::uint64_t, Relationship> relationships;
   RelationshipStatus relationshipStatus(Id observer, Id other) const;
   std::vector<EncounterMemory> relationshipHistory(Id observer, Id other) const;

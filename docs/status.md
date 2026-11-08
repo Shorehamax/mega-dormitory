@@ -4,6 +4,15 @@
 
 This is a development build, not a declaration that the complete accepted design has shipped. The reference-image fidelity and production polish have not been achieved. The former island/city and Creative mode are superseded by the dormitory-focused requirements in `requirements.md`.
 
+## Resident information and real communication (8 November 2026)
+
+- **M01.2** connects local conversations, phones/laptops and paid public/work computers to service, work, trade, help, threat and witness information. Reports preserve their original observer, time and place through relays; queues/stock/prices are snapshots. Remote listings do not expose a seller's live position. Actual device replies arrange meetings at a shared location.
+- Pending messages wait for awake recipients with usable access. Terminal payment goes to the operator; distance, expiry, closure, damage, demolition and revoked access matter. NPC conversations exchange reports; trusted automatic contacts can share through available devices. Free text never becomes trusted testimony.
+- My life has localized Information/source controls; conversations can ask about report categories, job/market notices can be saved and messages show readable structured attachments. Visiting reports uses real continuous movement. Contacting an original witness preserves evidence rules; hearsay does not create eyewitness identity.
+- Sources/history, pending mail, bounded caches and sharing cooldowns persist. Older text-only saves migrate without invented knowledge. Historical anonymous reports survive replacement of a bounded investigation observation.
+
+Verification: **33** focused cases, **25** final headless suites, **48** complete installed native/rendered suites, targeted connected workflows, address/undefined-behavior/leak checks, English/French/Chinese report and inbox captures, and **100,000 residents / 2,000 floors** save/reload continuation pass. There are **1,179** matching locale keys. See [communication rules](communication.md) and [evidence](evidence/information-verification.json). **M01.3** is next; M01.4 and the M01 acceptance gate remain unfinished.
+
 ## Cell interaction and first-person movement crash (7 November 2026)
 
 - The exact reported path was reproduced: after a real warden escort, E at the cells joined a generic jail service queue; a custody update released the record while leaving that reservation, and first-person movement exited with `physics.error.body`. E now opens custody/report controls, and jails reject ordinary consumer service bookings.
