@@ -4,6 +4,15 @@
 
 This is a development build, not a declaration that the complete accepted design has shipped. The reference-image fidelity and production polish have not been achieved. The former island/city and Creative mode are superseded by the dormitory-focused requirements in `requirements.md`.
 
+## Cell interaction and first-person movement crash (7 November 2026)
+
+- The exact reported path was reproduced: after a real warden escort, E at the cells joined a generic jail service queue; a custody update released the record while leaving that reservation, and first-person movement exited with `physics.error.body`. E now opens custody/report controls, and jails reject ordinary consumer service bookings.
+- Active custody governs movement even when an activity label changes. Existing booked cell-service states recover in place with the original sentence and no extra charge. Genuine interrupted escorts, escapes and sentence releases retain their normal outcomes. Arrest clears a prior manual ladder grip.
+- Shared movement checks also protect queue/transport/departure transitions, preserve interpolated positions and retain real falls/knockback. The physics suite has 29 cases and security has 60; the rendered exact escort/cell/claims workflow passes. Read [reproduction and fix](body-control.md) and [verification evidence](evidence/body-control-verification.json).
+- This user-reported play blocker took priority over feature work. The tracker still resumes at **M01.2**.
+
+Verification: all **46** native/rendered suites pass, as do the separate physics/security address, undefined-behavior and leak checks. The normal launcher cache was rebuilt; its custody replay and isolated menu startup pass. English, French and Chinese retain 1,128 matching keys.
+
 ## One-time baseline audit and resident encounter memory (6 November 2026)
 
 - M00 inventories the 38 accepted requirements and fourteen browser parity decisions, with concrete acceptance scenarios and source references. The latest preserved output matches the facility revision source exactly. Family/pregnancy/birth continuation and historical charts/CSV are explicitly unfinished; archived state is not treated as execution. See [feature inventory](feature-inventory.md), [acceptance register](acceptance-register.json) and [baseline evidence](baseline-evidence.json).

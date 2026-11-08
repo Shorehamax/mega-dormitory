@@ -937,8 +937,6 @@ public:
     const auto &controlled = w.residents[selected];
     bool movingInput = glfwGetKey(window, GLFW_KEY_W) || glfwGetKey(window, GLFW_KEY_A) ||
                        glfwGetKey(window, GLFW_KEY_S) || glfwGetKey(window, GLFW_KEY_D);
-    auto airborne = w.looseBodies.find(selected);
-    bool knocked = airborne != w.looseBodies.end() && airborne->second.pusher != none;
     bool canControl = selected == w.player || w.config.mode == Mode::Cheat;
     w.vehicleController = firstPerson && canControl && !phone && !helpOpen && !drawerOpen &&
                                   !paused && controlled.vehicle != none &&
@@ -946,9 +944,9 @@ public:
                               ? controlled.vehicle
                               : none;
     w.physicsController =
-        firstPerson && canControl && !phone && !helpOpen && !drawerOpen && !ui.typing() &&
-                !controlled.surrendered && !knocked &&
-                (movingInput || (controlled.activity == Activity::Idle && controlled.route.empty()))
+        firstPerson && canControl && !paused && !phone && !helpOpen && !drawerOpen &&
+                !ui.typing() && w.canControlBody(selected) &&
+                (movingInput || (controlled.activity == Activity::Idle && w.canStepBody(selected)))
             ? selected
             : none;
     w.focus(firstPerson ? int(std::max(0.f, w.position(selected).y) / 3) : currentFloor);
@@ -967,7 +965,7 @@ public:
     }
     bool interact = glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS;
     if (firstPerson && canControl && !phone && !ui.typing() && !helpOpen && !drawerOpen &&
-        w.residents[selected].alive && !w.gameOver) {
+        w.residents[selected].alive && w.residents[selected].present && !w.gameOver) {
       double mx, my;
       glfwGetCursorPos(window, &mx, &my);
       if (mouseLocked) {
@@ -1021,84 +1019,7 @@ public:
       surrenderHeld = yield;
       if (interact && !interactHeld && r.lift == none && r.ambulance == none &&
           r.carriedBy == none && r.medicalDuty == none)
-        act([&] {
-          const auto target = interactionTarget();
-          if (target.kind == InteractionKind::ReleaseLadder) {
-            w.releaseLadder(selected);
-            return;
-          }
-          if (target.kind == InteractionKind::ExitVehicle) {
-            w.exitVehicle(selected);
-            return;
-          }
-          if (target.kind == InteractionKind::GrabLadder) {
-            w.grabLadder(selected);
-            return;
-          }
-          if (target.kind == InteractionKind::Vehicle) {
-            w.enterVehicle(selected, target.id);
-            return;
-          }
-          if (target.kind == InteractionKind::Belonging) {
-            w.collectBelonging(selected, target.id);
-            return;
-          }
-          if (target.kind == InteractionKind::Lift) {
-            tab = 1;
-            drawerOpen = true;
-            scrollOffset = 0;
-            mouseLocked = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-            return;
-          }
-          if (target.kind == InteractionKind::Storage) {
-            storageScreen = true;
-            selectedStorage = target.id;
-            selectedStorageFacility = w.storageLeases[target.id].facility;
-            tab = 0;
-            drawerOpen = true;
-            scrollOffset = 0;
-            mouseLocked = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-            return;
-          }
-          if (target.kind != InteractionKind::Facility)
-            return;
-          Id best = target.id;
-          auto &f = w.facilities[best];
-          if (f.kind == FacilityKind::Reception) {
-            if (!w.operational(f.id))
-              throw std::runtime_error(w.availability(f.id));
-            helpOpen = true;
-            mouseLocked = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-          } else if (f.kind == FacilityKind::Locker) {
-            storageScreen = true;
-            selectedStorageFacility = f.id;
-            selectedStorage = none;
-            tab = 0;
-            drawerOpen = true;
-            scrollOffset = 0;
-            mouseLocked = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-          } else if (f.kind == FacilityKind::Elevator) {
-            tab = 1;
-            drawerOpen = true;
-            mouseLocked = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-          } else if (f.kind == FacilityKind::Dealership || f.kind == FacilityKind::Parking ||
-                     f.kind == FacilityKind::Ramp || f.kind == FacilityKind::FreightLift) {
-            networkTab = 4;
-            networkScroll = 0;
-            phone = true;
-            mouseLocked = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-          } else if (f.kind == FacilityKind::Terminal || f.kind == FacilityKind::Office) {
-            w.useTerminal(selected, best, 30);
-            openNetwork();
-          } else
-            w.joinQueue(selected, best);
-        });
+        activateInteraction();
       if (!paused && r.ladder >= 0) {
         float direction = float(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) -
                           float(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS);
@@ -1114,10 +1035,7 @@ public:
         if (throttle != 0 || steer != 0 || !w.vehicleJourneys.contains(r.vehicle))
           act([&] { w.driveVehicle(selected, throttle, steer, std::min(dt, .05f)); });
         playerYaw = w.vehicles[r.vehicle].yaw;
-      } else if (!paused && r.activity != Activity::Jailed && r.activity != Activity::Escorted &&
-                 r.activity != Activity::Restrained && !r.surrendered && r.lift == none &&
-                 r.ambulance == none && r.carriedBy == none && r.medicalDuty == none &&
-                 !(w.looseBodies.contains(selected) && w.looseBodies.at(selected).pusher != none)) {
+      } else if (!paused && w.canControlBody(selected)) {
         Vec3 front{std::sin(playerYaw), 0, -std::cos(playerYaw)},
             right{std::cos(playerYaw), 0, std::sin(playerYaw)}, move{};
         if (glfwGetKey(window, GLFW_KEY_W))
@@ -1128,28 +1046,20 @@ public:
           move = move + right;
         if (glfwGetKey(window, GLFW_KEY_A))
           move = move - right;
-        if (length(move) > .01f) {
-          if (r.activity == Activity::Sleeping || w.personalUses.contains(selected)) {
-            w.stopPersonalUse(selected);
-            r.pos = w.accessible(w.position(selected));
-            w.crowd.erase(selected);
-          }
-          body.position = w.position(selected);
-          w.clockOut(selected);
-          w.leaveQueue(selected);
-          r.route.clear();
-          ++r.routeVersion;
-          r.task = TaskKind::None;
-          r.activity = Activity::Idle;
-        }
-        if (r.route.empty() && r.activity == Activity::Idle) {
+        act([&] {
           Vec3 before = w.position(selected);
           bool running = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
-          body = w.stepBody(selected, normalized(move) * w.walkingSpeed(selected, running),
-                            std::min(dt, .1f), glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS);
-          if (length(body.position - before) > .01f && body.grounded)
-            w.exercise(selected, dt * (1440 / w.config.dayMinutes), running ? 1.f : .2f);
-        }
+          auto result = w.stepControlledBody(
+              selected, normalized(move) * w.walkingSpeed(selected, running), std::min(dt, .1f),
+              glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS);
+          if (result) {
+            body = *result;
+            if (length(body.position - before) > .01f && body.grounded)
+              w.exercise(selected, dt * (1440 / w.config.dayMinutes), running ? 1.f : .2f);
+          } else {
+            w.physicsController = none;
+          }
+        });
       }
       currentFloor =
           std::clamp(int(std::max(0.f, w.position(selected).y) / 3), 0, w.config.floors - 1);
@@ -1579,18 +1489,120 @@ public:
     Belonging,
     Lift,
     Storage,
-    Facility
+    Facility,
+    Custody
   };
   struct InteractionTarget {
     InteractionKind kind = InteractionKind::None;
     Id id = none;
   };
+  void openSecurityControls() {
+    estateScreen = storageScreen = educationOpen = emergencyScreen = false;
+    securityScreen = true;
+    phone = false;
+    tab = 0;
+    drawerOpen = true;
+    scrollOffset = 0;
+    mouseLocked = false;
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+  }
+  void activateInteraction() {
+    if (!world)
+      return;
+    auto &w = *world;
+    act([&] {
+      const auto target = interactionTarget();
+      if (target.kind == InteractionKind::Custody) {
+        openSecurityControls();
+        return;
+      }
+      if (target.kind == InteractionKind::ReleaseLadder) {
+        w.releaseLadder(selected);
+        return;
+      }
+      if (target.kind == InteractionKind::ExitVehicle) {
+        w.exitVehicle(selected);
+        return;
+      }
+      if (target.kind == InteractionKind::GrabLadder) {
+        w.grabLadder(selected);
+        return;
+      }
+      if (target.kind == InteractionKind::Vehicle) {
+        w.enterVehicle(selected, target.id);
+        return;
+      }
+      if (target.kind == InteractionKind::Belonging) {
+        w.collectBelonging(selected, target.id);
+        return;
+      }
+      if (target.kind == InteractionKind::Lift) {
+        tab = 1;
+        drawerOpen = true;
+        scrollOffset = 0;
+        mouseLocked = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        return;
+      }
+      if (target.kind == InteractionKind::Storage) {
+        storageScreen = true;
+        selectedStorage = target.id;
+        selectedStorageFacility = w.storageLeases[target.id].facility;
+        tab = 0;
+        drawerOpen = true;
+        scrollOffset = 0;
+        mouseLocked = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        return;
+      }
+      if (target.kind != InteractionKind::Facility)
+        return;
+      Id best = target.id;
+      auto &f = w.facilities[best];
+      if (f.kind == FacilityKind::Reception) {
+        if (!w.operational(f.id))
+          throw std::runtime_error(w.availability(f.id));
+        helpOpen = true;
+        mouseLocked = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+      } else if (f.kind == FacilityKind::Jail) {
+        openSecurityControls();
+      } else if (f.kind == FacilityKind::Locker) {
+        storageScreen = true;
+        selectedStorageFacility = f.id;
+        selectedStorage = none;
+        tab = 0;
+        drawerOpen = true;
+        scrollOffset = 0;
+        mouseLocked = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+      } else if (f.kind == FacilityKind::Elevator) {
+        tab = 1;
+        drawerOpen = true;
+        mouseLocked = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+      } else if (f.kind == FacilityKind::Dealership || f.kind == FacilityKind::Parking ||
+                 f.kind == FacilityKind::Ramp || f.kind == FacilityKind::FreightLift) {
+        networkTab = 4;
+        networkScroll = 0;
+        phone = true;
+        mouseLocked = false;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+      } else if (f.kind == FacilityKind::Terminal || f.kind == FacilityKind::Office) {
+        w.useTerminal(selected, best, 30);
+        openNetwork();
+      } else
+        w.joinQueue(selected, best);
+    });
+  }
   InteractionTarget interactionTarget() {
     auto &w = *world;
     const auto &r = w.residents[selected];
     if (!r.alive || !r.present || r.lift != none || r.ambulance != none || r.carriedBy != none ||
         r.medicalDuty != none)
       return {};
+    if (w.inCustody(selected))
+      return {InteractionKind::Custody};
     if (r.ladder >= 0)
       return {InteractionKind::ReleaseLadder};
     if (r.vehicle != none)
@@ -1648,6 +1660,8 @@ public:
     auto &w = *world;
     const auto target = interactionTarget();
     switch (target.kind) {
+    case InteractionKind::Custody:
+      return "E · " + t("security.title");
     case InteractionKind::ReleaseLadder:
       return t("ladder.controls");
     case InteractionKind::ExitVehicle:
@@ -1667,10 +1681,10 @@ public:
       std::string name = t(facilityKey(f.kind));
       if (f.kind == FacilityKind::Reception && !w.operational(f.id))
         return name + " · " + t(w.availability(f.id));
-      if (f.kind == FacilityKind::Reception || f.kind == FacilityKind::Locker ||
-          f.kind == FacilityKind::Elevator || f.kind == FacilityKind::Dealership ||
-          f.kind == FacilityKind::Parking || f.kind == FacilityKind::Ramp ||
-          f.kind == FacilityKind::FreightLift)
+      if (f.kind == FacilityKind::Reception || f.kind == FacilityKind::Jail ||
+          f.kind == FacilityKind::Locker || f.kind == FacilityKind::Elevator ||
+          f.kind == FacilityKind::Dealership || f.kind == FacilityKind::Parking ||
+          f.kind == FacilityKind::Ramp || f.kind == FacilityKind::FreightLift)
         return "E · " + t("hint.open") + " · " + name;
       if (!w.operational(f.id))
         return name + " · " + t(w.availability(f.id));
@@ -2572,8 +2586,9 @@ public:
         if (ui.button("visit" + std::to_string(f.id), {x + width - 110, y + 62, 98, 30},
                       t("action.walk")))
           act([&] {
-            if (f.kind == FacilityKind::Elevator || f.kind == FacilityKind::Dealership ||
-                f.kind == FacilityKind::Ramp || f.kind == FacilityKind::FreightLift) {
+            if (f.kind == FacilityKind::Jail || f.kind == FacilityKind::Elevator ||
+                f.kind == FacilityKind::Dealership || f.kind == FacilityKind::Ramp ||
+                f.kind == FacilityKind::FreightLift) {
               w.travel(w.player, facilityApproach(f), TaskKind::None, none);
             } else if (f.kind == FacilityKind::Terminal || f.kind == FacilityKind::Office ||
                        f.kind == FacilityKind::Shop || f.kind == FacilityKind::Jail ||
@@ -6806,12 +6821,14 @@ int runApplication(int argc, char **argv) {
     Application app(window, paths, !automation || !customPrefs.empty(), !automation, sound,
                     customPrefs);
     int frames = 0, maxFrames = 0;
-    bool verifyFeedback = false;
+    bool verifyFeedback = false, verifyCustodyControl = false, custodyInteractionVerified = false;
     bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false,
          playConstruction = false, playVehicles = false, playCompany = false, playSecurity = false,
          playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
          playRescue = false, playFire = false, playAngled = false, playStorage = false,
-         playCrew = false, playEstates = false, playChimney = false;
+         playCrew = false, playEstates = false, playChimney = false, playBodyControl = false;
+    Id bodyControlFacility = none;
+    Vec3 bodyControlStart{};
     Id chimneySource = none, chimneyTarget = none, chimneyShipment = none;
     int chimneyFinish = -1;
     bool chimneyEvacuated = false;
@@ -6935,6 +6952,13 @@ int runApplication(int argc, char **argv) {
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
         app.config.accidentRate = 0;
+      } else if (arg == "--playtest-body-control") {
+        playBodyControl = demo = animate = true;
+        panel = "body-control";
+        app.config.population = 40;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
       } else if (arg == "--playtest-crowd") {
         playCrowd = demo = animate = true;
         panel = "crowd-play";
@@ -6967,6 +6991,8 @@ int runApplication(int argc, char **argv) {
         demo = true;
       else if (arg == "--animate")
         animate = true;
+      else if (arg == "--verify-custody-control")
+        verifyCustodyControl = true;
       else if (arg == "--frames")
         maxFrames = std::stoi(value());
       else if (arg == "--fixed-step")
@@ -7018,6 +7044,14 @@ int runApplication(int argc, char **argv) {
       else if (arg == "--skin-budget")
         app.renderer->skinVertexBudget = std::stoull(value());
     }
+    if (playBodyControl) {
+      if (!browserImport.empty())
+        throw std::runtime_error("Body control regression uses an isolated generated world");
+      if (maxFrames == 0)
+        maxFrames = 180;
+      if (fixedStep == 0)
+        fixedStep = 1.f / 30;
+    }
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
         playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
         playStorage || playCrew || playEstates || playChimney) {
@@ -7049,7 +7083,46 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "social") {
+      if (panel == "body-control") {
+        auto &w = *app.world;
+        while (!w.events.empty())
+          w.events.pop();
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.pos = w.position(r.id);
+          r.route.clear();
+          r.task = TaskKind::None;
+          r.automatic = false;
+          r.activity = Activity::Idle;
+        }
+        w.crowd.clear();
+        bodyControlFacility = w.nearestAt({0, 0, 0}, FacilityKind::Water);
+        auto &f = w.facilities[bodyControlFacility];
+        f.pos = w.layout(0).entrance() + Vec3{1, 0, 0};
+        f.stock = 0;
+        f.staffNeeded = 0;
+        f.opensAt = 0;
+        f.openHours = 24;
+        f.publicAccess = true;
+        f.autoRestock = false;
+        w.invalidateGeometry(0);
+        w.residents[0].pos = w.layout(0).entrance();
+        w.joinQueue(0, f.id);
+        auto &r = w.residents[0];
+        r.pos = w.position(0);
+        r.route.clear();
+        ++r.routeVersion;
+        r.activity = Activity::Idle;
+        bodyControlStart = w.position(0);
+        w.validate();
+        app.selected = 0;
+        app.setFirstPerson(true);
+        app.drawerOpen = false;
+        app.currentFloor = 0;
+        std::cout << "BODY CONTROL PLAYTEST: live first-person idle frame with a valid pending "
+                     "service reservation\n";
+      } else if (panel == "social") {
         auto &w = *app.world;
         while (!w.events.empty())
           w.events.pop();
@@ -8424,6 +8497,38 @@ int runApplication(int argc, char **argv) {
               lawReceipt = e.id;
           if (lawReceipt == none || w.evidenceReceipts[lawReceipt].locker != lawJail)
             throw std::runtime_error("Seized property never reached the actual jail locker");
+          if (verifyCustodyControl) {
+            auto prior = w.position(1);
+            bool automatic = w.residents[1].automatic;
+            bool firstPerson = app.firstPerson;
+            float speed = app.speed;
+            Id selected = app.selected;
+            app.selected = 1;
+            app.setFirstPerson(true);
+            app.drawerOpen = false;
+            if (app.interactionTarget().kind != Application::InteractionKind::Custody)
+              throw std::runtime_error("Booked cell did not expose custody controls");
+            app.activateInteraction(); // The same dispatch as the E key.
+            if (!app.securityScreen || !app.drawerOpen || w.residents[1].queuedAt != none ||
+                !w.custodyRecords.at(1).active)
+              throw std::runtime_error("Cell interaction altered custody or queued a prisoner");
+            app.frame(dt, {});
+            app.drawerOpen = false;
+            app.frame(dt, {});
+            if (w.stepControlledBody(1, {3.6f, 0, 0}, dt) ||
+                w.residents[1].activity != Activity::Jailed ||
+                length(w.position(1) - prior) > .001f)
+              throw std::runtime_error("Cell interaction enabled free prisoner movement");
+            app.setFirstPerson(false);
+            w.residents[1].automatic = automatic;
+            app.selected = selected;
+            app.setFirstPerson(firstPerson);
+            app.speed = speed;
+            app.drawerOpen = true;
+            custodyInteractionVerified = true;
+            std::cout << "CELL INTERACTION PASS: real escort booked inmate; E opened custody "
+                         "controls; closing them preserved detention and safe movement state\n";
+          }
           lawStage = 2;
           w.travel(0, w.facilities[lawJail].pos + Vec3{1.6f, 0, 1.6f}, TaskKind::None, none);
           app.selected = 0;
@@ -8636,8 +8741,30 @@ int runApplication(int argc, char **argv) {
           break;
         }
       }
+      if (playBodyControl) {
+        auto &w = *app.world;
+        if (frames < 90 && (w.residents[0].queuedAt != bodyControlFacility ||
+                            length(w.position(0) - bodyControlStart) > .001f))
+          throw std::runtime_error("Stationary first-person input changed the pending service");
+        if (frames == 90) {
+          auto step = w.stepControlledBody(0, {0, 0, -w.walkingSpeed(0)}, dt);
+          if (!step || w.residents[0].queuedAt != none ||
+              length(w.position(0) - bodyControlStart) > .15f)
+            throw std::runtime_error("Manual service cancellation failed continuous movement");
+        }
+        if (frames == 120)
+          w.depart(0);
+      }
       app.frame(dt, frameCapture);
       ++frames;
+    }
+    if (playBodyControl) {
+      auto &w = *app.world;
+      w.validate();
+      if (frames < 180 || w.residents[0].present || w.gameOver || w.physicsController != none)
+        throw std::runtime_error("Body-control transition regression did not complete");
+      std::cout << "BODY CONTROL PLAYTEST PASS: pending service safely waited, real walking "
+                   "cancelled it once, departed inspection remained usable\n";
     }
     if (verifyFeedback) {
       if (app.pickupFrames == 0 || app.bodyFrames == 0)
@@ -8789,6 +8916,8 @@ int runApplication(int argc, char **argv) {
     if (playSecurity) {
       auto &w = *app.world;
       w.validate();
+      if (verifyCustodyControl && !custodyInteractionVerified)
+        throw std::runtime_error("Real escort/cell interaction was not exercised");
       if (lawStage != 3 || w.items[lawItem].carrier != 0 || lawReceipt == none ||
           !w.evidenceReceipts[lawReceipt].claimed || w.residents[1].activity != Activity::Jailed) {
         if (!capture.empty())

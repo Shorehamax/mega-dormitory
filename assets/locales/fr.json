@@ -1124,5 +1124,7 @@
   "social.theft": "Tentative de vol",
   "social.rescue": "Sauvetage",
   "social.queue_cut": "Place prise dans la file",
-  "social.regard": "Opinion"
+  "social.regard": "Opinion",
+  "security.error.custody": "Vous êtes en détention. Utilisez les commandes de détention ou attendez votre libération.",
+  "security.error.jail_service": "Le poste des gardiens traite les signalements, la détention et les biens récupérés. Il ne propose pas de service en file."
 }

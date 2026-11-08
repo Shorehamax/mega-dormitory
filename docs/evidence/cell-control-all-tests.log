@@ -1,0 +1,97 @@
+Test project /home/charlie/Documents/Codex/2026-10-18/files-pasted-by-the-user-project/work/native-build
+      Start  1: world_invariants
+ 1/46 Test  #1: world_invariants .......................   Passed   10.69 sec
+      Start  2: asset_import
+ 2/46 Test  #2: asset_import ...........................   Passed    0.83 sec
+      Start  3: multilingual_ui
+ 3/46 Test  #3: multilingual_ui ........................   Passed    0.06 sec
+      Start  4: browser_migration_and_personal_items
+ 4/46 Test  #4: browser_migration_and_personal_items ...   Passed    0.09 sec
+      Start  5: localization_catalogues
+ 5/46 Test  #5: localization_catalogues ................   Passed    0.03 sec
+      Start  6: vulkan_skinning
+ 6/46 Test  #6: vulkan_skinning ........................   Passed    8.30 sec
+      Start  7: vulkan_skinning_software
+ 7/46 Test  #7: vulkan_skinning_software ...............   Passed    1.71 sec
+      Start  8: vulkan_autonomy_playthrough
+ 8/46 Test  #8: vulkan_autonomy_playthrough ............   Passed    2.53 sec
+      Start  9: vulkan_construction_playthrough
+ 9/46 Test  #9: vulkan_construction_playthrough ........   Passed   16.02 sec
+      Start 10: vulkan_queue_flow
+10/46 Test #10: vulkan_queue_flow ......................   Passed   22.03 sec
+      Start 11: vulkan_body_discovery
+11/46 Test #11: vulkan_body_discovery ..................   Passed    1.93 sec
+      Start 12: vulkan_crowd_camera
+12/46 Test #12: vulkan_crowd_camera ....................   Passed    4.37 sec
+      Start 13: vulkan_security_playthrough
+13/46 Test #13: vulkan_security_playthrough ............   Passed   31.85 sec
+      Start 14: vulkan_company_playthrough
+14/46 Test #14: vulkan_company_playthrough .............   Passed   11.19 sec
+      Start 15: vulkan_vehicle_playthrough
+15/46 Test #15: vulkan_vehicle_playthrough .............   Passed   33.50 sec
+      Start 16: vulkan_household_and_school
+16/46 Test #16: vulkan_household_and_school ............   Passed    5.60 sec
+      Start 17: vulkan_prison_rescue
+17/46 Test #17: vulkan_prison_rescue ...................   Passed    2.70 sec
+      Start 18: vulkan_chimney_and_cargo
+18/46 Test #18: vulkan_chimney_and_cargo ...............   Passed    3.47 sec
+      Start 19: vulkan_fire_spread
+19/46 Test #19: vulkan_fire_spread .....................   Passed    3.76 sec
+      Start 20: vulkan_angled_construction
+20/46 Test #20: vulkan_angled_construction .............   Passed   16.88 sec
+      Start 21: vulkan_feedback_polish
+21/46 Test #21: vulkan_feedback_polish .................   Passed    2.91 sec
+      Start 22: vulkan_personal_estates
+22/46 Test #22: vulkan_personal_estates ................   Passed    2.94 sec
+      Start 23: vulkan_cooperative_crew
+23/46 Test #23: vulkan_cooperative_crew ................   Passed   24.96 sec
+      Start 24: vulkan_household_storage
+24/46 Test #24: vulkan_household_storage ...............   Passed    4.28 sec
+      Start 25: persistent_body_physics
+25/46 Test #25: persistent_body_physics ................   Passed    0.17 sec
+      Start 26: communal_washing
+26/46 Test #26: communal_washing .......................   Passed    0.07 sec
+      Start 27: resident_autonomy
+27/46 Test #27: resident_autonomy ......................   Passed    0.17 sec
+      Start 28: flexible_construction
+28/46 Test #28: flexible_construction ..................   Passed    1.79 sec
+      Start 29: vehicle_traffic
+29/46 Test #29: vehicle_traffic ........................   Passed    0.38 sec
+      Start 30: company_capital_and_expansion
+30/46 Test #30: company_capital_and_expansion ..........   Passed    0.11 sec
+      Start 31: evidence_and_custody
+31/46 Test #31: evidence_and_custody ...................   Passed    0.40 sec
+      Start 32: queue_flow_and_departures
+32/46 Test #32: queue_flow_and_departures ..............   Passed    0.07 sec
+      Start 33: education_and_training
+33/46 Test #33: education_and_training .................   Passed    0.06 sec
+      Start 34: fire_spread_and_property
+34/46 Test #34: fire_spread_and_property ...............   Passed    0.06 sec
+      Start 35: household_storage_and_property
+35/46 Test #35: household_storage_and_property .........   Passed    0.07 sec
+      Start 36: cooperative_construction_contracts
+36/46 Test #36: cooperative_construction_contracts .....   Passed    0.14 sec
+      Start 37: relocatable_runtime_paths
+37/46 Test #37: relocatable_runtime_paths ..............   Passed    0.00 sec
+      Start 38: personal_estates_and_inheritance
+38/46 Test #38: personal_estates_and_inheritance .......   Passed    0.11 sec
+      Start 39: audio_and_preferences
+39/46 Test #39: audio_and_preferences ..................   Passed    0.05 sec
+      Start 40: native_audio_output
+40/46 Test #40: native_audio_output ....................   Passed    0.08 sec
+      Start 41: presentation_events_and_pickup
+41/46 Test #41: presentation_events_and_pickup .........   Passed    0.05 sec
+      Start 42: vertical_fire_smoke_and_cargo
+42/46 Test #42: vertical_fire_smoke_and_cargo ..........   Passed    0.16 sec
+      Start 43: social_encounter_memory
+43/46 Test #43: social_encounter_memory ................   Passed    0.14 sec
+      Start 44: vulkan_social_history
+44/46 Test #44: vulkan_social_history ..................   Passed    1.32 sec
+      Start 45: vulkan_body_control_transitions
+45/46 Test #45: vulkan_body_control_transitions ........   Passed    4.23 sec
+      Start 46: vulkan_custody_cell_interaction
+46/46 Test #46: vulkan_custody_cell_interaction ........   Passed   31.83 sec
+
+100% tests passed, 0 tests failed out of 46
+
+Total Test time (real) = 254.11 sec

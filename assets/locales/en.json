@@ -1124,5 +1124,7 @@
   "social.theft": "Theft attempt",
   "social.rescue": "Physical rescue",
   "social.queue_cut": "Queue cutting",
-  "social.regard": "Opinion"
+  "social.regard": "Opinion",
+  "security.error.custody": "You are in custody. Use the custody controls or wait for release.",
+  "security.error.jail_service": "Use the warden desk for reports, custody and recovered property. It is not a service queue."
 }

@@ -1,0 +1,21 @@
+Test project /home/charlie/Documents/Codex/2026-10-18/files-pasted-by-the-user-project/work/native-build
+    Start  1: world_invariants
+1/8 Test  #1: world_invariants .................   Passed   10.76 sec
+    Start  5: localization_catalogues
+2/8 Test  #5: localization_catalogues ..........   Passed    0.04 sec
+    Start 25: persistent_body_physics
+3/8 Test #25: persistent_body_physics ..........   Passed    0.16 sec
+    Start 27: resident_autonomy
+4/8 Test #27: resident_autonomy ................   Passed    0.17 sec
+    Start 29: vehicle_traffic
+5/8 Test #29: vehicle_traffic ..................   Passed    0.37 sec
+    Start 31: evidence_and_custody
+6/8 Test #31: evidence_and_custody .............   Passed    0.40 sec
+    Start 32: queue_flow_and_departures
+7/8 Test #32: queue_flow_and_departures ........   Passed    0.07 sec
+    Start 41: presentation_events_and_pickup
+8/8 Test #41: presentation_events_and_pickup ...   Passed    0.05 sec
+
+100% tests passed, 0 tests failed out of 8
+
+Total Test time (real) =  12.03 sec

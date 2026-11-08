@@ -198,3 +198,17 @@ if(MEGA_VULKAN_TESTS)
     ENVIRONMENT "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;MEGA_AUDIO_DEVICE=null"
     FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 endif()
+
+if(MEGA_VULKAN_TESTS)
+  add_test(NAME vulkan_body_control_transitions COMMAND mega_dormitory --playtest-body-control --width 1000 --height 720)
+  set_tests_properties(vulkan_body_control_transitions PROPERTIES
+    ENVIRONMENT "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;MEGA_AUDIO_DEVICE=null"
+    FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
+endif()
+
+if(MEGA_VULKAN_TESTS)
+  add_test(NAME vulkan_custody_cell_interaction COMMAND mega_dormitory --playtest-security --verify-custody-control --width 1000 --height 720)
+  set_tests_properties(vulkan_custody_cell_interaction PROPERTIES
+    ENVIRONMENT "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;MEGA_AUDIO_DEVICE=null"
+    FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
+endif()

@@ -1,0 +1,26 @@
+Asset old_bed_frame: 49990 triangles
+Asset plastic_monobloc_chair_01: 3356 triangles
+Asset painted_wooden_table: 600 triangles
+Asset metal_trash_can: 13960 triangles
+Asset painted_wooden_cabinet_02: 966 triangles
+Asset wheelchair_01: 40252 triangles
+Asset concrete_floor_02: 2 triangles
+Asset sedan: 2032 triangles
+Asset van: 2082 triangles
+Asset ambulance: 2804 triangles
+Asset resident_Male: 14318 triangles
+Character LOD resident_Male: 3085 triangles
+Asset resident_Female: 15060 triangles
+Character LOD resident_Female: 2760 triangles
+Vulkan device: NVIDIA GeForce RTX 5070; MSAA 4x
+SECURITY PLAYTEST: actual victim reported a robbery; officer walking to the last-seen location on another floor
+SECURITY PLAYTEST: officer reached and apprehended the identified robber; physically carrying recovered property
+CELL INTERACTION PASS: real escort booked inmate; E opened custody controls; closing them preserved detention and safe movement state
+SECURITY PLAYTEST: real escort reached intake; evidence deposited; victim walking to claim it
+SECURITY PLAYTEST: owner reached the property desk and collected the original stolen phone
+SECURITY PLAYTEST PASS: witnessed robbery, credible report, real officer travel, seizure, cross-floor escort, jail intake and owner collection
+Render loop seconds: 30.9019
+CPU scene build seconds: 7.48173
+GPU floor instances: 0
+GPU skinned vertices: 269082
+Rendered 1831 frames

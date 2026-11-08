@@ -1,0 +1,37 @@
+Test project /home/charlie/.cache/mega-dormitory/native
+    Start 25: persistent_body_physics
+1/4 Test #25: persistent_body_physics ...........   Passed    0.18 sec
+    Start 31: evidence_and_custody
+2/4 Test #31: evidence_and_custody ..............   Passed    0.43 sec
+    Start 37: relocatable_runtime_paths
+3/4 Test #37: relocatable_runtime_paths .........   Passed    0.00 sec
+    Start 46: vulkan_custody_cell_interaction
+4/4 Test #46: vulkan_custody_cell_interaction ...   Passed   31.93 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =  32.53 sec
+-- Configuring done (0.1s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/charlie/.cache/mega-dormitory/native
+ninja: no work to do.
+Asset old_bed_frame: 49990 triangles
+Asset plastic_monobloc_chair_01: 3356 triangles
+Asset painted_wooden_table: 600 triangles
+Asset metal_trash_can: 13960 triangles
+Asset painted_wooden_cabinet_02: 966 triangles
+Asset wheelchair_01: 40252 triangles
+Asset concrete_floor_02: 2 triangles
+Asset sedan: 2032 triangles
+Asset van: 2082 triangles
+Asset ambulance: 2804 triangles
+Asset resident_Male: 14318 triangles
+Character LOD resident_Male: 3085 triangles
+Asset resident_Female: 15060 triangles
+Character LOD resident_Female: 2760 triangles
+Vulkan device: NVIDIA GeForce RTX 5070; MSAA 4x
+Render loop seconds: 0.0480212
+CPU scene build seconds: 0.033203
+GPU floor instances: 0
+GPU skinned vertices: 0
+Rendered 3 frames

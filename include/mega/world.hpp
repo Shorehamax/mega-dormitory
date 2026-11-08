@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <queue>
 #include <set>
 #include <stdexcept>
@@ -843,6 +844,11 @@ public:
   std::map<Id, LooseBody> looseBodies, airborneRemains;
   double nextPhysicsAt = -1;
   Id physicsController = none; // transient: the active first-person input controller
+  bool inCustody(Id resident) const;
+  bool canStepBody(Id resident) const;
+  bool canControlBody(Id resident) const;
+  std::optional<Body> stepControlledBody(Id resident, Vec3 desired, float seconds,
+                                         bool jump = false);
   Body stepBody(Id resident, Vec3 desired, float seconds, bool jump = false);
   void ensurePhysicsTick();
   void physicsTick();

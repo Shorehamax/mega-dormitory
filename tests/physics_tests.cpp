@@ -65,6 +65,26 @@ static bool crime(const World &w, CrimeKind k, Id a, Id v) {
       return true;
   return false;
 }
+static Id idleReservation(World &w) {
+  Id fid = w.nearestAt({0, 0, 0}, FacilityKind::Water);
+  auto &f = w.facilities[fid];
+  f.pos = {100, 0, 102};
+  f.stock = 0;
+  f.staffNeeded = 0;
+  f.opensAt = 0;
+  f.openHours = 24;
+  f.publicAccess = true;
+  f.autoRestock = false;
+  w.invalidateGeometry(0);
+  w.joinQueue(0, fid);
+  auto &r = w.residents[0];
+  r.pos = w.position(0);
+  r.route.clear();
+  ++r.routeVersion;
+  // A deferred activity/error callback may restore this label before its reservation clears.
+  r.activity = Activity::Idle;
+  return fid;
+}
 int main() {
   test("Jump survives save and lands without a camera controller", [] {
     auto w = small();
@@ -369,6 +389,160 @@ int main() {
     }
     require(length(w.position(0) - Vec3{54, 0, 49}) < .2f && r.route.empty(),
             "A shared navigation corner permanently blocked pedestrian flow");
+    w.validate();
+  });
+  test("An idle label with a real queue reservation cannot crash stationary first person", [] {
+    auto w = small();
+    Id fid = idleReservation(w);
+    w.validate();
+    auto before = w.position(0);
+    auto cash = w.accounts[w.residents[0].account].balance;
+    require(!w.canStepBody(0), "Reserved body was considered freely movable");
+    // This strict call is the old UI path and reproduces the reported exception.
+    rejects([&] { w.stepBody(0, {}, 1.f / 60); });
+    for (int frame = 0; frame < 120; ++frame)
+      require(!w.stepControlledBody(0, {}, 1.f / 60), "Waiting input stole a reservation");
+    require(w.residents[0].queuedAt == fid && w.facilities[fid].queue.size() == 1 &&
+                length(w.position(0) - before) == 0 &&
+                w.accounts[w.residents[0].account].balance == cash && w.looseBodies.empty(),
+            "Stationary controller mutated the service or body");
+    w.validate();
+  });
+  test("Walking explicitly cancels a pending service once before integrating the body", [] {
+    auto w = small();
+    Id fid = idleReservation(w);
+    auto cash = w.accounts[w.residents[0].account].balance;
+    auto before = w.position(0);
+    auto body = w.stepControlledBody(0, {-3.6f, 0, 0}, 1.f / 60);
+    require(body && w.residents[0].queuedAt == none && w.facilities[fid].queue.empty() &&
+                w.residents[0].route.empty() && w.residents[0].task == TaskKind::None &&
+                length(w.position(0) - before) < .07f &&
+                w.accounts[w.residents[0].account].balance == cash,
+            "Walking bypassed cancellation or relocated the waiting resident");
+    require(w.stepControlledBody(0, {-3.6f, 0, 0}, 1.f / 60).has_value(),
+            "Walking did not continue");
+    w.validate();
+  });
+  test("Manual interruption preserves an interpolated route position", [] {
+    auto w = small();
+    w.travel(0, {112, 0, 100}, TaskKind::None, none);
+    w.time = (w.time + w.residents[0].route.back().time) / 2;
+    auto before = w.position(0);
+    require(before.x > 103 && before.x < 110, "Route interpolation fixture failed");
+    auto body = w.stepControlledBody(0, {0, 0, -3.6f}, 1.f / 60);
+    require(body && w.residents[0].route.empty() && length(body->position - before) < .07f,
+            "Taking control snapped to the old route origin");
+    w.validate();
+  });
+  test("A departed inspected resident cannot receive movement updates", [] {
+    auto w = small();
+    place(w, 0, w.layout(0).entrance());
+    w.depart(0);
+    auto before = w.position(0);
+    auto activity = w.residents[0].activity;
+    require(!w.canControlBody(0) && !w.stepControlledBody(0, {3.6f, 0, 0}, 1.f / 60) &&
+                !w.stepControlledBody(0, {}, 1.f / 60, true),
+            "Departed resident was controlled");
+    require(w.residents[0].activity == activity && length(w.position(0) - before) == 0 &&
+                w.looseBodies.empty() && !w.gameOver,
+            "Inspection revived or moved an emigrant");
+    w.validate();
+  });
+  test("Transport and custody transitions reject manual input without throwing or detaching", [] {
+    auto base = small();
+    auto check = [](World &w) {
+      auto before = w.position(0);
+      auto version = w.residents[0].routeVersion;
+      require(!w.canControlBody(0) && !w.stepControlledBody(0, {3.6f, 0, 0}, 1.f / 60),
+              "Reserved actor accepted manual walking");
+      require(length(w.position(0) - before) == 0 && w.residents[0].routeVersion == version,
+              "Rejected input changed an attached actor");
+    };
+    for (Activity state : {Activity::Jailed, Activity::Restrained, Activity::Escorted}) {
+      auto w = base;
+      w.residents[0].activity = state;
+      check(w);
+      require(w.residents[0].activity == state, "Movement escaped custody");
+    }
+    {
+      auto w = base;
+      w.residents[0].medicalDuty = 0;
+      check(w);
+      require(w.residents[0].medicalDuty == 0, "Movement abandoned a medical assignment");
+    }
+    {
+      auto w = base;
+      auto landing = w.layout().landing(0, 0);
+      place(w, 0, landing);
+      w.grabLadder(0);
+      check(w);
+      require(w.residents[0].ladder == 0, "Walking detached a ladder climber");
+      w.validate();
+    }
+  });
+  test("A sleeping resident stays at rest until walking explicitly wakes them", [] {
+    auto w = small();
+    w.residents[0].activity = Activity::Sleeping;
+    auto before = w.position(0);
+    require(!w.stepControlledBody(0, {}, 1.f / 60) &&
+                w.residents[0].activity == Activity::Sleeping &&
+                length(w.position(0) - before) == 0,
+            "No-input frame woke a sleeping resident");
+    require(w.stepControlledBody(0, {3.6f, 0, 0}, 1.f / 60).has_value() &&
+                w.residents[0].activity == Activity::Idle,
+            "Walking could not wake the resident");
+    w.validate();
+  });
+  test("Surrender blocks control but keeps physical gravity active", [] {
+    auto w = small();
+    place(w, 0, {0, 4, 0});
+    w.surrender(0);
+    require(!w.stepControlledBody(0, {3.6f, 0, 0}, 1.f / 60),
+            "Surrender was cancelled by movement");
+    w.stepBody(0, {}, 1.f / 60);
+    advance(w, 2);
+    require(w.position(0).y == 0 && w.residents[0].surrendered && w.looseBodies.empty(),
+            "A surrendered body stopped falling or regained control");
+    w.validate();
+  });
+  test("Walking cannot cancel a real shove before physics settles", [] {
+    auto w = small();
+    place(w, 0, {50, 0, 50});
+    place(w, 1, {50, 0, 48.5f});
+    w.shove(1, 0);
+    auto momentum = w.looseBodies.at(0).velocity;
+    require(!w.stepControlledBody(0, {0, 0, -7.2f}, 1.f / 60) &&
+                length(w.looseBodies.at(0).velocity - momentum) == 0,
+            "Manual input erased real knockback");
+    advance(w, .5);
+    require(length(w.position(0) - Vec3{50, 0, 50}) > .1f, "Rejected input froze knockback");
+    w.validate();
+  });
+  test("Interrupting a deferred activity while airborne never snaps onto a floor", [] {
+    auto w = small();
+    place(w, 0, {0, 4, 0});
+    w.stepBody(0, {}, 1.f / 60);
+    auto before = w.position(0);
+    w.residents[0].activity = Activity::Sleeping;
+    auto body = w.stepControlledBody(0, {1, 0, 0}, 1.f / 60);
+    require(body && body->position.y > 3.9f && body->position.y < before.y && !body->grounded &&
+                w.looseBodies.contains(0),
+            "A late sleep callback cancelled real gravity");
+    w.validate();
+  });
+  test("Invalid numeric control input is still rejected before any state mutation", [] {
+    auto w = small();
+    Id fid = idleReservation(w);
+    auto before = w.position(0);
+    float nan = std::numeric_limits<float>::quiet_NaN();
+    rejects([&] { w.stepControlledBody(0, {nan, 0, 0}, 1.f / 60); });
+    rejects([&] { w.stepControlledBody(0, {}, nan); });
+    rejects([&] { w.stepControlledBody(0, {}, -.1f); });
+    rejects([&] { w.stepControlledBody(0, {}, .2f); });
+    rejects([&] { w.stepControlledBody(0, {101, 0, 0}, .01f); });
+    require(w.residents[0].queuedAt == fid && length(w.position(0) - before) == 0 &&
+                !w.canControlBody(none) && !w.canStepBody(1000000),
+            "Malformed input mutated a reservation or accepted an invalid actor");
     w.validate();
   });
   std::cout << passed << " passed, " << failed << " failed\n";

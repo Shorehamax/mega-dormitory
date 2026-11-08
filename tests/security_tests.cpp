@@ -105,6 +105,22 @@ std::pair<Id, Id> unseenDeath(World &w) {
   w.kill(1, 0);
   return {Id(w.incidents.size() - 1), body};
 }
+World bookedPrisoner() {
+  auto w = small();
+  Id f = jail(w);
+  auto at = w.facilities[f].pos;
+  place(w, 0, at + Vec3{4, 0, 4});
+  place(w, 2, at + Vec3{4, 0, 5});
+  guard(w, 2);
+  w.report(CrimeKind::Assault, 0, 1);
+  w.surrender(0);
+  w.apprehend(2, 0);
+  w.advance(1800);
+  require(w.residents[0].activity == Activity::Jailed && w.custodyRecords.at(0).active,
+          "Real escort did not book the prisoner");
+  w.validate();
+  return w;
+}
 int main() {
   test("Unreported acts retain causal facts without giving wardens omniscient identity", [] {
     auto w = small();
@@ -1159,6 +1175,114 @@ int main() {
            w.validate();
          }
        });
+  test("A real booked prisoner cannot use cell or ordinary service queues to bypass custody", [] {
+    auto w = bookedPrisoner();
+    Id f = w.custodyRecords.at(0).jail;
+    auto at = w.position(0);
+    auto cash = w.accounts[w.residents[0].account].balance;
+    rejects([&] { w.joinQueue(0, f); });
+    rejects([&] { w.joinQueue(0, w.nearest(0, FacilityKind::Water)); });
+    rejects([&] { w.travel(0, at + Vec3{3, 0, 0}, TaskKind::None, none); });
+    w.securityTick();
+    require(w.inCustody(0) && w.residents[0].activity == Activity::Jailed &&
+                w.residents[0].queuedAt == none && w.facilities[f].queue.empty() &&
+                length(w.position(0) - at) == 0 &&
+                w.accounts[w.residents[0].account].balance == cash,
+            "Cell interaction changed custody, money or location");
+    require(!w.stepControlledBody(0, {3.6f, 0, 0}, 1.f / 60), "Inmate received free movement");
+    w.validate();
+  });
+  test("An active custody record remains authoritative after a stale idle callback", [] {
+    auto w = bookedPrisoner();
+    w.residents[0].activity = Activity::Idle;
+    w.residents[0].surrendered = false;
+    require(w.inCustody(0) && !w.canControlBody(0) &&
+                !w.stepControlledBody(0, {3.6f, 0, 0}, 1.f / 60),
+            "An idle label overrode real custody");
+    rejects([&] { w.travel(0, w.position(0) + Vec3{3, 0, 0}, TaskKind::None, none); });
+    w.securityTick();
+    require(w.custodyRecords.at(0).active && w.residents[0].activity == Activity::Jailed,
+            "A booked inmate was freed by an activity callback");
+    w.validate();
+  });
+  test("Old saved cell-service state is repaired without charging or releasing the inmate", [] {
+    auto w = bookedPrisoner();
+    Id f = w.custodyRecords.at(0).jail;
+    auto at = w.position(0);
+    auto sentence = w.custodyRecords.at(0).sentenceUntil;
+    auto cash = w.accounts[w.residents[0].account].balance;
+    w.residents[0].activity = Activity::Idle;
+    w.residents[0].surrendered = false;
+    w.residents[0].queuedAt = f;
+    w.facilities[f].queue.push_back(0);
+    auto path = std::filesystem::temp_directory_path() / "mega-cell-service-regression.mdsave";
+    w.save(path);
+    auto loaded = World::load(path);
+    loaded.securityTick();
+    require(loaded.custodyRecords.at(0).active &&
+                loaded.residents[0].activity == Activity::Jailed &&
+                loaded.residents[0].queuedAt == none && loaded.facilities[f].queue.empty() &&
+                loaded.custodyRecords.at(0).sentenceUntil == sentence &&
+                loaded.accounts[loaded.residents[0].account].balance == cash &&
+                length(loaded.position(0) - at) == 0,
+            "Legacy recovery lost custody, changed the sentence or moved/charged the prisoner");
+    loaded.validate();
+    for (const auto &suffix : {"", ".bak", ".meta.json", ".bak.meta.json"})
+      std::filesystem::remove(path.string() + suffix);
+  });
+  test("The warden desk is not a paid consumer service for visitors", [] {
+    auto w = small();
+    Id f = jail(w);
+    place(w, 0, w.facilities[f].pos + Vec3{1.6f, 0, 1.6f});
+    auto stock = w.facilities[f].stock;
+    auto money = w.internalMoney();
+    rejects([&] { w.joinQueue(0, f); });
+    require(w.residents[0].queuedAt == none && w.facilities[f].queue.empty() &&
+                w.facilities[f].stock == stock && w.internalMoney() == money,
+            "A report/claims desk consumed service stock or money");
+    w.validate();
+  });
+  test("Real sentence release and a completed escape restore movement eligibility", [] {
+    {
+      auto w = bookedPrisoner();
+      w.advance(w.custodyRecords.at(0).sentenceUntil - w.time + 1);
+      require(!w.inCustody(0) && w.canControlBody(0) &&
+                  w.stepControlledBody(0, {}, 1.f / 60).has_value(),
+              "Sentence release left movement locked");
+      w.validate();
+    }
+    {
+      auto w = bookedPrisoner();
+      place(w, 2, {150, 0, 150});
+      w.residents[0].energy = 1;
+      w.residents[0].strength = 90;
+      w.startEscape(0);
+      for (int n = 0; n < 80 && w.custodyRecords.at(0).active; ++n) {
+        w.time += 60;
+        w.securityTick();
+      }
+      require(w.custodyRecords.at(0).escaped && !w.inCustody(0) && w.canControlBody(0),
+              "Actual escape remained locked or did not complete");
+      w.validate();
+    }
+  });
+  test("Arrest releases a manual ladder grip before the real escort starts", [] {
+    auto w = small();
+    Vec3 landing = w.layout().landing(0, 0);
+    place(w, 0, landing);
+    w.grabLadder(0);
+    guard(w, 2);
+    place(w, 2, landing + Vec3{0, 0, 1});
+    w.report(CrimeKind::Assault, 0, 1);
+    w.surrender(0);
+    w.apprehend(2, 0);
+    auto at = w.position(0);
+    require(w.inCustody(0) && w.residents[0].ladder == -1,
+            "Capture retained a manual ladder controller");
+    w.climb(0, 1, .05f);
+    require(length(w.position(0) - at) == 0, "Climbing escaped the real escort");
+    w.validate();
+  });
   std::cout << passed << " passed, " << failed << " failed\n";
   return failed ? 1 : 0;
 }

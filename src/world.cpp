@@ -429,8 +429,7 @@ Id World::nearestAt(Vec3 p, FacilityKind kind) const {
 void World::travel(Id id, Vec3 dest, TaskKind task, Id target) {
   auto &r = residents.at(id);
   if (!r.alive || !r.present || r.vehicle != none || r.lift != none || r.ambulance != none ||
-      r.carriedBy != none || r.activity == Activity::Jailed || r.activity == Activity::Restrained ||
-      (r.activity == Activity::Escorted && r.task != TaskKind::Escort))
+      r.carriedBy != none || inCustody(id))
     throw std::runtime_error("Resident cannot travel");
   if (looseBodies.contains(id))
     throw std::runtime_error("physics.error.airborne");
@@ -1433,6 +1432,10 @@ void World::arrive(Id id) {
 void World::joinQueue(Id id, Id fId) {
   auto &r = residents.at(id);
   auto &f = facilities.at(fId);
+  if (inCustody(id))
+    throw std::runtime_error("security.error.custody");
+  if (f.kind == FacilityKind::Jail)
+    throw std::runtime_error("security.error.jail_service");
   if (looseBodies.contains(id))
     throw std::runtime_error("physics.error.airborne");
   if (!r.alive || !r.present || !f.open || !accessAllowed(id, fId) ||

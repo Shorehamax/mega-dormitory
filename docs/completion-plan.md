@@ -4,7 +4,7 @@
 
 A sequential plan for finishing the accepted game, not another unbounded list of possible improvements.
 
-Updated: **2026-11-06** · Plan revision: **1**
+Updated: **2026-11-07** · Plan revision: **1**
 
 ## Current work
 
@@ -934,3 +934,4 @@ None recorded. Optional new ideas go here rather than silently expanding release
 - **2026-11-03** — Created the fixed sequential plan at the user’s request. Gameplay-first phase order follows the accepted priorities. Existing implementation is the baseline, not discarded work. No new gameplay milestone is marked complete by this planning-only change.
 - **2026-11-03** — Completed the one-time M00 inventory: 38 requirements, 14 parity decisions, frozen source manifests, 38 acceptance scenarios, ranked gaps and isolated hardware/headless/rendered baseline. Advanced to M01.1 without adding scope or restarting delivered systems.
 - **2026-11-06** — Completed M01.1: persistent directional social opinions and private actual-event memories, localized nearby history, relevant aid/estate integration and verified regressions. Closed D-M00-01. M01 remains active; next task is M01.2 information transfer.
+- **2026-11-07** — The user clarified physics.error.body occurs at cells after escort. Reproduced the exact chain and fixed jail interaction dispatch, authoritative custody, booked legacy-state recovery and shared first-person input. Added ten physics cases, six security cases and exact E-handler rendered coverage. M01.2 remains the next feature task.

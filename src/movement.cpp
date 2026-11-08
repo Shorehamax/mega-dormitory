@@ -684,9 +684,7 @@ void World::grabLadder(Id id) {
   auto &r = residents.at(id);
   int l = nearbyLadder(id);
   if (r.lift != none || r.ambulance != none || r.carriedBy != none || r.medicalDuty != none ||
-      l < 0 || !r.alive || !r.present || r.vehicle != none || r.surrendered ||
-      r.activity == Activity::Jailed || r.activity == Activity::Restrained ||
-      r.activity == Activity::Escorted)
+      l < 0 || !r.alive || !r.present || r.vehicle != none || r.surrendered || inCustody(id))
     throw std::runtime_error("Approach a ladder landing first");
   Vec3 p = position(id);
   clearPhysics(id);
@@ -716,7 +714,7 @@ void World::releaseLadder(Id id) {
 }
 void World::climb(Id id, float direction, float seconds) {
   auto &r = residents.at(id);
-  if (r.ladder < 0)
+  if (r.ladder < 0 || inCustody(id))
     return;
   seconds = std::clamp(seconds, 0.f, .1f);
   Vec3 p = position(id);

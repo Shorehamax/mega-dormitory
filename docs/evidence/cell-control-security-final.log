@@ -1,0 +1,61 @@
+PASS Unreported acts retain causal facts without giving wardens omniscient identity
+PASS A direct eyewitness can report through a real device and establish identity
+PASS Uninvolved distant residents cannot invent a witnessed complaint
+PASS Walls block eyewitness identification and a scene alone does not reveal the killer
+PASS An awake victim with no device can report directly to a nearby warden
+PASS Investigations search last-seen positions rather than the offender's hidden current position
+PASS Property seizure requires actual reach, custody and a valid crime
+PASS Seized goods travel with the officer and require an actual locker claim
+PASS Murder sentences are longer than ordinary assault and theft
+PASS An unattended prisoner can work to escape but retains wanted consequences
+PASS Actual attending wardens stop a cell escape and extend its sentence
+PASS Saved evidence, testimony and an unfinished escape resume consistently
+PASS Malformed testimony, evidence and custody references are rejected
+PASS Rechecking a scene does not manufacture stronger evidence
+PASS An unrelated case cannot be used to seize a surrendered person's property
+PASS A killed evidence carrier drops the same recoverable property receipt
+PASS A missing locker rejects seizure before mutating the victim's property
+PASS Escape alerts use the actual jail location even when the original guard is elsewhere
+PASS An interrupted escort releases the suspect in place and reopens existing charges
+PASS Jail care consumes delivered stock and recovers energy without releasing the prisoner
+PASS An empty jail cannot conjure prison rations
+PASS Robbery wakes a sleeping victim before eyewitness testimony is recorded
+PASS A warden finishes a real crowded approach without needing to enter the suspect's body
+PASS An ordinary surrendered victim recovers without remaining frozen forever
+PASS An escorted suspect physically reaches intake even when the guard occupies the final approach
+PASS A visible on-duty officer is not excluded when a crowd already fills the witness limit
+PASS Walls prevent an in-person report, scene inspection and witness interview
+PASS An escorted prisoner cannot bypass custody by selecting a walking destination
+PASS An officer abandoning the escort releases it in place and clears both references
+PASS A surrendered warden cannot use arrest to regain control of a fight
+PASS A warden can discover an unwitnessed body without learning the killer
+PASS A moved body is found at its real location instead of the hidden original crime scene
+PASS A witness with no device can remember a body and report it at a real desk
+PASS Walls prevent examining a corpse
+PASS Lost and cremated remains cannot be examined
+PASS A private morgue does not expose bodies to an unauthorized passerby
+PASS A real eyewitness retains their identifying account when they later examine the body
+PASS Natural deaths do not manufacture murder allegations
+PASS Body-discovery location and limited testimony survive a save
+PASS A body-only observation cannot be forged into identifying testimony
+PASS A company director recovers corporate property without changing its legal title
+PASS A shop manager cannot collect their employer's private belongings
+PASS Automatic undertakers can report a violent death when they physically collect the body
+PASS Manual body transport does not force a player to report the death
+PASS A full set of offline body observations does not stop a later warden report
+PASS A witness cannot file a complaint while asleep
+PASS Freeing a prisoner requires reach, active custody and personally owned tools
+PASS A sustained physical intervention frees a prisoner and retains criminal consequences
+PASS An actual alert warden stops a rescue and identifies the rescuer
+PASS A wall prevents a remote guard from interrupting hidden physical work
+PASS Moving away or losing the tools cancels prisoner intervention
+PASS Unfinished rescue work and physical cuffs persist through native saves
+PASS Custody reserves escorted prisoners and uses another jail when the closest is full
+PASS Full detention defers automatic booking without dropping charges or adding blocked actions
+PASS A real booked prisoner cannot use cell or ordinary service queues to bypass custody
+PASS An active custody record remains authoritative after a stale idle callback
+PASS Old saved cell-service state is repaired without charging or releasing the inmate
+PASS The warden desk is not a paid consumer service for visitors
+PASS Real sentence release and a completed escape restore movement eligibility
+PASS Arrest releases a manual ladder grip before the real escort starts
+60 passed, 0 failed

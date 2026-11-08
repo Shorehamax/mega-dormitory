@@ -112,9 +112,9 @@ void World::requestLift(Id id, Id cabin, int destination) {
   int floor = int(std::round(position(id).y / 3));
   if (!r.alive || !r.present || r.lift != none || r.ambulance != none || r.carriedBy != none ||
       r.vehicle != none || r.surrendered || r.activity == Activity::Jailed ||
-      r.activity == Activity::Escorted || !operational(f.id) || !accessAllowed(id, f.id) ||
-      !near(id, liftDoor(floor), 3) || floor == destination || l.calls.size() >= 64 ||
-      std::find(f.stops.begin(), f.stops.end(), floor) == f.stops.end() ||
+      r.activity == Activity::Escorted || inCustody(id) || !operational(f.id) ||
+      !accessAllowed(id, f.id) || !near(id, liftDoor(floor), 3) || floor == destination ||
+      l.calls.size() >= 64 || std::find(f.stops.begin(), f.stops.end(), floor) == f.stops.end() ||
       std::find(f.stops.begin(), f.stops.end(), destination) == f.stops.end())
     throw std::runtime_error("Reach a served lift landing and choose another stop");
   if (std::any_of(l.calls.begin(), l.calls.end(),

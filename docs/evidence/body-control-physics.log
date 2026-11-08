@@ -1,0 +1,30 @@
+PASS Jump survives save and lands without a camera controller
+PASS Shaft fall damages and lands while observed
+PASS Manual controller prevents double integration and releasing it resumes gravity
+PASS Airborne residents cannot route or join facilities
+PASS Death cancels physics and queued ticks cannot revive it
+PASS Invalid physics state is rejected
+PASS Shove produces smooth displacement, costs stamina and reports assault
+PASS Fatal shaft shove retains offender across reload
+PASS Lethal threat defense stays justified through the fall
+PASS Shoving surrendered residents is excessive force and preserves surrender
+PASS Falling beyond the structure records an unreachable body
+PASS A resident killed midair leaves a falling body, including after reload
+PASS Death beyond the building continues into unreachable remains
+PASS Malformed corpse physics and airborne activity escapes are rejected
+PASS Deferred task changes cannot cancel a fall
+PASS Airborne work, custody and body collection fail without reserving anything
+PASS A blocked controlled resident stays still while a crowd presses in
+PASS A pedestrian waits at an occupied destination instead of orbiting its occupant
+PASS A crowded navigation corner can be passed without stepping onto its occupant
+PASS An idle label with a real queue reservation cannot crash stationary first person
+PASS Walking explicitly cancels a pending service once before integrating the body
+PASS Manual interruption preserves an interpolated route position
+PASS A departed inspected resident cannot receive movement updates
+PASS Transport and custody transitions reject manual input without throwing or detaching
+PASS A sleeping resident stays at rest until walking explicitly wakes them
+PASS Surrender blocks control but keeps physical gravity active
+PASS Walking cannot cancel a real shove before physics settles
+PASS Interrupting a deferred activity while airborne never snaps onto a floor
+PASS Invalid numeric control input is still rejected before any state mutation
+29 passed, 0 failed

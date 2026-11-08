@@ -257,6 +257,10 @@ void World::apprehend(Id warden, Id suspect) {
   s.route.front().time = time;
   s.pos = original;
   ++s.routeVersion;
+  s.ladder = -1;
+  s.ladderExit = s.ladderWait = false;
+  s.ladderTarget = -1;
+  s.ladderDirection = 0;
   s.activity = Activity::Escorted;
   s.task = TaskKind::None;
   s.target = jail;

@@ -1,0 +1,9 @@
+Test project /home/charlie/Documents/Codex/2026-10-18/files-pasted-by-the-user-project/work/native-asan
+    Start  6: persistent_body_physics
+1/2 Test  #6: persistent_body_physics ..........   Passed    5.96 sec
+    Start 12: evidence_and_custody
+2/2 Test #12: evidence_and_custody .............   Passed   16.30 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =  22.26 sec

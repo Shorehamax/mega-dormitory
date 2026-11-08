@@ -1,0 +1,49 @@
+{
+  "recorded": "2026-11-07",
+  "reported_context": "Interacting with the warden cells after a real escort",
+  "baseline_commit": "86314fd2506d1bf8e3e8fd7b7d62d1e2d46d4666",
+  "reproduction": "Actual arrest/escort → jail service interaction → security tick leaves idle queue reservation → physics.error.body. See cell-crash-repro.log.",
+  "checks": [
+    {
+      "name": "Physics rules",
+      "result": "29 passed, 0 failed",
+      "log": "docs/evidence/body-control-physics.log"
+    },
+    {
+      "name": "Custody/security rules",
+      "result": "60 passed, 0 failed",
+      "log": "docs/evidence/cell-control-security-final.log"
+    },
+    {
+      "name": "Relevant release regression suites",
+      "result": "8/8 passed in 12.03 seconds",
+      "log": "docs/evidence/cell-control-final-focused.log"
+    },
+    {
+      "name": "Address/undefined-behavior/leak checks",
+      "result": "Physics and security suites both passed, with leak detection enabled, in 22.26 seconds",
+      "log": "docs/evidence/cell-control-asan-tests.log"
+    },
+    {
+      "name": "Exact rendered reported flow",
+      "result": "Actual robbery/report, cross-floor warden travel, seizure, escort, booked inmate possession, E-handler/custody UI, safe detained input and owner property recovery passed; 1831 rendered frames on RTX 5070 with Vulkan validation",
+      "log": "docs/evidence/cell-control-live-final.log"
+    },
+    {
+      "name": "Complete interaction regression set",
+      "result": "All 46 native and rendered suites passed.",
+      "log": "docs/evidence/cell-control-all-tests.log"
+    },
+    {
+      "name": "Normal installed launcher",
+      "result": "Installed physics/security/resource/cell replay checks passed, followed by a successful run.sh startup to the menu (3 isolated frames).",
+      "log": "docs/evidence/cell-control-installed-tests.log"
+    }
+  ],
+  "limits": [
+    "The exact native path is reproduced with generated isolated actors, not a player save.",
+    "This fix does not complete the separate M19 lockable-cell feature or the M01.2 feature backlog."
+  ],
+  "executable_sha256": "1752a58fea9570ee96250491c7f849dee80c12dea2292275828aec49334b2c98",
+  "installed_executable_sha256": "7662937064efca0dd4bc05a421abc93772249325843d439175f325886d7d0c79"
+}

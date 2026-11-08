@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan_revision": 1,
-  "updated": "2026-11-06",
+  "updated": "2026-11-07",
   "title": "Mega Dormitory completion plan",
   "purpose": "A sequential plan for finishing the accepted game, not another unbounded list of possible improvements.",
   "baseline": {
@@ -2524,6 +2524,10 @@
     {
       "date": "2026-11-06",
       "change": "Completed M01.1: persistent directional social opinions and private actual-event memories, localized nearby history, relevant aid/estate integration and verified regressions. Closed D-M00-01. M01 remains active; next task is M01.2 information transfer."
+    },
+    {
+      "date": "2026-11-07",
+      "change": "The user clarified physics.error.body occurs at cells after escort. Reproduced the exact chain and fixed jail interaction dispatch, authoritative custody, booked legacy-state recovery and shared first-person input. Added ten physics cases, six security cases and exact E-handler rendered coverage. M01.2 remains the next feature task."
     }
   ],
   "open_defects": [
@@ -2602,6 +2606,20 @@
       "evidence": "src/social.cpp, src/society.cpp",
       "closed_on": "2026-11-06",
       "resolution": "M01.1; assault regression now changes victim trust from 0 to -0.85, with private directional history and save compatibility verified."
+    },
+    {
+      "id": "D-20261107-BODY",
+      "severity": "P1",
+      "milestone": "M01",
+      "related_milestones": [
+        "M08",
+        "M25"
+      ],
+      "classification": "confirmed_runtime_failure",
+      "description": "After a real escort, E at the jail joined an ordinary service queue; custody cleanup left that reservation with an idle label, causing a fatal first-person physics.error.body.",
+      "evidence": "docs/body-control.md; docs/evidence/body-control-verification.json",
+      "closed_on": "2026-11-07",
+      "resolution": "Cell/warden interaction opens custody/report controls; authoritative custody blocks ordinary service and movement bypasses; booked legacy queue states recover in place. Shared body readiness, real escort/cell rendering, 29 physics and 60 security regressions verify the fix."
     }
   ]
 }

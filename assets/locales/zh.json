@@ -1124,5 +1124,7 @@
   "social.theft": "盗窃企图",
   "social.rescue": "施救",
   "social.queue_cut": "插队",
-  "social.regard": "好感变化"
+  "social.regard": "好感变化",
+  "security.error.custody": "你正在被拘押。请使用拘押操作或等待释放。",
+  "security.error.jail_service": "请通过狱警服务台处理报案、拘押和失物领取；这里不提供排队消费服务。"
 }

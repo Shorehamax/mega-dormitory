@@ -17,6 +17,15 @@ bool sees(const World &w, Id observer, Vec3 p, float range) {
          w.lineOfSight(at + Vec3{0, 1.5f, 0}, p + Vec3{0, 1.2f, 0});
 }
 } // namespace
+bool World::inCustody(Id id) const {
+  if (id < 0 || std::size_t(id) >= residents.size())
+    return false;
+  const auto &r = residents[id];
+  auto record = custodyRecords.find(id);
+  return r.activity == Activity::Jailed || r.activity == Activity::Restrained ||
+         (r.activity == Activity::Escorted && r.task != TaskKind::Escort) ||
+         (record != custodyRecords.end() && record->second.active);
+}
 Id World::recordCrime(CrimeKind kind, Id offender, Id victim, bool threat, Id item) {
   Id id = report(kind, offender, victim, threat, false);
   incidents[id].item = item;
@@ -527,6 +536,29 @@ void World::securityTick() {
       c.escapeAt = -1;
       continue;
     }
+    // Repair a booked legacy inmate whose ordinary-service interaction replaced the
+    // activity label. releaseAt is set at real intake, not while an escort is pending.
+    if (c.active && r.activity != Activity::Jailed && r.releaseAt > time && r.target == c.jail &&
+        near(id, facilities[c.jail].pos, 4)) {
+      Vec3 actual = position(id);
+      stopPersonalUse(id);
+      clockOut(id);
+      leaveQueue(id);
+      r.route.clear();
+      ++r.routeVersion;
+      r.pos = actual;
+      if (auto body = crowd.find(id); body != crowd.end())
+        body->second.pos = actual;
+      r.activity = Activity::Jailed;
+      r.task = TaskKind::None;
+      r.escort = none;
+    }
+    if (c.active && r.activity == Activity::Jailed) {
+      r.ladder = -1;
+      r.ladderExit = r.ladderWait = false;
+      r.ladderTarget = -1;
+      r.ladderDirection = 0;
+    }
     // Custody consumes the jail's delivered supplies, including for penniless prisoners.
     // The operator pays freight normally; sentence length never creates free rations.
     if (c.active && r.activity == Activity::Jailed && time >= c.careAt + 3600) {
@@ -556,6 +588,9 @@ void World::securityTick() {
         (c.guard == none || !guardReady(*this, c.guard) || residents[c.guard].escort != id ||
          residents[c.guard].task != TaskKind::Escort)) {
       r.pos = position(id);
+      stopPersonalUse(id);
+      clockOut(id);
+      leaveQueue(id);
       r.route.clear();
       ++r.routeVersion;
       r.escort = none;

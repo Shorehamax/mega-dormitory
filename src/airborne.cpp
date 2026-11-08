@@ -20,13 +20,58 @@ void World::clearPhysics(Id id) {
   if (looseBodies.empty() && airborneRemains.empty())
     nextPhysicsAt = -1;
 }
+bool World::canStepBody(Id id) const {
+  if (id < 0 || std::size_t(id) >= residents.size())
+    return false;
+  const auto &r = residents[id];
+  return r.alive && r.present && !attached(r) && r.route.empty() && r.queuedAt == none &&
+         (r.activity == Activity::Idle || r.activity == Activity::Fighting ||
+          r.activity == Activity::Surrendered);
+}
+bool World::canControlBody(Id id) const {
+  if (id < 0 || std::size_t(id) >= residents.size())
+    return false;
+  const auto &r = residents[id];
+  auto state = looseBodies.find(id);
+  return r.alive && r.present && !attached(r) && !r.surrendered && !inCustody(id) &&
+         (state == looseBodies.end() || state->second.pusher == none);
+}
+std::optional<Body> World::stepControlledBody(Id id, Vec3 desired, float seconds, bool jump) {
+  // Activity changes are ordinary gameplay; malformed numeric input is still an error.
+  if (!finite(desired) || !std::isfinite(seconds) || seconds < 0 || seconds > .1f ||
+      length(desired) > 100)
+    throw std::runtime_error("physics.error.body");
+  if (!canControlBody(id))
+    return std::nullopt;
+  auto &r = residents[id];
+  if (length(desired) > .01f) {
+    Vec3 actual = position(id);
+    if (r.activity == Activity::Sleeping || personalUses.contains(id)) {
+      stopPersonalUse(id);
+      // Wake at the bed access point, but never snap an existing fall onto a floor.
+      actual = looseBodies.contains(id) ? actual : accessible(actual);
+      crowd.erase(id);
+    }
+    clockOut(id);
+    leaveQueue(id);
+    r.route.clear();
+    r.pos = actual;
+    if (auto body = crowd.find(id); body != crowd.end())
+      body->second.pos = actual;
+    ++r.routeVersion;
+    r.task = TaskKind::None;
+    r.target = none;
+    r.activity = Activity::Idle;
+  }
+  // A queue reservation or a transport/task transition may outlive its visible activity label.
+  if (r.activity != Activity::Idle || !canStepBody(id))
+    return std::nullopt;
+  return stepBody(id, desired, seconds, jump);
+}
 Body World::stepBody(Id id, Vec3 desired, float seconds, bool jump) {
   auto &r = residents.at(id);
-  if (!r.alive || !r.present || attached(r) || !r.route.empty() || r.queuedAt != none ||
-      (r.activity != Activity::Idle && r.activity != Activity::Fighting &&
-       r.activity != Activity::Surrendered) ||
-      !finite(desired) || !std::isfinite(seconds) || seconds < 0 || seconds > .1f ||
-      length(desired) > 100)
+  if (!canStepBody(id) || !finite(desired) || !std::isfinite(seconds) || seconds < 0 ||
+      seconds > .1f || length(desired) > 100)
     throw std::runtime_error("physics.error.body");
   Body body;
   body.position = position(id);

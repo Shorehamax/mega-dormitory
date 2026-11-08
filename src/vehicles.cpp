@@ -180,7 +180,7 @@ void World::enterVehicle(Id resident, Id id) {
                j.state != VehicleJobState::Cancelled;
       }))
     throw std::runtime_error("traffic.error.busy");
-  if (!available(r) || r.vehicle != none ||
+  if (!available(r) || inCustody(resident) || r.vehicle != none ||
       (v.owner != r.account &&
        !(v.towTruck && r.role == Role::TowDriver && r.employer == v.owner)) ||
       v.driver != none || v.towedBy != none || v.airborne || looseBodies.contains(resident) ||
@@ -251,8 +251,8 @@ void World::parkVehicle(Id resident, Id id, Id bid) {
 
 void World::driveVehicle(Id resident, float throttle, float steering, float seconds) {
   auto &r = residents.at(resident);
-  if (!available(r) || r.vehicle == none || !std::isfinite(seconds) || seconds <= 0 ||
-      seconds > .1f || !std::isfinite(throttle) || !std::isfinite(steering))
+  if (!available(r) || inCustody(resident) || r.vehicle == none || !std::isfinite(seconds) ||
+      seconds <= 0 || seconds > .1f || !std::isfinite(throttle) || !std::isfinite(steering))
     throw std::runtime_error("traffic.error.driver");
   auto &v = vehicles.at(r.vehicle);
   if (v.driver != resident || v.towedBy != none)
