@@ -1,0 +1,15 @@
+Test project /home/charlie/Documents/Codex/2026-10-18/files-pasted-by-the-user-project/work/native-asan
+    Start  8: resident_autonomy
+1/5 Test  #8: resident_autonomy ................   Passed    5.16 sec
+    Start 12: evidence_and_custody
+2/5 Test #12: evidence_and_custody .............   Passed   16.00 sec
+    Start 24: social_encounter_memory
+3/5 Test #24: social_encounter_memory ..........   Passed    5.64 sec
+    Start 25: social_information_channels
+4/5 Test #25: social_information_channels ......   Passed   17.57 sec
+    Start 26: personality_and_social_choices
+5/5 Test #26: personality_and_social_choices ...   Passed    5.81 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Total Test time (real) =  50.18 sec

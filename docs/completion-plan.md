@@ -8,7 +8,7 @@ Updated: **2026-11-08** · Plan revision: **1**
 
 ## Current work
 
-**M01.3** — Use personality, history and relationships when choosing help, refusal, cooperation, theft, reporting and surrender.
+**M01.4** — Expose readable relationship/history controls and verify that information travels through real actors or available devices, then review the M01 acceptance gate.
 
 This register contains **33 milestones / 132 tasks** for remaining work. **1 milestones have passed their gates.** This is not a percentage of the whole game: the working baseline below already exists.
 
@@ -137,7 +137,10 @@ Gate 3 evidence: Finite scope rules explicitly exclude the cancelled city/Creati
   - Evidence: src/communication.cpp and docs/communication.md: real observation, local/device transfer, source/time/place-preserving reports, paid delivery and original-witness callbacks.
   - Evidence: tests/information_tests.cpp: 33 passing rule, NPC, privacy, ownership/access and save/migration checks.
   - Evidence: docs/evidence/information-verification.json: complete installed 48-suite regression, memory/leak checks, localized hardware/software UI and default-size save continuation.
-- [ ] **M01.3** Use personality, history and relationships when choosing help, refusal, cooperation, theft, reporting and surrender.
+- [x] **M01.3** Use personality, history and relationships when choosing help, refusal, cooperation, theft, reporting and surrender.
+  - Evidence: src/social_decisions.cpp and docs/decisions.md: persistent traits, private known-history assessments and connected help/refusal/cooperation/theft/reporting/surrender actions.
+  - Evidence: tests/decision_tests.cpp: 41 passing cases including opposite choices, real friendship changing later behavior, actual ownership/crime/consent, save migration and private knowledge.
+  - Evidence: docs/evidence/decisions-verification.json: full installed 50-suite regression, memory/leak checks, actual localized household errand and default/full-day save continuations.
 - [ ] **M01.4** Expose readable relationship/history controls and verify that information travels through real actors or available devices.
 
 **Gate — all must pass**
@@ -148,7 +151,7 @@ Gate 3 evidence: Finite scope rules explicitly exclude the cancelled city/Creati
 
 **Requirement coverage:** R08, R10, R11, R13, R27
 
-**Starting references:** [src/social.cpp](../src/social.cpp), [src/households.cpp](../src/households.cpp), [src/security.cpp](../src/security.cpp), [src/economy.cpp](../src/economy.cpp)
+**Starting references:** [src/social.cpp](../src/social.cpp), [src/households.cpp](../src/households.cpp), [src/security.cpp](../src/security.cpp), [src/economy.cpp](../src/economy.cpp), [src/social_decisions.cpp](../src/social_decisions.cpp), [src/communication.cpp](../src/communication.cpp)
 
 <a id="m02"></a>
 
@@ -939,3 +942,4 @@ None recorded. Optional new ideas go here rather than silently expanding release
 - **2026-11-06** — Completed M01.1: persistent directional social opinions and private actual-event memories, localized nearby history, relevant aid/estate integration and verified regressions. Closed D-M00-01. M01 remains active; next task is M01.2 information transfer.
 - **2026-11-07** — The user clarified physics.error.body occurs at cells after escort. Reproduced the exact chain and fixed jail interaction dispatch, authoritative custody, booked legacy-state recovery and shared first-person input. Added ten physics cases, six security cases and exact E-handler rendered coverage. M01.2 remains the next feature task.
 - **2026-11-08** — Completed M01.2: persistent source/time/place-preserving service, work, trade, help, threat and witness reports through real contact or usable devices; paid delayed inbox delivery, actual seller meeting replies, local/NPC sharing and original-witness callbacks. Installed/native/rendered/memory/locale/default-size checks pass. M01 remains active; next is M01.3.
+- **2026-11-08** — Completed M01.3: stable persistent generosity/conscience/courage/sociability and private reasoned decisions now connect to real help, refusal, cooperation, theft, reporting and surrender. Fixed stale sale listings after theft. Opposite-trait, real-friendship, privacy, conserved action, migration, rendered and memory checks pass. M01 remains active; next M01.4 controls and acceptance review.

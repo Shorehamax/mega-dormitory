@@ -185,7 +185,9 @@ bool World::householdDecision(Id actor) {
         (std::uint64_t(std::min(actor, member)) << 32) | std::uint32_t(std::max(actor, member));
     auto bond = relationships.find(key);
     if (member != actor && willing(other) && !looseBodies.contains(member) &&
-        other.hunger > hunger && meals(*this, member) == 0 && trust(actor, member) >= .35f &&
+        other.hunger > hunger && meals(*this, member) == 0 &&
+        considerChoice(actor, member, ChoiceKind::Help).willing &&
+        considerChoice(member, actor, ChoiceKind::Cooperate).willing &&
         bond != relationships.end() && time - bond->second.lastAid >= 21600 &&
         std::abs(position(actor).y - at.y) <= 12 &&
         std::hypot(position(actor).x - at.x, position(actor).z - at.z) <= 80) {

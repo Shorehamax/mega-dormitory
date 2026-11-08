@@ -4,6 +4,15 @@
 
 This is a development build, not a declaration that the complete accepted design has shipped. The reference-image fidelity and production polish have not been achieved. The former island/city and Creative mode are superseded by the dormitory-focused requirements in `requirements.md`.
 
+## Personality and choices with real consequences (8 November 2026)
+
+- **M01.3** adds saved generosity, conscience, courage and sociability without changing the generation RNG stream. Meal help, recipient consent, information/meeting cooperation, opportunistic theft, autonomous reports/interviews/callbacks and surrender now consider traits, directional relationships, actual known history, needs and visible risk.
+- A generous stranger may help while a selfish one refuses; friendship earned through real conversations can change a later decision. A timid identified witness can delay until danger leaves, a loyal witness may refuse, and a warden still reports actual observations as a professional duty. Refusal cannot grant an address, fabricate testimony or stop another willing witness reporting.
+- Automatic fighters reassess yielding before retaliating. Critical injury/exhaustion and overwhelming force dominate; concealed firearms do not create remote fear. Real handovers, theft consequences, movement, reporting evidence, staffing and accounting remain authoritative. Successful theft now withdraws stale resale listings.
+- My life has a collapsed **Personality & decisions** section showing private recent reasons/outcomes. Eight recent decisions and all traits save/load; older worlds gain neutral defaults without invented history. Death/departure retain historical IDs.
+
+Verification: **41** focused cases, **26** headless suites, **50** complete installed native/rendered suites, five address/undefined-behavior/leak suites, English/French/Chinese real refusal/household-walking-handover captures, default **100,000 residents / 2,000 floors** save continuation and a separate full-day migration/delivery continuation pass. There are **1,211** matching locale keys. See [decision behavior and limits](decisions.md) and [evidence](evidence/decisions-verification.json). **M01.4** remains next, including the M01 acceptance gate.
+
 ## Resident information and real communication (8 November 2026)
 
 - **M01.2** connects local conversations, phones/laptops and paid public/work computers to service, work, trade, help, threat and witness information. Reports preserve their original observer, time and place through relays; queues/stock/prices are snapshots. Remote listings do not expose a seller's live position. Actual device replies arrange meetings at a shared location.

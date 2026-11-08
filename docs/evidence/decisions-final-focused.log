@@ -1,0 +1,42 @@
+PASS Traits are stable per seed/identity and do not consume world randomness
+PASS Generous and selfish strangers make different real meal choices
+PASS Friendship built by actual conversations changes a later aid refusal
+PASS Recipient remembers assault and refuses an otherwise generous donor
+PASS An unrecognized theft cannot make its victim refuse a named stranger
+PASS A hungry donor and a donor with one meal preserve their own reserve
+PASS Sleeping, distant or wall-separated requests cannot transfer food
+PASS Low sociability and hostility can prevent information cooperation
+PASS Trust earned later can overcome reserved cooperation
+PASS A rejected seller meeting gives no address or reply
+PASS Explicitly controlled sharing remains a voluntary player action
+PASS Conscience changes theft choice in the same reachable opportunity
+PASS Trust prevents exploiting a friend even when amoral
+PASS Desperation can change a marginal theft choice
+PASS Only a visible nearby warden deters opportunistic theft
+PASS Distant, reserved or worn items are not theft opportunities
+PASS A real queued NPC attempts reachable theft and creates actual evidence
+PASS A manual resident never makes an automatic theft attempt
+PASS Reporting uses conscience, courage and a visible identified threat
+PASS Unknown offender identity does not leak into reporting choices
+PASS A trusted offender can receive a witness's loyalty without changing evidence
+PASS An actual warden witness reports as a professional duty
+PASS Uninvolved residents cannot manufacture a reporting decision
+PASS NPC reporting can refuse now and report after real danger leaves
+PASS An NPC refusal does not prevent another witness reporting
+PASS Timid and brave residents react differently to the same real attack
+PASS Critical injury and overwhelming strength make even brave residents yield
+PASS A hidden firearm does not cause remote surrender
+PASS Decision history deduplicates polling and stays bounded
+PASS Traits, reasons and private targets survive save and reload
+PASS Older saves get neutral traits and no invented decision history
+PASS Historical choices retain identities after death and departure
+PASS Malformed traits, future decisions and invalid subjects are rejected
+PASS Invalid decision requests do not alter history or knowledge
+PASS Witness interviews respect an NPC refusal without manufacturing evidence
+PASS A callback cannot force an unwilling NPC's eyewitness complaint
+PASS An automatic fighter reassesses surrender before retaliating
+PASS Recognized harm cancels a household aid plan before travel
+PASS New arrivals receive stable traits without rewriting established identities
+PASS A carried firearm affects fear only when the visible opponent draws it in combat
+PASS Theft withdraws a listed item while preserving stolen ownership and resources
+41 passed, 0 failed

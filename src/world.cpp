@@ -212,6 +212,7 @@ World World::generate(const Config &cfg) {
   for (int i = 0; i < cfg.population; ++i) {
     Resident r;
     r.id = i;
+    r.personality = Personality::generated(cfg.seed, r.id);
     r.account = w.account("Resident " + std::to_string(i + 1),
                           Money(cfg.startingCash * (.35f + w.random() * 1.3f)));
     r.home = residentialFloors[i % residentialFloors.size()];
@@ -555,6 +556,10 @@ void World::decide(Id id, bool scheduleNext) {
   if (r.activity == Activity::Fighting) {
     if (r.opponent != none && residents[r.opponent].alive && !residents[r.opponent].surrendered &&
         near(id, position(r.opponent), 2.5f)) {
+      if (chooseSocial(id, r.opponent, ChoiceKind::Surrender).willing) {
+        surrender(id);
+        return;
+      }
       if (time >= r.nextHit) {
         if (r.lethalThreat && hasGun(id)) {
           try {
@@ -590,22 +595,8 @@ void World::decide(Id id, bool scheduleNext) {
     leaveQueue(id);
     clockIn(id);
   }
-  if (r.activity == Activity::Queuing && r.aggression > .35f && random() < .0002f) {
-    auto &q = facilities[r.queuedAt].queue;
-    for (Id victim : q)
-      if (victim != id && near(id, position(victim), 1.3f)) {
-        auto possessions = residents[victim].items;
-        for (Id item : possessions)
-          if (items[item].kind == ItemKind::Phone && items[item].carrier == victim) {
-            try {
-              stealItem(id, victim, item);
-            } catch (const std::runtime_error &) {
-            }
-            break;
-          }
-        break;
-      }
-  }
+  if (r.activity == Activity::Queuing && random() < .0002f)
+    opportunisticTheft(id);
   if (r.activity != Activity::Idle && r.activity != Activity::Working &&
       r.activity != Activity::Sleeping)
     return;

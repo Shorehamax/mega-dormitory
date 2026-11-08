@@ -201,6 +201,8 @@ bool World::shareLatestInformation(Id from, Id to, InformationKind kind, bool de
       !residents[to].present ||
       (device ? !awake(*this, from) || !hasDevice(from) : !faceContact(*this, from, to)))
     throw std::runtime_error(device ? "info.error.device" : "info.error.contact");
+  if (!chooseSocial(from, to, ChoiceKind::Cooperate).willing)
+    throw std::runtime_error("choice.refused");
   collectInformation(from);
   auto found = residentInformation.find(from);
   if (found != residentInformation.end()) {
@@ -222,6 +224,8 @@ std::uint64_t World::requestTradeMeeting(Id buyer, Id item) {
       items[item].stolenFrom != none || items[item].carrier != seller || items[item].consumed ||
       items[item].reservedAt != none || itemInUse(item))
     throw std::runtime_error("info.error.contact");
+  if (!chooseSocial(seller, buyer, ChoiceKind::Cooperate).willing)
+    throw std::runtime_error("choice.refused");
   // The seller replies through their own available device with a dated meeting location.
   auto id = observeInformation(seller, InformationKind::Trade, item);
   shareInformation(seller, buyer, id, true);
@@ -248,6 +252,9 @@ void World::readMessages(Id actor) {
 }
 void World::exchangeInformation(Id a, Id b) {
   if (!faceContact(*this, a, b))
+    return;
+  if (!chooseSocial(a, b, ChoiceKind::Cooperate).willing ||
+      !chooseSocial(b, a, ChoiceKind::Cooperate).willing)
     return;
   collectInformation(a);
   collectInformation(b);
@@ -282,6 +289,8 @@ void World::communicationTick() {
           !hasDevice(from) || trust(from, to) < .35f || !residents[to].alive ||
           !residents[to].present)
         continue;
+      if (!chooseSocial(from, to, ChoiceKind::Cooperate).willing)
+        continue;
       auto found = residentInformation.find(from);
       if (found == residentInformation.end())
         continue;
@@ -315,6 +324,9 @@ void World::reportInformation(Id actor, std::uint64_t id) {
        !(hasDevice(actor) && hasDevice(source))))
     throw std::runtime_error("info.error.report");
   // A callback reaches the original recorded witness. The relay never becomes an eyewitness.
+  if (source != actor && residents[source].automatic &&
+      !chooseSocial(source, none, ChoiceKind::Report, info.subject).willing)
+    throw std::runtime_error("choice.refused");
   fileCrimeReport(source, info.subject);
 }
 void World::rebuildInformationMail() {

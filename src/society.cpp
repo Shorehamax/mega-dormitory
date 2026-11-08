@@ -119,7 +119,7 @@ void World::combatHit(Id attacker, Id victim, bool lethal, float reach) {
     kill(victim, attacker, justified);
     return;
   }
-  if (!helpless && (v.health < 30 || a.strength > v.strength * 1.6f || v.energy < .1f))
+  if (!helpless && chooseSocial(victim, attacker, ChoiceKind::Surrender).willing)
     surrender(victim);
 }
 void World::surrender(Id id) {
@@ -475,6 +475,7 @@ void World::validate() const {
   validateVehicles();
   validateSecurity();
   validateCommunication();
+  validateSocialChoices();
   for (const auto &r : residents)
     if (!std::isfinite(r.fitness) || r.fitness < 0 || r.fitness > 100)
       throw std::runtime_error("Invalid resident fitness");

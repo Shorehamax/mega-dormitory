@@ -361,13 +361,14 @@ int main() {
             "Gift did not become usable food");
     conserved(w);
   });
-  test("Untrusted or distant requests cannot take another resident's food", [] {
+  test("Unwilling or distant requests cannot take another resident's food", [] {
     auto w = small();
     place(w, 0, {50, 0, 60});
     place(w, 1, {51, 0, 60});
     w.residents[1].hunger = .8f;
     add(w, 0, ItemKind::Food);
     add(w, 0, ItemKind::Food);
+    w.residents[0].personality.generosity = .2f;
     require(!w.shareFood(0, 1), "Stranger took food without consent");
     w.relationships[1] = {0, 1, .6f, -3600, 0};
     place(w, 1, {80, 0, 60});

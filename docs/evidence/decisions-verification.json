@@ -1,0 +1,72 @@
+{
+  "recorded": "2026-11-08",
+  "task": "M01.3",
+  "code_predecessor": "63359ca95171e06ea841406d2b7a6c6b7dc61105",
+  "installed_executable_sha256": "822cd97427b83bd5f53c915e14071f285a57c0f61167ba4c7fefca4f8378b5ea",
+  "checks": [
+    {
+      "name": "Focused personality and decision rules",
+      "result": "41 cases pass. Equal circumstances yield different help, theft, reporting and surrender choices; real friendship changes an aid refusal. Includes source/identity privacy, material reserve, recipient consent, actual queued theft, independent witnesses, interviews/callbacks, real combat reassessment, drawn/concealed gun distinctions, listed stolen items, new arrivals and saved/legacy/malformed histories.",
+      "evidence": "docs/evidence/decisions-final-focused.log"
+    },
+    {
+      "name": "Final headless regression set",
+      "result": "26/26 pass.",
+      "evidence": "docs/evidence/decisions-final-headless.log"
+    },
+    {
+      "name": "Complete installed regressions and launcher",
+      "result": "50/50 native/rendered suites pass in the normal RelWithDebInfo launch cache; isolated run.sh menu startup rendered 3 frames. The exact escort/cell interaction remains covered.",
+      "evidence": "docs/evidence/decisions-installed-tests.log"
+    },
+    {
+      "name": "Memory, undefined behavior and leak detection",
+      "result": "5/5 suites pass: autonomy/households, security/custody, social memory, information and the 41 decision cases.",
+      "evidence": "docs/evidence/decisions-asan-verified.log"
+    },
+    {
+      "name": "Connected rendered workflows",
+      "result": "Personality choices, paid information delivery, real custody/cell controls and household storage pass.",
+      "evidence": "docs/evidence/decisions-final-rendered.log"
+    },
+    {
+      "name": "Localized real decisions and presentation",
+      "result": "At 1000x720, a selfish resident refuses a real local meal request; a willing housemate chooses an autonomous household errand, walks continuously and hands over an actual spare owned meal with recipient consent. Money remains conserved. Native save/reload preserves actual ownership and both decision outcomes. English/French hardware Vulkan and Chinese llvmpipe software Vulkan pass under validation; all six outcome/reason captures visually inspected.",
+      "evidence": [
+        "docs/evidence/decisions-live-en-final.log",
+        "docs/evidence/decisions-live-fr-final.log",
+        "docs/evidence/decisions-live-zh-final.log",
+        "docs/evidence/decisions-en.png",
+        "docs/evidence/decisions-en-refusal.png",
+        "docs/evidence/decisions-fr.png",
+        "docs/evidence/decisions-fr-refusal.png",
+        "docs/evidence/decisions-zh.png",
+        "docs/evidence/decisions-zh-refusal.png"
+      ]
+    },
+    {
+      "name": "Default-size continuation",
+      "result": "100,000 residents / 2,000 floors run one game hour, save, reload and continue a minute with valid state and unchanged internal money.",
+      "evidence": "docs/evidence/decisions-default-size.log"
+    },
+    {
+      "name": "Full-day continuity",
+      "result": "600 starting residents run 24 game hours, save/reload and continue another hour; a new resident arrives, real orders/deliveries continue and world accounting/identity invariants pass.",
+      "evidence": "docs/evidence/decisions-day-continuation.log"
+    },
+    {
+      "name": "Language and acceptance references",
+      "result": "1,211 matching English/French/Chinese keys; 38 requirements, 14 parity decisions and 38 acceptance scenarios retain valid owners and references."
+    },
+    {
+      "name": "Existing fixture adaptation",
+      "result": "The old unwilling-stranger meal fixture now explicitly has low generosity, and the old willing-contact information fixture explicitly has neutral sociability. Physical ownership/reach assertions remain. New opposite-trait cases verify both consent/refusal outcomes."
+    }
+  ],
+  "limits": [
+    "M01.4 wider relationship/history controls and the M01 acceptance gate remain unfinished.",
+    "Decision notes are bounded to eight per actor and the current collapsed UI shows the latest four. A decision is not proof of completed action.",
+    "No new remote perception, items, money, evidence, warrant or damage is issued by a decision assessment. Physical actions and legal/resource/ownership rules remain authoritative.",
+    "This is a development checkpoint, not completion of the game or later milestones."
+  ]
+}

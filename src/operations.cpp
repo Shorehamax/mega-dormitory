@@ -285,6 +285,7 @@ Id World::immigrate(Id unit, Money capital) {
     throw std::runtime_error("A vacant bed and sufficient incoming capital are required");
   Resident r;
   r.id = Id(residents.size());
+  r.personality = Personality::generated(config.seed, r.id);
   r.account = account("New resident " + std::to_string(r.id + 1), capital);
   r.home = h.floor;
   r.pos = layout(0).entrance();

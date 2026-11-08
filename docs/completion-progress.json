@@ -25,8 +25,8 @@
   ],
   "current": {
     "milestone": "M01",
-    "task": "M01.3",
-    "next_action": "Use personality, history and relationships when choosing help, refusal, cooperation, theft, reporting and surrender."
+    "task": "M01.4",
+    "next_action": "Expose readable relationship/history controls and verify that information travels through real actors or available devices, then review the M01 acceptance gate."
   },
   "execution_policy": [
     "Read this tracker and completion-plan.md on every implementation continuation; resume the current task rather than choosing a new theme.",
@@ -666,7 +666,9 @@
         "src/social.cpp",
         "src/households.cpp",
         "src/security.cpp",
-        "src/economy.cpp"
+        "src/economy.cpp",
+        "src/social_decisions.cpp",
+        "src/communication.cpp"
       ],
       "tasks": [
         {
@@ -692,8 +694,12 @@
         {
           "id": "M01.3",
           "title": "Use personality, history and relationships when choosing help, refusal, cooperation, theft, reporting and surrender.",
-          "done": false,
-          "evidence": []
+          "done": true,
+          "evidence": [
+            "src/social_decisions.cpp and docs/decisions.md: persistent traits, private known-history assessments and connected help/refusal/cooperation/theft/reporting/surrender actions.",
+            "tests/decision_tests.cpp: 41 passing cases including opposite choices, real friendship changing later behavior, actual ownership/crime/consent, save migration and private knowledge.",
+            "docs/evidence/decisions-verification.json: full installed 50-suite regression, memory/leak checks, actual localized household errand and default/full-day save continuations."
+          ]
         },
         {
           "id": "M01.4",
@@ -2536,6 +2542,10 @@
     {
       "date": "2026-11-08",
       "change": "Completed M01.2: persistent source/time/place-preserving service, work, trade, help, threat and witness reports through real contact or usable devices; paid delayed inbox delivery, actual seller meeting replies, local/NPC sharing and original-witness callbacks. Installed/native/rendered/memory/locale/default-size checks pass. M01 remains active; next is M01.3."
+    },
+    {
+      "date": "2026-11-08",
+      "change": "Completed M01.3: stable persistent generosity/conscience/courage/sociability and private reasoned decisions now connect to real help, refusal, cooperation, theft, reporting and surrender. Fixed stale sale listings after theft. Opposite-trait, real-friendship, privacy, conserved action, migration, rendered and memory checks pass. M01 remains active; next M01.4 controls and acceptance review."
     }
   ],
   "open_defects": [

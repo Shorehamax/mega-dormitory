@@ -175,8 +175,9 @@ public:
   std::string floorWidth = "512", floorDepth = "512", lobbyWidth = "640", lobbyDepth = "640";
   float networkScroll = 0, helpScroll = 0;
   int customCategory = 0, buildKind = 1, cheatStat = 0;
-  bool householdOpen = false, educationOpen = false, informationScreen = false;
-  float messageContentHeight = 1600;
+  bool householdOpen = false, educationOpen = false, informationScreen = false,
+       behaviorOpen = false;
+  float messageContentHeight = 1600, behaviorAnchor = 0;
   std::string cheatValue = "100";
   bool savesOpen = false, savingSlots = false, savesWasPaused = false, savesEscapeHeld = false;
   int overwriteSlot = 0;
@@ -772,7 +773,7 @@ public:
     estateItemList.clear();
     estateListActor = none;
     nextEstateList = 0;
-    informationScreen = false;
+    informationScreen = behaviorOpen = false;
     estateScreen = storageScreen = educationOpen = securityScreen = emergencyScreen =
         companyScreen = companyConstruction = cheatOpen = false;
     securityPage = 0;
@@ -2198,6 +2199,7 @@ public:
     return y;
   }
   float lifePanel(float x, float y, float width) {
+    const float lifeStart = y;
     if (estateScreen)
       return estatePanel(x, y, width);
     if (storageScreen)
@@ -2350,6 +2352,42 @@ public:
       }
       y = ui.wrap(x, y, width, t("household.explain"), 12, hex(0x8da5aa)) + 12;
       y = ui.wrap(x, y, width, t("autonomy.explain"), 12, hex(0x8da5aa)) + 20;
+    }
+    behaviorAnchor = y - lifeStart;
+    if (ui.button("behaviorOpen", {x, y, width, 34}, t("choice.title"))) {
+      behaviorOpen = !behaviorOpen;
+      scrollOffset = behaviorOpen ? behaviorAnchor : 0;
+    }
+    y += 43;
+    if (behaviorOpen) {
+      const auto &p = r.personality;
+      for (const auto &[key, value] :
+           std::array<std::pair<const char *, float>, 4>{{{"choice.generosity", p.generosity},
+                                                          {"choice.morality", p.conscience},
+                                                          {"choice.courage", p.courage},
+                                                          {"choice.sociability", p.sociability}}}) {
+        y = ui.wrap(x, y, width, t(key) + " · " + std::to_string(int(value * 100)), 13,
+                    hex(0xa9bdbe)) +
+            8;
+      }
+      auto decisions = w.socialChoices.find(selected);
+      if (decisions == w.socialChoices.end() || decisions->second.empty())
+        y = ui.wrap(x, y, width, t("choice.empty"), 13, hex(0x9bb0b3)) + 12;
+      else {
+        static const char *kinds[] = {"choice.help", "choice.share", "choice.theft",
+                                      "choice.report", "choice.surrender"};
+        int shown = 0;
+        for (auto it = decisions->second.rbegin(); it != decisions->second.rend() && shown < 4;
+             ++it, ++shown) {
+          std::string label = timeLabel(it->time) + " · " + t(kinds[int(it->kind)]) + " · " +
+                              t(it->willing ? "choice.yes" : "choice.no");
+          if (it->other != none)
+            label += " · " + w.displayName(it->other, locale.language);
+          y = ui.wrap(x, y, width, label, 13, hex(0xc0d4c5)) + 7;
+          y = ui.wrap(x, y, width, t(it->reason), 12, hex(0x9bb0b3)) + 15;
+        }
+      }
+      y = ui.wrap(x, y, width, t("choice.explain"), 12, hex(0x8da5aa)) + 20;
     }
     if (ui.button("informationScreen", {x, y, width, 36}, t("info.title"))) {
       informationScreen = true;
@@ -6998,7 +7036,12 @@ int runApplication(int argc, char **argv) {
          playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
          playRescue = false, playFire = false, playAngled = false, playStorage = false,
          playCrew = false, playEstates = false, playChimney = false, playBodyControl = false,
-         playInformation = false;
+         playInformation = false, playChoices = false;
+    Id choiceGift = none;
+    int choiceFinish = -1;
+    Vec3 choicePrior{};
+    float choiceMaxStep = 0;
+    Money choiceMoney = 0;
     Id informationTerminal = none, informationService = none;
     std::uint64_t informationFact = 0;
     int informationStage = 0, informationFinish = -1;
@@ -7130,6 +7173,13 @@ int runApplication(int argc, char **argv) {
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
         app.config.accidentRate = 0;
+      } else if (arg == "--playtest-decisions") {
+        playChoices = demo = animate = true;
+        panel = "choices-play";
+        app.config.population = 40;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
       } else if (arg == "--playtest-information") {
         playInformation = demo = animate = true;
         panel = "information-play";
@@ -7239,7 +7289,7 @@ int runApplication(int argc, char **argv) {
     }
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
         playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
-        playStorage || playCrew || playEstates || playChimney || playInformation) {
+        playStorage || playCrew || playEstates || playChimney || playInformation || playChoices) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
@@ -7449,6 +7499,71 @@ int runApplication(int argc, char **argv) {
         app.orbit = .6f;
         std::cout << "CREW PLAYTEST: actual workshop staff commute; lead collects supplies and "
                      "helper walks to site\n";
+      } else if (panel == "choices-play") {
+        auto &w = *app.world;
+        while (!w.events.empty())
+          w.events.pop();
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.automatic = false;
+          r.route.clear();
+          ++r.routeVersion;
+          r.task = TaskKind::None;
+          r.activity = Activity::Idle;
+          r.role = Role::Unemployed;
+          r.jobSite = r.employer = none;
+          r.pos = {150 + r.id * 2.f, 0, 150};
+          r.age = 30;
+          r.personality = {};
+          r.aggression = 0;
+          r.hunger = r.thirst = r.bladder = .1f;
+          r.energy = r.hygiene = 1;
+          r.needsAt = w.time;
+        }
+        w.crowd.clear();
+        w.residents[0].pos = {100, 0, 112};
+        w.residents[1].pos = {100, 0, 100};
+        w.residents[1].hunger = .8f;
+        w.residents[2].pos = {102, 0, 100};
+        w.residents[2].personality.generosity = 0;
+        w.residents[0].personality.generosity = .95f;
+        for (Id actor : {0, 2})
+          for (int n = 0; n < 2; ++n) {
+            Item item;
+            item.id = Id(w.items.size());
+            item.kind = ItemKind::Food;
+            item.owner = w.residents[actor].account;
+            item.carrier = actor;
+            item.pos = w.position(actor);
+            w.items.push_back(item);
+            w.residents[actor].items.push_back(item.id);
+            if (actor == 0)
+              choiceGift = item.id;
+          }
+        if (w.talk(1, 2, 5) != "choice.selfish" || w.items[choiceGift].carrier != 0)
+          throw std::runtime_error("Selfish local request did not refuse before any handover");
+        w.households.push_back({0, 0, {0, 1}, {}});
+        w.rebuildHouseholds();
+        w.relationships[1] = {0, 1, .6f, w.time - 3600, 0};
+        w.residents[0].automatic = true;
+        if (!w.householdDecision(0) || w.residents[0].route.empty())
+          throw std::runtime_error("Helpful housemate failed to choose a real walking errand");
+        choiceMoney = w.internalMoney();
+        choicePrior = w.position(0);
+        app.setFirstPerson(false);
+        app.selected = 0;
+        w.residents[0].automatic = true;
+        app.currentFloor = 0;
+        app.cameraFocus = w.position(0);
+        app.observerHeight = 0;
+        app.distance = 12;
+        app.pitch = .45f;
+        app.behaviorOpen = app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        std::cout << "CHOICES PLAYTEST: selfish refusal, real household decision and walking meal "
+                     "errand\n";
       } else if (panel == "information-play") {
         auto &w = *app.world;
         while (!w.events.empty())
@@ -8409,7 +8524,7 @@ int runApplication(int argc, char **argv) {
       app.paused = false;
       if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
           playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
-          playStorage || playCrew || playEstates || playChimney || playInformation)
+          playStorage || playCrew || playEstates || playChimney || playInformation || playChoices)
         app.speed = 6;
     }
     if (computeTest) {
@@ -8512,6 +8627,34 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playChoices) {
+        auto &w = *app.world;
+        choiceMaxStep = std::max(choiceMaxStep, length(w.position(0) - choicePrior));
+        choicePrior = w.position(0);
+        app.cameraFocus = w.position(0);
+        app.scrollOffset = app.behaviorAnchor;
+        if (choiceFinish < 0 && w.items[choiceGift].carrier == 1) {
+          choiceFinish = frames;
+          w.residents[0].automatic = false;
+          app.paused = true;
+          w.validate();
+          if (!capture.empty()) {
+            w.save(capture.string() + ".mdsave");
+            auto loaded = World::load(capture.string() + ".mdsave");
+            if (loaded.items[choiceGift].carrier != 1 || loaded.socialChoices[0].empty() ||
+                loaded.socialChoices[2].empty() || loaded.socialChoices[2].back().willing)
+              throw std::runtime_error("Choice and real handover did not persist");
+            app.selected = 2;
+            app.frame(0, capture.parent_path() / (capture.stem().string() + "-refusal.ppm"));
+            app.selected = 0;
+          }
+        }
+        if (choiceFinish >= 0 && frames >= choiceFinish + 15) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playInformation) {
         auto &w = *app.world;
         informationMaxStep = std::max(informationMaxStep, length(w.position(1) - informationPrior));
@@ -9052,6 +9195,20 @@ int runApplication(int argc, char **argv) {
       }
       app.frame(dt, frameCapture);
       ++frames;
+    }
+    if (playChoices) {
+      auto &w = *app.world;
+      w.validate();
+      if (choiceFinish < 0 || choiceMaxStep > 2 || w.items[choiceGift].carrier != 1 ||
+          w.items[choiceGift].owner != w.residents[1].account || w.internalMoney() != choiceMoney ||
+          w.socialChoices[2].back().willing || !w.socialChoices[0].back().willing)
+        throw std::runtime_error(
+            "Personality/relationship choices did not cause real conserved actions");
+      std::cout
+          << "CHOICES PLAYTEST PASS: selfish refusal, autonomous household choice, continuous "
+             "walking, actual spare meal handover, recipient consent and localized reasons; max "
+             "step "
+          << choiceMaxStep << " m\n";
     }
     if (playInformation) {
       auto &w = *app.world;

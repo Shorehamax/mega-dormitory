@@ -4,7 +4,7 @@ Residents keep directional opinions as well as the shared trust imported from ea
 
 Each pair retains its sixteen most recent encounters: actual actor, time, event, applied opinion changes and which participants know about it. Trimming the display history does not reset the accumulated opinion. At the existing 100,000-contact soft cap, new conversations can replace old weak contacts; friendships, rivalries and household ties are protected. If every slot is protected, no new contact is invented. This is a bounded social model, not unlimited event retention; world-scale relationship storage is part of M29.
 
-An unobserved theft is remembered by the thief only. It does not create a victim's grievance against an unknown named offender or expose that identity in the victim's history. A remote/unrecognized attack likewise does not reveal its source through social memory. Merely witnessing another pair's encounter does not create an interpersonal memory with its offender; observation/report communication remains the evidence system and the next M01 tasks.
+An unobserved theft is remembered by the thief only. It does not create a victim's grievance against an unknown named offender or expose that identity in the victim's history. A remote/unrecognized attack likewise does not reveal its source through social memory. Merely witnessing another pair's encounter does not create an interpersonal memory with its offender; observation/report communication follows the evidence system and [M01.2 communication](communication.md).
 
 The My life conversation controls show your opinion, friendship/rivalry status and the three most recent known encounters with the nearby person, in English, French and Chinese. A short apology can begin repairing a grievance but cannot immediately erase an assault. Both participants' actual trust is respected when offering/accepting meal aid. Fallback estate candidates use the deceased's directional opinion rather than stale imported shared trust.
 
@@ -17,4 +17,4 @@ Directional regard and memories save/load with defaults for older native worlds.
   --menu-scroll 920 --lang fr --width 1000 --height 720 --capture /tmp/social.ppm
 ```
 
-M01 remains active. Structured face-to-face/device information transfer is **M01.2**, richer history/personality-based choices are **M01.3**, and the complete relationship/history interface and full milestone acceptance are **M01.4**. Passing this task does not establish that those remaining loops are finished.
+M01 remains active. Structured information transfer is delivered in **M01.2** and the connected personality/history choices are documented in [M01.3 decisions](decisions.md). The complete relationship/history interface and full milestone acceptance remain **M01.4**. These checkpoints do not declare the later work or the game complete.

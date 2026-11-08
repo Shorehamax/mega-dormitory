@@ -82,6 +82,9 @@ bool World::stealItem(Id thief, Id victim, Id item, bool robbery) {
     if (i.stolenFrom == none)
       i.stolenFrom = i.owner;
     i.owner = a.account;
+    i.seller = none;
+    i.askingPrice = 0;
+    itemOffers.erase(item);
     i.carrier = thief;
     i.pos = position(thief);
     std::erase(v.items, item);
@@ -109,7 +112,7 @@ bool World::stealItem(Id thief, Id victim, Id item, bool robbery) {
       a.activity = v.activity = Activity::Fighting;
       a.opponent = victim;
       v.opponent = thief;
-      if (robbery && success)
+      if (robbery && success && chooseSocial(victim, thief, ChoiceKind::Surrender).willing)
         surrender(victim);
     }
   }

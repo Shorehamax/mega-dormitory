@@ -426,8 +426,9 @@ int main() {
     rejects([&] { w.reportInformation(3, n); });
     w.validate();
   });
-  test("NPC face-to-face exchange uses actual contact", [] {
+  test("Willing NPC face-to-face exchange uses actual contact", [] {
     auto w = small();
+    w.residents[0].personality.sociability = .5f;
     auto n = help(w);
     place(w, 1, {180, 0, 180});
     w.exchangeInformation(0, 1);

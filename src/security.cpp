@@ -171,6 +171,11 @@ void World::interviewWitness(Id warden, Id id, Id witness) {
                         [&](const Testimony &t) { return t.witness == witness; });
   if (s == c.witnesses.end())
     throw std::runtime_error("security.error.witness");
+  if (residents[witness].automatic &&
+      !chooseSocial(witness, none, ChoiceKind::Report, id).willing) {
+    log("choice.refused", witness, warden);
+    return;
+  }
   s->filed = true;
   if (!c.sceneLocated || !s->bodyOnly) {
     c.scene = s->seenScene;
@@ -210,15 +215,17 @@ void World::investigateArrival(Id warden, Id id) {
   for (const auto &s : c.witnesses)
     if (!s.filed && residents[s.witness].alive && near(warden, position(s.witness), 2.5f)) {
       interviewWitness(warden, id, s.witness);
-      break;
+      if (s.filed)
+        break;
     }
   if (canEnforce(c) && c.suspect != none && sees(*this, warden, position(c.suspect), 35)) {
     auto &target = residents[c.suspect];
     c.lastKnown = position(c.suspect);
     c.seenAt = time;
     if (near(warden, c.lastKnown, 2.5f)) {
-      if ((target.surrendered || target.strength < r.strength * 1.2f) &&
-          availableJail(warden) == none) {
+      bool yields =
+          target.surrendered || chooseSocial(c.suspect, warden, ChoiceKind::Surrender, id).willing;
+      if (yields && availableJail(warden) == none) {
         c.warden = none;
         c.searchAfter = time + 300;
         log("security.capacity_wait", warden, id);
@@ -226,7 +233,7 @@ void World::investigateArrival(Id warden, Id id) {
       }
       if (target.surrendered)
         apprehend(warden, c.suspect);
-      else if (target.strength < r.strength * 1.2f) {
+      else if (yields) {
         surrender(c.suspect);
         apprehend(warden, c.suspect);
       } else
@@ -519,7 +526,8 @@ void World::securityTick() {
         residents[c.victim].present && residents[c.victim].activity != Activity::Sleeping &&
         residents[c.victim].automatic && (!c.remoteProperty || near(c.victim, c.pos, 4))) {
       try {
-        fileCrimeReport(c.victim, c.id);
+        if (chooseSocial(c.victim, none, ChoiceKind::Report, c.id).willing)
+          fileCrimeReport(c.victim, c.id);
       } catch (const std::runtime_error &) {
       }
     }
@@ -527,6 +535,8 @@ void World::securityTick() {
       if (!s.filed && available(residents[s.witness]) && residents[s.witness].automatic &&
           residents[s.witness].activity != Activity::Fighting) {
         try {
+          if (!chooseSocial(s.witness, none, ChoiceKind::Report, c.id).willing)
+            continue;
           fileCrimeReport(s.witness, c.id);
         } catch (const std::runtime_error &) {
         }

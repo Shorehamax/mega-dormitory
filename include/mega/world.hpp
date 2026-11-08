@@ -270,6 +270,18 @@ struct ResidentPlan {
   Id storageItem = none, storageGroup = none;
   double storageDeadline = 0, nextStorage = 0, nextEstate = 0;
 };
+struct Personality {
+  float generosity = .5f, conscience = .65f, courage = .5f, sociability = .5f;
+  static Personality generated(std::uint64_t seed, Id actor);
+};
+enum class ChoiceKind { Help, Cooperate, Theft, Report, Surrender };
+struct SocialChoice {
+  ChoiceKind kind = ChoiceKind::Cooperate;
+  Id other = none, subject = none;
+  double time = 0;
+  bool willing = false;
+  std::string reason = "choice.unavailable";
+};
 struct Resident {
   Id id = none, account = none, home = 0, employer = none, jobSite = none;
   std::string name;
@@ -302,6 +314,7 @@ struct Resident {
   int medicalTier = -1;
   double medicalUntil = 0, infectedAt = -1, immuneUntil = 0;
   Routine routine;
+  Personality personality;
   int ladder = -1;
   bool ladderExit = false, ladderWait = false;
   int ladderTarget = -1, ladderDirection = 0;
@@ -1252,6 +1265,11 @@ public:
   void useTerminal(Id, Id, double minutes);
   void sendMessage(Id, Id, const std::string &);
   std::string talk(Id speaker, Id listener, int topic);
+  SocialChoice considerChoice(Id actor, Id other, ChoiceKind kind, Id subject = none) const;
+  SocialChoice chooseSocial(Id actor, Id other, ChoiceKind kind, Id subject = none);
+  std::map<Id, std::vector<SocialChoice>> socialChoices;
+  bool opportunisticTheft(Id actor);
+  void validateSocialChoices() const;
   void socialTick();
   void cheatResident(Id resident, const std::string &stat, double value);
   float trust(Id, Id) const;

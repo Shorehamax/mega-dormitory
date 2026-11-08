@@ -34,6 +34,10 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Routine, shiftStart, shiftHours,
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Appearance, primary, secondary, style, accessory)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(HomeStyle, frame, linen, blanket, closet, curtain,
                                                 closetOpen)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Personality, generosity, conscience, courage,
+                                                sociability)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(SocialChoice, kind, other, subject, time, willing,
+                                                reason)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     Resident, id, account, home, employer, jobSite, name, age, sex, pos, route, routeVersion,
     activity, role, task, target, queuedAt, carrying, opponent, escort, hunger, thirst, energy,
@@ -41,7 +45,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     alive, present, surrendered, items, hourlyWage, automatic, interests, hygiene, bladder, outfit,
     vehicle, routine, ladder, ladderExit, ladderWait, ladderTarget, ladderDirection, ambulance,
     medicalDuty, carriedBy, bodyCarrying, medicalProvider, medicalTier, medicalUntil, infectedAt,
-    immuneUntil, surrenderUntil)
+    immuneUntil, surrenderUntil, personality)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Ambulance, id, provider, patient, medic, pilot,
                                                 guard, state, tier, pos, landing, route, readyAt)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Remains, resident, carrier, storage, worker,
@@ -251,6 +255,7 @@ void World::save(const std::filesystem::path &path) const {
             {"liftJourneys", liftJourneys},
             {"lastEconomyDay", lastEconomyDay},
             {"messages", messages},
+            {"socialChoices", socialChoices},
             {"informationSequence", informationSequence},
             {"residentInformation", residentInformation},
             {"relationships", relationships},
@@ -568,6 +573,8 @@ static World readSave(const std::filesystem::path &path) {
     j.at("liftJourneys").get_to(w.liftJourneys);
   w.lastEconomyDay = j.value("lastEconomyDay", int(w.time / 86400));
   READ(messages);
+  if (j.contains("socialChoices"))
+    j.at("socialChoices").get_to(w.socialChoices);
   w.informationSequence = j.value("informationSequence", std::uint64_t(0));
   if (j.contains("residentInformation"))
     j.at("residentInformation").get_to(w.residentInformation);

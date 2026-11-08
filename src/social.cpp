@@ -156,8 +156,21 @@ std::string World::talk(Id speaker, Id listener, int topic) {
     rememberEncounter(speaker, listener, EncounterKind::Apology, std::min(.02f, repair), repair);
     reply = "talk.apology_reply";
   }
-  if (topic == 5)
+  if (topic == 5) {
     reply = shareFood(listener, speaker) ? "talk.meal_shared" : "talk.no_spare";
+    if (reply == "talk.no_spare")
+      for (Id person : {listener, speaker}) {
+        auto decisions = socialChoices.find(person);
+        if (decisions != socialChoices.end() && !decisions->second.empty()) {
+          const auto &last = decisions->second.back();
+          if (!last.willing && last.time == time &&
+              last.other == (person == listener ? speaker : listener)) {
+            reply = last.reason;
+            break;
+          }
+        }
+      }
+  }
   householdSocial(speaker, listener);
   log(reply, listener, speaker);
   return reply;
@@ -211,21 +224,27 @@ bool World::shareFood(Id donor, Id recipient) {
   auto &b = residents.at(recipient);
   auto key = pairKey(donor, recipient);
   auto bond = relationships.find(key);
-  if (donor == recipient || !a.alive || !a.present || !b.alive || !b.present ||
-      a.aggression > .6f || b.hunger < .55f || a.surrendered || a.activity == Activity::Fighting ||
-      b.activity == Activity::Fighting || bond == relationships.end() ||
-      trust(donor, recipient) < .35f || trust(recipient, donor) < .35f ||
-      time - bond->second.lastAid < 21600 || !near(donor, position(recipient), 2.5f) ||
+  if (donor == recipient || !a.alive || !a.present || !b.alive || !b.present || a.surrendered ||
+      a.activity == Activity::Sleeping || b.activity == Activity::Sleeping ||
+      a.activity == Activity::Fighting || b.activity == Activity::Fighting ||
+      (bond != relationships.end() && time - bond->second.lastAid < 21600) ||
+      !near(donor, position(recipient), 2.5f) ||
       !lineOfSight(position(donor) + Vec3{0, 1.3f, 0}, position(recipient) + Vec3{0, 1.3f, 0}))
+    return false;
+  if (!chooseSocial(donor, recipient, ChoiceKind::Help).willing ||
+      !chooseSocial(recipient, donor, ChoiceKind::Cooperate).willing)
     return false;
   std::vector<Id> meals;
   for (Id item : a.items) {
     const auto &i = items[item];
     if (i.kind == ItemKind::Food && i.owner == a.account && i.carrier == donor && !i.consumed &&
-        i.reservedAt == none && i.stolenFrom == none && !itemInUse(item))
+        i.reservedAt == none && i.durability > .2f && i.stolenFrom == none && !itemInUse(item))
       meals.push_back(item);
   }
   if (meals.size() < 2)
+    return false;
+  auto *contact = ensureRelationship(donor, recipient);
+  if (!contact)
     return false;
   Id item = meals.back();
   std::erase(a.items, item);
@@ -237,7 +256,7 @@ bool World::shareFood(Id donor, Id recipient) {
   meal.askingPrice = 0;
   meal.seller = none;
   itemOffers.erase(item);
-  bond->second.lastAid = time;
+  contact->lastAid = time;
   rememberEncounter(donor, recipient, EncounterKind::Meal, .04f, .12f);
   a.happiness = std::min(1.f, a.happiness + .025f);
   b.happiness = std::min(1.f, b.happiness + .04f);

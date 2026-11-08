@@ -53,6 +53,9 @@ Id World::discoverBody(Id finder, Id id) {
     c.discovered = true;
     observeInformation(finder, InformationKind::Witness, c.id);
     try {
+      if (residents[finder].automatic &&
+          !chooseSocial(finder, none, ChoiceKind::Report, c.id).willing)
+        return c.id;
       fileCrimeReport(finder, c.id);
     } catch (const std::runtime_error &e) {
       if (std::string(e.what()) != "security.error.connection")
