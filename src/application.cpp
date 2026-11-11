@@ -2563,6 +2563,23 @@ public:
                       money(std::max<Money>(0, w.accounts[r.account].balance - reserve)),
                   14, hex(0xa5bfc4)) +
           10;
+      const auto daily = w.dailyPlan(selected);
+      y = ui.wrap(x, y, width, t("daily.title"), 15, hex(0xc1cbb7)) + 10;
+      y = ui.wrap(x, y, width, t("daily.policy"), 12, hex(0x8da5aa)) + 12;
+      for (const auto &step : daily.steps) {
+        std::string line = t(dailyKey(step.need)) + " · " + t(step.reason);
+        if (step.facility != none)
+          line += " · " + t(facilityKey(w.facilities[step.facility].kind)) + " #" +
+                  std::to_string(step.facility + 1);
+        if (step.state == DailyState::Planned || step.state == DailyState::Ready) {
+          line += " · " + t("daily.in") + " " +
+                  std::to_string(int(std::max(0., step.depart - w.time) / 60)) + " " +
+                  t("daily.minutes");
+          if (step.price > 0)
+            line += " · " + preciseMoney(step.price);
+        }
+        y = ui.wrap(x, y, width, line, 12, hex(0xa5bfc4)) + 10;
+      }
       auto plan = w.residentPlans.find(selected);
       if (plan != w.residentPlans.end()) {
         y = ui.wrap(x, y, width, t(autonomyKey(plan->second.action)), 13, hex(0xc1cbb7)) + 12;
@@ -7368,7 +7385,12 @@ int runApplication(int argc, char **argv) {
          playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
          playRescue = false, playFire = false, playAngled = false, playStorage = false,
          playCrew = false, playEstates = false, playChimney = false, playBodyControl = false,
-         playInformation = false, playChoices = false, playHistory = false;
+         playInformation = false, playChoices = false, playHistory = false, playDaily = false;
+    Id dailyWater = none, dailyMeal = none, dailySpare = none;
+    int dailyFinished = -1;
+    Vec3 dailyPrior{};
+    float dailyMaxStep = 0;
+    Money dailyMoney = 0, dailyCash = 0, dailyOwnerCash = 0;
     Id historyTerminal = none, historyService = none;
     std::uint64_t historyFact = 0;
     std::size_t historyReportMessage = 0;
@@ -7513,6 +7535,13 @@ int runApplication(int argc, char **argv) {
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
         app.config.accidentRate = 0;
+      } else if (arg == "--playtest-daily-plan") {
+        playDaily = demo = animate = true;
+        panel = "daily-plan";
+        app.config.population = 40;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
       } else if (arg == "--playtest-social-history") {
         playHistory = demo = animate = true;
         panel = "history-play";
@@ -7637,7 +7666,7 @@ int runApplication(int argc, char **argv) {
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
         playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
         playStorage || playCrew || playEstates || playChimney || playInformation || playChoices ||
-        playHistory) {
+        playHistory || playDaily) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
@@ -7666,7 +7695,97 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "body-control") {
+      if (panel == "daily-plan") {
+        auto &w = *app.world;
+        while (!w.events.empty())
+          w.events.pop();
+        w.time = 20 * 3600 + 54 * 60;
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.automatic = false;
+          r.activity = Activity::Idle;
+          r.route.clear();
+          r.task = TaskKind::None;
+          r.role = Role::Unemployed;
+          r.jobSite = r.employer = none;
+          r.hunger = r.thirst = .1f;
+          r.bladder = 0;
+          r.energy = r.hygiene = r.happiness = 1;
+          r.health = 100;
+          r.personalWaste = 0;
+          r.needsAt = w.time;
+          r.pos = {150 + r.id * 2.f, 0, 150};
+        }
+        for (auto &f : w.facilities) {
+          f.queue.clear();
+          f.serving.clear();
+          f.staffNeeded = 0;
+          f.opensAt = 0;
+          f.openHours = 24;
+          if (f.kind == FacilityKind::Water && f.floor == 0 && dailyWater == none) {
+            dailyWater = f.id;
+            f.pos = {100, 0, 106};
+            f.stock = 100;
+            f.price = 30;
+            f.owner = w.dormAccount;
+            f.publicAccess = f.open = true;
+          }
+        }
+        if (dailyWater == none)
+          throw std::runtime_error("Daily scenario needs drinking water");
+        w.invalidateGeometry(0);
+        w.crowd.clear();
+        auto &r = w.residents[0];
+        r.pos = {100, 0, 114};
+        r.hunger = .65f;
+        r.thirst = .9f;
+        r.automatic = true;
+        r.routine.sleepStart = 23;
+        r.routine.sleepHours = 8;
+        for (Id item : r.items)
+          if (item != r.outfit)
+            w.items[item].carrier = none;
+        std::erase_if(r.items, [&](Id item) { return w.items[item].carrier != 0; });
+        if (r.outfit != none)
+          w.items[r.outfit].cleanliness = .1f;
+        for (auto kind : {ItemKind::Food, ItemKind::Clothes}) {
+          Item i;
+          i.id = Id(w.items.size());
+          i.kind = kind;
+          i.owner = r.account;
+          i.carrier = 0;
+          i.pos = r.pos;
+          i.cleanliness = 1;
+          w.items.push_back(i);
+          r.items.push_back(i.id);
+          if (kind == ItemKind::Food)
+            dailyMeal = i.id;
+          else
+            dailySpare = i.id;
+        }
+        auto &plan = w.residentPlans[0];
+        plan.nextShopping = plan.nextCareer = plan.nextBusiness = plan.nextListing = w.time + 86400;
+        dailyMoney = w.internalMoney();
+        dailyCash = w.accounts[r.account].balance;
+        dailyOwnerCash = w.accounts[w.operatingAccount(dailyWater)].balance;
+        dailyPrior = r.pos;
+        demoScroll = 700;
+        w.decide(0);
+        app.selected = 0;
+        app.currentFloor = 0;
+        app.setFirstPerson(false);
+        app.cameraFocus = r.pos;
+        app.distance = 15;
+        app.observerHeight = 0;
+        app.pitch = .45f;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        app.householdOpen = true;
+        std::cout << "DAILY PLAN PLAYTEST: owned meal, clean spare, actual drinking-water trip and "
+                     "queue/payment\n";
+      } else if (panel == "body-control") {
         auto &w = *app.world;
         while (!w.events.empty())
           w.events.pop();
@@ -9008,7 +9127,7 @@ int runApplication(int argc, char **argv) {
       if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
           playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
           playStorage || playCrew || playEstates || playChimney || playInformation || playChoices ||
-          playHistory)
+          playHistory || playDaily)
         app.speed = 6;
     }
     if (computeTest) {
@@ -9111,6 +9230,33 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playDaily) {
+        auto &w = *app.world;
+        dailyMaxStep = std::max(dailyMaxStep, length(w.position(0) - dailyPrior));
+        dailyPrior = w.position(0);
+        app.cameraFocus = w.position(0);
+        if (dailyFinished < 0 && w.items[dailyMeal].consumed &&
+            w.residents[0].outfit == dailySpare &&
+            w.accounts[w.residents[0].account].balance == dailyCash - 30 &&
+            w.residents[0].thirst < .4f) {
+          w.validate();
+          auto path = std::filesystem::temp_directory_path() / "mega-daily-rendered.mdsave";
+          w.save(path);
+          auto loaded = World::load(path);
+          std::filesystem::remove(path);
+          if (!loaded.items[dailyMeal].consumed || loaded.residents[0].outfit != dailySpare)
+            throw std::runtime_error("Daily actions did not survive reload");
+          dailyFinished = frames;
+          app.paused = true;
+          std::cout << "DAILY PLAN PLAYTEST: physical service finished, money conserved and save "
+                       "reloaded\n";
+        }
+        if (dailyFinished >= 0 && frames >= dailyFinished + 10) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playHistory) {
         auto &w = *app.world;
         historyMaxStep = std::max(historyMaxStep, length(w.position(4) - historyPrior));
@@ -9783,6 +9929,22 @@ int runApplication(int argc, char **argv) {
       }
       app.frame(dt, frameCapture);
       ++frames;
+    }
+    if (playDaily) {
+      auto &w = *app.world;
+      if (dailyFinished < 0 || dailyMaxStep > 2 || w.internalMoney() != dailyMoney ||
+          w.accounts[w.operatingAccount(dailyWater)].balance != dailyOwnerCash + 30)
+        throw std::runtime_error(
+            "Daily plan failed: completed=" + std::to_string(dailyFinished) + " step=" +
+            std::to_string(dailyMaxStep) + " meal=" + std::to_string(w.items[dailyMeal].consumed) +
+            " outfit=" + std::to_string(w.residents[0].outfit) + "/" + std::to_string(dailySpare) +
+            " cash=" + std::to_string(w.accounts[w.residents[0].account].balance - dailyCash) +
+            " owner=" +
+            std::to_string(w.accounts[w.operatingAccount(dailyWater)].balance - dailyOwnerCash) +
+            " total=" + std::to_string(w.internalMoney() - dailyMoney));
+      std::cout << "DAILY PLAN PLAYTEST PASS: meal/clothing/water, continuous movement, real "
+                   "payment, localized plan and reload; max step "
+                << dailyMaxStep << " m\n";
     }
     if (playHistory) {
       auto &w = *app.world;

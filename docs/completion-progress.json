@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan_revision": 1,
-  "updated": "2026-11-10",
+  "updated": "2026-11-11",
   "title": "Mega Dormitory completion plan",
   "purpose": "A sequential plan for finishing the accepted game, not another unbounded list of possible improvements.",
   "baseline": {
@@ -25,8 +25,8 @@
   ],
   "current": {
     "milestone": "M02",
-    "task": "M02.1",
-    "next_action": "Complete plans for food, water, medicine, cleaning, clothing, recreation and protected savings across day/night schedules."
+    "task": "M02.2",
+    "next_action": "Coordinate household purchases, shared supplies and care without merging private ownership or spending funds twice."
   },
   "execution_policy": [
     "Read this tracker and completion-plan.md on every implementation continuation; resume the current task rather than choosing a new theme.",
@@ -755,14 +755,19 @@
         "src/autonomy.cpp",
         "src/households.cpp",
         "src/storage.cpp",
-        "src/routines.cpp"
+        "src/routines.cpp",
+        "src/daily_plans.cpp",
+        "src/application.cpp"
       ],
       "tasks": [
         {
           "id": "M02.1",
           "title": "Complete plans for food, water, medicine, cleaning, clothing, recreation and protected savings across day/night schedules.",
-          "done": false,
-          "evidence": []
+          "done": true,
+          "evidence": [
+            "docs/evidence/daily-planning-verification.json: M02.1 daily forecasts, real need actions, protected funds, schedules, 37 focused cases, installed/rendered/localized/memory/save verification.",
+            "docs/daily-plans.md: controls, physical rules, persistence and explicit remaining scope."
+          ]
         },
         {
           "id": "M02.2",
@@ -2565,6 +2570,10 @@
     {
       "date": "2026-11-10",
       "change": "Completed M01.4 and passed the three M01 acceptance criteria: private contact/relationship/decision controls, full retained conversation pages and original-date report recall; integrated actual friendship/aid, hidden crime, paid device delivery and death/reload replay. All installed/native/rendered/memory/localization/continuation checks pass. M01 is complete; resume M02.1 daily provisioning plans."
+    },
+    {
+      "date": "2026-11-11",
+      "change": "Completed M02.1: daily provisioning forecasts and real food/water/care/sanitation/clothing/cleaning/recreation actions around day/night shifts, travel/queues and sleep; protected leisure funds at entry/admission/checkout; clean-spare departure fix, saved cooldowns and old-save defaults. 37 focused cases, all 54 installed/native/rendered suites, three focused memory suites, EN/FR/ZH hardware/software journeys and default-size/full-day continuation pass. M02 remains active; resume M02.2 coordinated household purchases, shared supplies and care."
     }
   ],
   "open_defects": [

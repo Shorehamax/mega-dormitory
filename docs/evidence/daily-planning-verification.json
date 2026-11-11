@@ -1,0 +1,69 @@
+{
+  "recorded": "2026-11-11",
+  "task": "M02.1",
+  "milestone": "M02",
+  "code_predecessor": "725e46642ce1fb3ce1977e10064c593c4bd839ea",
+  "installed_executable_sha256": "95b487c592e23a7914d10f219ffd1497e2cf7c613ee3832cad053d5e1b09406c",
+  "checks": [
+    {
+      "name": "Daily need forecasts and real execution",
+      "result": "37/37 focused cases pass: day/night forecasts, shift preparation, day-off boundaries, real bed sleep, owned/foreign/reserved goods, medicine, clean spares, laundry, waste/dishes, school-age consumption, missing clothes, staff/stock waiting, travel/queue estimates, protected funds, manual/custody guards, real leisure accounting, admission/checkout cancellation and older/current saves.",
+      "evidence": "docs/evidence/daily-focused.log"
+    },
+    {
+      "name": "Final native regression set",
+      "result": "28/28 pass, retaining on-duty cooks, real repair and tow jobs, autonomy, custody, social/information/history, saves and ownership.",
+      "evidence": "docs/evidence/daily-headless.log"
+    },
+    {
+      "name": "Installed game and normal launcher",
+      "result": "54/54 complete native/rendered suites pass in the installed RelWithDebInfo build. A final display-only substitution uses the existing preciseMoney formatter for small fees; run.sh rebuilds that correction and renders 3 isolated startup frames. Three targeted UI/catalogue/rendered suites plus EN/FR/ZH installed journeys then verify the final formatter build.",
+      "evidence": [
+        "docs/evidence/daily-installed-tests.log",
+        "docs/evidence/daily-final-price-startup.log",
+        "docs/evidence/daily-installed-price-ui.log"
+      ]
+    },
+    {
+      "name": "Memory, undefined behavior and leaks",
+      "result": "3/3 focused suites pass: daily planning, resident autonomy/households and physical vehicle traffic/jobs.",
+      "evidence": "docs/evidence/daily-asan-final.log"
+    },
+    {
+      "name": "Localized rendered journey",
+      "result": "English and French NVIDIA RTX 5070 and Chinese llvmpipe software Vulkan pass with validation: owned food, clean spare, smooth real walk, water use/payment to actual owner, conserved money, valid save/reload and readable planning submenu. All three final captures visually inspected.",
+      "evidence": [
+        "docs/evidence/daily-live-en.log",
+        "docs/evidence/daily-live-fr.log",
+        "docs/evidence/daily-live-zh.log",
+        "docs/evidence/daily-plan-en.png",
+        "docs/evidence/daily-plan-fr.png",
+        "docs/evidence/daily-plan-zh.png"
+      ]
+    },
+    {
+      "name": "Default world and day/night continuation",
+      "result": "100,000 residents/2,000 floors run 1h, save/reload and continue 60s with valid state and conserved internal money. A separate 600-start world runs 24h, performs actual deliveries/migration, saves/reloads and continues 1h.",
+      "evidence": [
+        "docs/evidence/daily-default-continuation.log",
+        "docs/evidence/daily-day-continuation.log"
+      ]
+    },
+    {
+      "name": "Localization and tracker references",
+      "result": "1,264 matching EN/FR/ZH keys; daily dynamic-key family checked. Completion tracker generation and acceptance-register references validate.",
+      "evidence": [
+        "tools/check_locales.py",
+        "tools/render_completion_plan.py",
+        "tools/check_acceptance_register.py"
+      ]
+    }
+  ],
+  "limits": [
+    "Displayed plans are current forecasts, not reserved stock, funds or queue places. Route and arrival rules remain authoritative.",
+    "M02.2 household purchasing, shared care and younger-child coordination remain unfinished; private money and ownership are retained.",
+    "M02.3 deeper independent trade/career/business planning and M02.4 comprehensive replanning remain unfinished.",
+    "Education retains its existing physical lesson system. A new course timetable and later visual/animation/GPU-scaling milestones are not claimed complete.",
+    "M02 remains in progress; its combined acceptance gate has not yet passed."
+  ]
+}

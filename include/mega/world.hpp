@@ -256,7 +256,35 @@ enum class AutonomyAction {
   HouseholdErrand,
   Founded
 };
+enum class DailyNeed {
+  Food,
+  Water,
+  Medicine,
+  Toilet,
+  Hygiene,
+  Clothing,
+  Cleaning,
+  Recreation,
+  Work,
+  Sleep
+};
+enum class DailyState { Covered, Planned, Ready, Waiting, Active };
+struct DailyStep {
+  DailyNeed need = DailyNeed::Food;
+  DailyState state = DailyState::Covered;
+  Id facility = none, item = none;
+  double due = 0, depart = 0, seconds = 0;
+  Money price = 0;
+  std::string reason = "daily.covered";
+};
+struct DailyPlan {
+  Money reserve = 0, spendable = 0;
+  double commitment = 0;
+  std::vector<DailyStep> steps;
+};
 struct ResidentPlan {
+  double nextDaily = 0, nextRecreation = 0;
+  Id plannedLeisure = none;
   double nextShopping = 0, nextCareer = 0, nextBusiness = 0, nextListing = 0;
   double tradeDeadline = 0, lastCareer = -86400;
   Money reserve = 0, spentToday = 0, tradePrice = 0;
@@ -938,6 +966,10 @@ public:
   static Money productPrice(ItemKind);
   Money deliveryPrice(Id buyer, Id shop) const;
   Money householdReserve(Id resident) const;
+  DailyPlan dailyPlan(Id resident) const;
+  bool dailyDecision(Id resident);
+  bool dailyLeisure(Id resident);
+  bool dailyServiceAllowed(Id resident, Id facility, Money price) const;
   bool autonomyDecision(Id resident);
   void finishAutonomyTrade(Id resident);
   void householdShopping(Id resident);
@@ -1418,6 +1450,7 @@ public:
 std::string roleKey(Role);
 std::string activityKey(Activity);
 std::string facilityKey(FacilityKind);
+std::string dailyKey(DailyNeed);
 std::string autonomyKey(AutonomyAction);
 std::string vehicleKey(VehicleKind);
 } // namespace mega

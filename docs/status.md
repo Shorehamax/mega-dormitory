@@ -4,6 +4,16 @@
 
 This is a development build, not a declaration that the complete accepted design has shipped. The reference-image fidelity and production polish have not been achieved. The former island/city and Creative mode are superseded by the dormitory-focused requirements in `requirements.md`.
 
+## Daily provisioning and protected savings (11 November 2026)
+
+- **M02.1** adds a read-only daily plan under **My life → Household & decisions**: needs, real destinations, departure/queue estimates, prices and waiting reasons. School-age residents and adults use owned unreserved food/medicine, clean spares and real staffed services; actual work routines retain control during shifts. Overnight shifts, days off, sleep and travel/queue duration influence preparation and leisure.
+- Leisure follows preferences, fits around commitments and uses only spare money above essentials/rent/arrears/business-wage/storage buffers. Queue entry, station admission and checkout recheck the policy; cancellation returns reserved stock and clears permission. Real payments and an eight-hour completed-visit cooldown persist. Urgent needs can still use essential money when future rent is underfunded.
+- Rendered play found and fixed leisure displacing a due real shopping/delivery journey, plus dirty-outfit washing despite a clean spare during the planner cooldown. Missing clothes remain a purchase need; clothing precedes optional device purchases. Plans never invent shared goods, workers, water bottles, payments or reservations.
+- **37** focused cases, **28** native suites, **54** complete installed/native/rendered suites and three focused address/undefined-behavior/leak suites pass. EN/FR hardware and ZH software Vulkan journeys, default **100,000 residents / 2,000 floors**, full-day save continuations and the normal launcher pass. All **1,264** locale keys match.
+- **M02 stays in progress. Next: M02.2**, coordinated household purchasing, shared supplies and care. Its combined acceptance gate and later feature/polish milestones remain unfinished.
+
+See [daily planning rules and controls](daily-plans.md) and [reproducible verification](evidence/daily-planning-verification.json).
+
 ## Social milestone acceptance and private history controls (10 November 2026)
 
 - **M01.4** adds **My life → Relationships & history**: known-contact search (English/French/Chinese names or resident number), friend/rival filters, all sixteen retained private encounters and all eight decisions through readable pages. Switching the inspected actor clears the previous viewer’s cached selection. The book exposes neither an unseen offender nor live tracking/status data.

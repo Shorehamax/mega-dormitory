@@ -4,11 +4,11 @@
 
 A sequential plan for finishing the accepted game, not another unbounded list of possible improvements.
 
-Updated: **2026-11-10** · Plan revision: **1**
+Updated: **2026-11-11** · Plan revision: **1**
 
 ## Current work
 
-**M02.1** — Complete plans for food, water, medicine, cleaning, clothing, recreation and protected savings across day/night schedules.
+**M02.2** — Coordinate household purchases, shared supplies and care without merging private ownership or spending funds twice.
 
 This register contains **33 milestones / 132 tasks** for remaining work. **2 milestones have passed their gates.** This is not a percentage of the whole game: the working baseline below already exists.
 
@@ -177,7 +177,9 @@ Gate 3 evidence: Offline delivery survives a save interruption. After device acc
 
 **Tasks**
 
-- [ ] **M02.1** Complete plans for food, water, medicine, cleaning, clothing, recreation and protected savings across day/night schedules.
+- [x] **M02.1** Complete plans for food, water, medicine, cleaning, clothing, recreation and protected savings across day/night schedules.
+  - Evidence: docs/evidence/daily-planning-verification.json: M02.1 daily forecasts, real need actions, protected funds, schedules, 37 focused cases, installed/rendered/localized/memory/save verification.
+  - Evidence: docs/daily-plans.md: controls, physical rules, persistence and explicit remaining scope.
 - [ ] **M02.2** Coordinate household purchases, shared supplies and care without merging private ownership or spending funds twice.
 - [ ] **M02.3** Finish independent buying, selling, career changes, saving and small-business investment using actual affordability and travel.
 - [ ] **M02.4** Handle unavailable stock/staff, queues, interrupted delivery, job loss, illness and changing household membership with coherent replanning.
@@ -190,7 +192,7 @@ Gate 3 evidence: Offline delivery survives a save interruption. After device acc
 
 **Requirement coverage:** R10, R11, R12, R13, R15, R16, R17, R21
 
-**Starting references:** [src/autonomy.cpp](../src/autonomy.cpp), [src/households.cpp](../src/households.cpp), [src/storage.cpp](../src/storage.cpp), [src/routines.cpp](../src/routines.cpp)
+**Starting references:** [src/autonomy.cpp](../src/autonomy.cpp), [src/households.cpp](../src/households.cpp), [src/storage.cpp](../src/storage.cpp), [src/routines.cpp](../src/routines.cpp), [src/daily_plans.cpp](../src/daily_plans.cpp), [src/application.cpp](../src/application.cpp)
 
 <a id="m03"></a>
 
@@ -960,3 +962,4 @@ None recorded. Optional new ideas go here rather than silently expanding release
 - **2026-11-08** — Completed M01.2: persistent source/time/place-preserving service, work, trade, help, threat and witness reports through real contact or usable devices; paid delayed inbox delivery, actual seller meeting replies, local/NPC sharing and original-witness callbacks. Installed/native/rendered/memory/locale/default-size checks pass. M01 remains active; next is M01.3.
 - **2026-11-08** — Completed M01.3: stable persistent generosity/conscience/courage/sociability and private reasoned decisions now connect to real help, refusal, cooperation, theft, reporting and surrender. Fixed stale sale listings after theft. Opposite-trait, real-friendship, privacy, conserved action, migration, rendered and memory checks pass. M01 remains active; next M01.4 controls and acceptance review.
 - **2026-11-10** — Completed M01.4 and passed the three M01 acceptance criteria: private contact/relationship/decision controls, full retained conversation pages and original-date report recall; integrated actual friendship/aid, hidden crime, paid device delivery and death/reload replay. All installed/native/rendered/memory/localization/continuation checks pass. M01 is complete; resume M02.1 daily provisioning plans.
+- **2026-11-11** — Completed M02.1: daily provisioning forecasts and real food/water/care/sanitation/clothing/cleaning/recreation actions around day/night shifts, travel/queues and sleep; protected leisure funds at entry/admission/checkout; clean-spare departure fix, saved cooldowns and old-save defaults. 37 focused cases, all 54 installed/native/rendered suites, three focused memory suites, EN/FR/ZH hardware/software journeys and default-size/full-day continuation pass. M02 remains active; resume M02.2 coordinated household purchases, shared supplies and care.

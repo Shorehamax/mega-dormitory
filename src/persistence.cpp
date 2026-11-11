@@ -120,10 +120,10 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(StorageLease, id, facility, hold
                                                 active, released, open, items)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Household, id, founder, members, invitations)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
-    ResidentPlan, nextShopping, nextCareer, nextBusiness, nextListing, tradeDeadline, lastCareer,
-    reserve, spentToday, tradePrice, day, tradeRetries, order, tradeItem, seller, lastBusiness,
-    wanted, action, nextHousehold, helpDeadline, helpTarget, helpRetries, storageItem,
-    storageDeadline, nextStorage, storageGroup, nextEstate)
+    ResidentPlan, nextDaily, nextRecreation, plannedLeisure, nextShopping, nextCareer, nextBusiness,
+    nextListing, tradeDeadline, lastCareer, reserve, spentToday, tradePrice, day, tradeRetries,
+    order, tradeItem, seller, lastBusiness, wanted, action, nextHousehold, helpDeadline, helpTarget,
+    helpRetries, storageItem, storageDeadline, nextStorage, storageGroup, nextEstate)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Information, id, kind, channel, subject, origin,
                                                 via, suspect, observedAt, learnedAt, where, price,
                                                 stock, waiting, detail, available, locationKnown)

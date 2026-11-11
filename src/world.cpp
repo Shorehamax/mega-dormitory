@@ -600,6 +600,22 @@ void World::decide(Id id, bool scheduleNext) {
   if (r.activity != Activity::Idle && r.activity != Activity::Working &&
       r.activity != Activity::Sleeping)
     return;
+  // A clean carried spare avoids paying to wash the worn outfit merely because
+  // another decision (or service departure) happened inside the planner cooldown.
+  if (r.activity != Activity::Sleeping && (r.outfit == none || items[r.outfit].cleanliness < .3f))
+    for (Id item : r.items) {
+      const auto &i = items[item];
+      if (i.kind == ItemKind::Clothes && i.cleanliness > .6f && i.owner == r.account &&
+          i.carrier == id && !i.consumed && i.reservedAt == none && i.durability > .2f &&
+          !itemInUse(item)) {
+        changeClothes(id, item);
+        break;
+      }
+    }
+  if (r.activity != Activity::Sleeping && r.thirst < .9f && storageDecision(id, true))
+    return;
+  if (dailyDecision(id))
+    return;
   if (r.health < 85)
     for (Id item : r.items)
       if (items[item].kind == ItemKind::Medicine && items[item].owner == r.account &&
@@ -637,8 +653,6 @@ void World::decide(Id id, bool scheduleNext) {
         usePersonalItem(id, item);
         return;
       }
-  if (r.activity != Activity::Sleeping && r.thirst < .9f && storageDecision(id, true))
-    return;
   if (r.health < 65 && r.hunger < .95f && r.thirst < .95f && r.ambulance == none &&
       r.carriedBy == none) {
     Id f = serviceChoice(id, FacilityKind::Infirmary);
@@ -751,18 +765,8 @@ void World::decide(Id id, bool scheduleNext) {
         r.activity == Activity::Fighting)
       return;
   }
-  if (!workWindow && r.happiness < .6f && random() < .2f) {
-    std::array<FacilityKind, 8> leisure = {
-        FacilityKind::Cafe, FacilityKind::Leisure, FacilityKind::Arcade,  FacilityKind::Cinema,
-        FacilityKind::Pool, FacilityKind::Shop,    FacilityKind::Library, FacilityKind::Playground};
-    auto interest = std::max_element(r.interests.begin(), r.interests.end()) - r.interests.begin();
-    auto choice = interest == 4 && random() < .5f ? FacilityKind::Gym : leisure[interest];
-    Id f = serviceChoice(id, choice);
-    if (f != none && accounts[r.account].balance > facilities[f].price + 1500) {
-      travel(id, facilities[f].pos, TaskKind::Service, f);
-      return;
-    }
-  }
+  if (!workWindow && dailyLeisure(id))
+    return;
   if (r.energy < .25f) {
     auto h = residentHomes[id];
     if (h >= 0 && dangerAt(homePosition(h)) > .02f)
@@ -1091,7 +1095,8 @@ void World::dispatch(const Event &e) {
     auto &r = residents[e.other];
     r.queuedAt = none;
     needs(r.id);
-    if (!r.alive || !r.present || accounts[r.account].balance < price) {
+    if (!r.alive || !r.present || accounts[r.account].balance < price ||
+        !dailyServiceAllowed(r.id, f.id, price)) {
       ++f.stock;
       r.queuedAt = f.id;
       leaveQueue(r.id); // Release reserved clothing even if payment/death interrupts completion.
@@ -1154,6 +1159,11 @@ void World::dispatch(const Event &e) {
       if (preference != preferences.end())
         r.happiness = std::min(1.f, r.happiness + .05f +
                                         r.interests[preference - preferences.begin()] * .25f);
+      if (auto plan = residentPlans.find(r.id);
+          plan != residentPlans.end() && plan->second.plannedLeisure == f.id) {
+        plan->second.nextRecreation = time + 8 * 3600;
+        plan->second.plannedLeisure = none;
+      }
       r.activity = Activity::Idle;
       r.queuedAt = none;
     }
@@ -1441,6 +1451,8 @@ void World::joinQueue(Id id, Id fId) {
     return;
   if (r.queuedAt != none)
     leaveQueue(id);
+  if (!dailyServiceAllowed(id, fId, f.price))
+    throw std::runtime_error("daily.savings");
   if (accounts[r.account].balance < f.price)
     throw std::runtime_error("Cannot afford service");
   if (f.queue.size() >= 64)
@@ -1479,6 +1491,11 @@ void World::leaveQueue(Id id) {
         r.outfit = item;
     }
   r.queuedAt = none;
+  if (auto plan = residentPlans.find(id);
+      plan != residentPlans.end() && plan->second.plannedLeisure == f.id) {
+    plan->second.plannedLeisure = none;
+    plan->second.nextRecreation = time + 900;
+  }
   if (r.activity == Activity::Queuing || r.activity == Activity::Using)
     r.activity = Activity::Idle;
   serve(f.id);
@@ -1520,7 +1537,12 @@ void World::serve(Id fId) {
     Id id = f.queue.front();
     auto &r = residents[id];
     if (!r.alive || !r.present || !accessAllowed(id, fId) ||
-        accounts[r.account].balance < f.price) {
+        accounts[r.account].balance < f.price || !dailyServiceAllowed(id, fId, f.price)) {
+      if (auto plan = residentPlans.find(id);
+          plan != residentPlans.end() && plan->second.plannedLeisure == fId) {
+        plan->second.plannedLeisure = none;
+        plan->second.nextRecreation = time + 900;
+      }
       f.queue.erase(f.queue.begin());
       r.queuedAt = none;
       if (r.alive)

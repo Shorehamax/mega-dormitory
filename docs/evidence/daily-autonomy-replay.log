@@ -1,0 +1,25 @@
+Asset old_bed_frame: 49990 triangles
+Asset plastic_monobloc_chair_01: 3356 triangles
+Asset painted_wooden_table: 600 triangles
+Asset metal_trash_can: 13960 triangles
+Asset painted_wooden_cabinet_02: 966 triangles
+Asset wheelchair_01: 40252 triangles
+Asset concrete_floor_02: 2 triangles
+Asset sedan: 2032 triangles
+Asset van: 2082 triangles
+Asset ambulance: 2804 triangles
+Asset resident_Male: 14318 triangles
+Character LOD resident_Male: 3085 triangles
+Asset resident_Female: 15060 triangles
+Character LOD resident_Female: 2760 triangles
+Vulkan device: NVIDIA GeForce RTX 5070; MSAA 4x
+PLAYTEST: walking to the shop; household funds=28123
+PLAYTEST: arrived on foot; enabled resident decisions
+PLAYTEST: purchase 0 escrow=1000
+PLAYTEST: courier 7 physically handed over item 1014; escrow=0
+PLAYTEST PASS: walking, budgeted checkout, real courier delivery, live UI and conserved state
+Render loop seconds: 1.8569
+CPU scene build seconds: 0.376596
+GPU floor instances: 0
+GPU skinned vertices: 115353
+Rendered 76 frames

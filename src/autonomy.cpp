@@ -135,12 +135,12 @@ void World::householdShopping(Id id) {
     desired = ItemKind::Food;
   else if (householdMealDeficit(id) > 0 && held(*this, id, ItemKind::Food) < 3)
     desired = ItemKind::Food;
-  else if (!held(*this, id, ItemKind::Phone) && !held(*this, id, ItemKind::Laptop))
-    desired = ItemKind::Phone;
   else if (held(*this, id, ItemKind::Clothes) < 2 &&
            (r.outfit == none || items[r.outfit].cleanliness < .65f ||
             items[r.outfit].durability < .3f))
     desired = ItemKind::Clothes;
+  else if (!held(*this, id, ItemKind::Phone) && !held(*this, id, ItemKind::Laptop))
+    desired = ItemKind::Phone;
   else if (held(*this, id, ItemKind::Food) && !held(*this, id, ItemKind::Tableware))
     desired = ItemKind::Tableware;
   else if (!held(*this, id, ItemKind::Fan) && r.interests[1] > .6f && available > 10000)
@@ -525,20 +525,6 @@ bool World::autonomyDecision(Id id) {
         changeClothes(id, item);
         break;
       }
-  bool dirtySpare = false;
-  for (Id item : r.items)
-    if (item != r.outfit && items[item].kind == ItemKind::Clothes && items[item].carrier == id &&
-        items[item].owner == r.account && !items[item].consumed && items[item].cleanliness < .3f)
-      dirtySpare = true;
-  if (dirtySpare) {
-    Id laundry = serviceChoice(id, FacilityKind::Laundry);
-    if (laundry != none)
-      try {
-        travel(id, facilities[laundry].pos, TaskKind::Service, laundry);
-        return true;
-      } catch (const std::runtime_error &) {
-      }
-  }
   if (time >= p.nextListing) {
     p.nextListing = time + 86400;
     for (Id item : r.items) {
@@ -717,6 +703,8 @@ void World::validateAutonomy() const {
       return x == none || (x >= 0 && std::size_t(x) < count);
     };
     if (id < 0 || std::size_t(id) >= residents.size() || !ref(p.order, orders.size()) ||
+        !ref(p.plannedLeisure, facilities.size()) || !std::isfinite(p.nextDaily) ||
+        p.nextDaily < 0 || !std::isfinite(p.nextRecreation) || p.nextRecreation < 0 ||
         !ref(p.tradeItem, items.size()) || !ref(p.seller, residents.size()) ||
         !ref(p.storageItem, items.size()) || !ref(p.storageGroup, households.size()) ||
         !std::isfinite(p.storageDeadline) || p.storageDeadline < 0 ||

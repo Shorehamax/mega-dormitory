@@ -1,0 +1,13 @@
+Test project /home/charlie/Documents/Codex/2026-10-18/files-pasted-by-the-user-project/work/native-build
+    Start  8: vulkan_autonomy_playthrough
+1/4 Test  #8: vulkan_autonomy_playthrough ......   Passed    2.62 sec
+    Start 16: vulkan_household_and_school
+2/4 Test #16: vulkan_household_and_school ......   Passed    5.51 sec
+    Start 24: vulkan_household_storage
+3/4 Test #24: vulkan_household_storage .........   Passed    4.31 sec
+    Start 54: vulkan_daily_planning
+4/4 Test #54: vulkan_daily_planning ............   Passed    2.17 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =  14.61 sec

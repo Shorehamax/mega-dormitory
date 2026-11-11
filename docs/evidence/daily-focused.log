@@ -1,0 +1,38 @@
+PASS Daily preview is read-only, complete and uses no reservations
+PASS Food and water deadlines forecast different actual need rates
+PASS Owned meal is consumed before an upcoming shift without magic delivery
+PASS A stolen carried meal is not treated as owned household food
+PASS Reserved and consumed food cannot satisfy the plan twice
+PASS Actual owned medicine is consumed for injury
+PASS A clean owned spare replaces dirty clothes without buying duplicates
+PASS Dirty spare clothes generate a real laundry destination
+PASS Personal waste and dirty dishes have separate real services
+PASS Queues are included in departure estimates, not reserved
+PASS Closed, unstaffed and empty water services explain waiting
+PASS Toilets remain usable with no workers when their owner permits it
+PASS Recreation follows personal preference and preserves the essential buffer
+PASS Leisure cannot use rent, arrears, business wages or storage reserves
+PASS Urgent water can use essential money even when future rent is underfunded
+PASS Discretionary checkout rechecks savings but manual choices remain possible
+PASS A queue cancellation clears its discretionary spending permission
+PASS Long leisure visits defer to a near work shift
+PASS Night workers prepare for their own shift and sleep in the daytime
+PASS Days off are observed across midnight
+PASS Job loss removes commute plans immediately
+PASS Manual, restrained and airborne residents do not execute daily plans
+PASS Daily throttle and real recreation cooldown survive a save
+PASS Older saves obtain empty daily clocks without inventing spending or actions
+PASS Leisure checkout refunds stock when rent money is lost during use
+PASS Successful leisure charges the real owner and starts a persistent cooldown
+PASS Urgent thirst takes priority over an imminent shift and recreation
+PASS No worker requirement is bypassed by the daily planner
+PASS A service-departure decision changes into a clean spare inside the daily cooldown
+PASS Missing clothes are an acquisition need, not a satisfied plan
+PASS A daylight sleeper returns to their real owned or rented bed
+PASS School-age residents can use their own supplies without adult career decisions
+PASS A changed budget at station admission clears pending leisure permission
+PASS A due affordable shopping trip precedes discretionary recreation
+PASS A real pending delivery defers leisure until cancellation returns escrow
+PASS A staffed affordable lesson takes priority over an available preferred arcade
+PASS An ongoing laundry reservation remains active when it used the last stock
+37 passed, 0 failed
