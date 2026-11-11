@@ -4,13 +4,13 @@
 
 A sequential plan for finishing the accepted game, not another unbounded list of possible improvements.
 
-Updated: **2026-11-08** · Plan revision: **1**
+Updated: **2026-11-10** · Plan revision: **1**
 
 ## Current work
 
-**M01.4** — Expose readable relationship/history controls and verify that information travels through real actors or available devices, then review the M01 acceptance gate.
+**M02.1** — Complete plans for food, water, medicine, cleaning, clothing, recreation and protected savings across day/night schedules.
 
-This register contains **33 milestones / 132 tasks** for remaining work. **1 milestones have passed their gates.** This is not a percentage of the whole game: the working baseline below already exists.
+This register contains **33 milestones / 132 tasks** for remaining work. **2 milestones have passed their gates.** This is not a percentage of the whole game: the working baseline below already exists.
 
 The JSON [progress tracker](completion-progress.json) is authoritative. To update this document, edit that tracker and run `python3 tools/render_completion_plan.py` from the project root; use `--check` to check for drift. Root [AGENTS.md](../AGENTS.md) tells implementation sessions to resume this pointer.
 
@@ -125,7 +125,7 @@ Gate 3 evidence: Finite scope rules explicitly exclude the cancelled city/Creati
 
 ### M01 — Relationships and information that affect decisions
 
-**Status:** in_progress · **Depends on:** M00 · **Phase:** P1
+**Status:** complete · **Depends on:** M00 · **Phase:** P1
 
 **Tasks**
 
@@ -141,7 +141,10 @@ Gate 3 evidence: Finite scope rules explicitly exclude the cancelled city/Creati
   - Evidence: src/social_decisions.cpp and docs/decisions.md: persistent traits, private known-history assessments and connected help/refusal/cooperation/theft/reporting/surrender actions.
   - Evidence: tests/decision_tests.cpp: 41 passing cases including opposite choices, real friendship changing later behavior, actual ownership/crime/consent, save migration and private knowledge.
   - Evidence: docs/evidence/decisions-verification.json: full installed 50-suite regression, memory/leak checks, actual localized household errand and default/full-day save continuations.
-- [ ] **M01.4** Expose readable relationship/history controls and verify that information travels through real actors or available devices.
+- [x] **M01.4** Expose readable relationship/history controls and verify that information travels through real actors or available devices.
+  - Evidence: src/social_history.cpp and docs/social-history.md: private known-contact/history queries, complete retained message pages and received-report recall.
+  - Evidence: src/application.cpp: localized contact filters, paged encounters/decisions/archives, actor-view cache isolation and real social gate replay.
+  - Evidence: tests/history_tests.cpp and docs/evidence/m01-completion-verification.json: 28 focused cases, all three M01 acceptance criteria, installed 52-suite regression and memory/localized/continuation checks.
 
 **Gate — all must pass**
 
@@ -151,13 +154,26 @@ Gate 3 evidence: Finite scope rules explicitly exclude the cancelled city/Creati
 
 **Requirement coverage:** R08, R10, R11, R13, R27
 
-**Starting references:** [src/social.cpp](../src/social.cpp), [src/households.cpp](../src/households.cpp), [src/security.cpp](../src/security.cpp), [src/economy.cpp](../src/economy.cpp), [src/social_decisions.cpp](../src/social_decisions.cpp), [src/communication.cpp](../src/communication.cpp)
+**Starting references:** [src/social.cpp](../src/social.cpp), [src/households.cpp](../src/households.cpp), [src/security.cpp](../src/security.cpp), [src/economy.cpp](../src/economy.cpp), [src/social_decisions.cpp](../src/social_decisions.cpp), [src/communication.cpp](../src/communication.cpp), [src/social_history.cpp](../src/social_history.cpp), [src/application.cpp](../src/application.cpp)
+
+**Recorded milestone evidence:**
+
+- docs/evidence/m01-verification.json: M01.1 directional relationships and actual encounter memory.
+- docs/evidence/information-verification.json: M01.2 real contact/device information and persistence.
+- docs/evidence/decisions-verification.json: M01.3 personality/history choices with real consequences.
+- docs/evidence/m01-completion-verification.json: M01.4 controls and complete three-criterion acceptance gate.
+
+Gate 1 evidence: The same selfish actor refuses first, earns friendship through real timed conversations, and later physically shares owned food. A separate unseen theft never identifies its offender in the sleeping victim’s contacts; pending device metadata waits for real access. Evidence: docs/evidence/m01-completion-verification.json, acceptance[0].
+
+Gate 2 evidence: The retained two-resident replay gives both donors real spare meals and the same hungry recipient: the selfish resident refuses while a helpful housemate chooses and physically walks to hand over food. Equal food, need, position and money with different generosity yields consented handover versus refusal, with private localized reasons and conserved money. The installed suite also retains opposite theft, reporting and surrender choices from M01.3. Evidence: docs/evidence/m01-completion-verification.json, acceptance[1].
+
+Gate 3 evidence: Offline delivery survives a save interruption. After device access and the original player-source’s death, save/reload retains NPC/player names, IDs, relationship memory and original report observation/receipt dates. The rendered journey additionally preserves a deceased relay’s identity, sixteen encounters, eight decisions and a twelve-message archive after death/reload. Evidence: docs/evidence/m01-completion-verification.json, acceptance[2].
 
 <a id="m02"></a>
 
 ### M02 — Complete household provisioning and independent planning
 
-**Status:** pending · **Depends on:** M01 · **Phase:** P1
+**Status:** in_progress · **Depends on:** M01 · **Phase:** P1
 
 **Tasks**
 
@@ -943,3 +959,4 @@ None recorded. Optional new ideas go here rather than silently expanding release
 - **2026-11-07** — The user clarified physics.error.body occurs at cells after escort. Reproduced the exact chain and fixed jail interaction dispatch, authoritative custody, booked legacy-state recovery and shared first-person input. Added ten physics cases, six security cases and exact E-handler rendered coverage. M01.2 remains the next feature task.
 - **2026-11-08** — Completed M01.2: persistent source/time/place-preserving service, work, trade, help, threat and witness reports through real contact or usable devices; paid delayed inbox delivery, actual seller meeting replies, local/NPC sharing and original-witness callbacks. Installed/native/rendered/memory/locale/default-size checks pass. M01 remains active; next is M01.3.
 - **2026-11-08** — Completed M01.3: stable persistent generosity/conscience/courage/sociability and private reasoned decisions now connect to real help, refusal, cooperation, theft, reporting and surrender. Fixed stale sale listings after theft. Opposite-trait, real-friendship, privacy, conserved action, migration, rendered and memory checks pass. M01 remains active; next M01.4 controls and acceptance review.
+- **2026-11-10** — Completed M01.4 and passed the three M01 acceptance criteria: private contact/relationship/decision controls, full retained conversation pages and original-date report recall; integrated actual friendship/aid, hidden crime, paid device delivery and death/reload replay. All installed/native/rendered/memory/localization/continuation checks pass. M01 is complete; resume M02.1 daily provisioning plans.

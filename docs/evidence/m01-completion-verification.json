@@ -1,0 +1,109 @@
+{
+  "recorded": "2026-11-10",
+  "task": "M01.4",
+  "milestone": "M01",
+  "code_predecessor": "ce0bda630977825d3f44e2ba3ad3c203eede6c23",
+  "installed_executable_sha256": "62b4e20af2494511ab346b6c65d78c1e82c03fd2dca81308347e11cf4a54e0ab",
+  "checks": [
+    {
+      "name": "Focused history and privacy rules",
+      "result": "28/28 pass: known-only contacts, private directional encounters, pending metadata, anonymous provenance, complete archives, read-only queries, localized identity stability, received report recall, old saves, death/departure and all three M01 gates.",
+      "evidence": "docs/evidence/history-final-focused.log"
+    },
+    {
+      "name": "Final native regression set",
+      "result": "27/27 pass.",
+      "evidence": "docs/evidence/history-final-headless.log"
+    },
+    {
+      "name": "Complete installed checks and normal launcher",
+      "result": "52/52 native/rendered suites pass in the normal RelWithDebInfo launcher cache, followed by an isolated run.sh startup rendering 3 frames. Includes exact escort/cell, physical household, company/vehicle, fire, save/import and existing social regressions.",
+      "evidence": "docs/evidence/history-installed-tests.log"
+    },
+    {
+      "name": "Memory, undefined behavior and leaks",
+      "result": "6/6 pass: history, decisions, information, social memory, security/custody and autonomy/households.",
+      "evidence": "docs/evidence/history-asan-verified.log"
+    },
+    {
+      "name": "Connected final rendered workflows",
+      "result": "Social-history gate journey, paid information delivery, personality choices and exact custody/cell controls pass.",
+      "evidence": "docs/evidence/history-final-rendered.log"
+    },
+    {
+      "name": "Localized controls and privacy",
+      "result": "English/French hardware Vulkan and Chinese llvmpipe software Vulkan pass at 1000x720 under validation. Replay checks older encounter/decision/message pages, cache isolation when switching inspected actor, real walking/payment/receipt/recall and conserved ownership/money. Search normalizes English case/French accents and ligatures while retaining Chinese text. Key contact/detail/archive/private captures visually inspected in all languages.",
+      "evidence": [
+        "docs/evidence/history-live-en-verified.log",
+        "docs/evidence/history-live-fr-verified.log",
+        "docs/evidence/history-live-zh-verified.log",
+        "docs/evidence/history-en.png",
+        "docs/evidence/history-en-archive.png",
+        "docs/evidence/history-en-private.png",
+        "docs/evidence/history-fr.png",
+        "docs/evidence/history-fr-archive.png",
+        "docs/evidence/history-fr-private.png",
+        "docs/evidence/history-zh.png",
+        "docs/evidence/history-zh-archive.png",
+        "docs/evidence/history-zh-private.png"
+      ]
+    },
+    {
+      "name": "Default-size and full-day continuation",
+      "result": "100,000 residents / 2,000 floors run one hour, save/reload and continue a minute with valid state and unchanged internal money. A separate 600-resident world runs a full day with actual immigration/deliveries, then saves/reloads and continues an hour.",
+      "evidence": [
+        "docs/evidence/history-default-size.log",
+        "docs/evidence/history-day-continuation.log"
+      ]
+    },
+    {
+      "name": "Language and acceptance references",
+      "result": "1,236 matching English/French/Chinese keys. 38 requirements, 14 parity decisions and 38 acceptance scenarios retain valid owners/references."
+    }
+  ],
+  "acceptance": [
+    {
+      "criterion": "A repeated interaction changes later decisions; an unobserved event does not magically become shared knowledge.",
+      "result": "PASS",
+      "evidence": [
+        "tests/history_tests.cpp: Acceptance: real repeated friendship changes a later physical decision; hidden-crime contact/anonymous/pending-inbox tests.",
+        "docs/evidence/history-final-focused.log",
+        "docs/evidence/history-live-en-verified.log",
+        "docs/evidence/history-en-private.png"
+      ],
+      "explanation": "The same selfish actor refuses first, earns friendship through real timed conversations, and later physically shares owned food. A separate unseen theft never identifies its offender in the sleeping victim’s contacts; pending device metadata waits for real access."
+    },
+    {
+      "criterion": "Two residents with different personalities/history make different explainable choices in the same resource conflict.",
+      "result": "PASS",
+      "evidence": [
+        "tests/history_tests.cpp: Acceptance: equal conflict and different personalities produce explainable conserved outcomes.",
+        "tests/decision_tests.cpp: same-opportunity conscience/theft, cowardice/reporting and courage/surrender cases.",
+        "docs/evidence/history-final-focused.log",
+        "docs/evidence/decisions-final-focused.log",
+        "docs/evidence/decisions-live-en-final.log",
+        "docs/evidence/history-final-rendered.log",
+        "docs/evidence/history-installed-tests.log"
+      ],
+      "explanation": "The retained two-resident replay gives both donors real spare meals and the same hungry recipient: the selfish resident refuses while a helpful housemate chooses and physically walks to hand over food. Equal food, need, position and money with different generosity yields consented handover versus refusal, with private localized reasons and conserved money. The installed suite also retains opposite theft, reporting and surrender choices from M01.3."
+    },
+    {
+      "criterion": "Player and NPC relationship/information state survives interruptions, death and reload without identity changes.",
+      "result": "PASS",
+      "evidence": [
+        "tests/history_tests.cpp: Acceptance: interrupted delivery, source death and reload preserve player/NPC identities.",
+        "docs/evidence/history-final-focused.log",
+        "docs/evidence/history-live-en-verified.log",
+        "docs/evidence/history-default-size.log",
+        "docs/evidence/history-day-continuation.log"
+      ],
+      "explanation": "Offline delivery survives a save interruption. After device access and the original player-source’s death, save/reload retains NPC/player names, IDs, relationship memory and original report observation/receipt dates. The rendered journey additionally preserves a deceased relay’s identity, sixteen encounters, eight decisions and a twelve-message archive after death/reload."
+    }
+  ],
+  "limits": [
+    "M01 completion does not complete the later household planning, crime/medical, presentation, UI/editor, scaling or release milestones.",
+    "Retained limits remain sixteen encounters per pair, eight decisions per actor and twenty-four active source-specific reports; this is not unlimited lifetime memory.",
+    "The contact/history book is a view of the selected actor’s recorded knowledge, not a live tracking service or a new source of resources, testimony or authority.",
+    "Message archives require actual device access; only the recipient’s delivered structured attachments can be recalled, and recall does not refresh dates or overwrite newer source observations."
+  ]
+}

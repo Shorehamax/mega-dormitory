@@ -176,7 +176,17 @@ public:
   float networkScroll = 0, helpScroll = 0;
   int customCategory = 0, buildKind = 1, cheatStat = 0;
   bool householdOpen = false, educationOpen = false, informationScreen = false,
-       behaviorOpen = false;
+       behaviorOpen = false, historyScreen = false;
+  Id historyViewer = none, historyContact = none;
+  int historyTab = 0, historyPage = 0, encounterPage = 0, decisionPage = 0, historyFilter = 0;
+  std::string historySearch;
+  double nextHistoryRefresh = 0;
+  std::vector<Id> historyContacts;
+  Id messageViewer = none, messageCacheActor = none, messageCacheContact = none,
+     messageContact = none;
+  std::size_t messageCacheCount = 0;
+  std::vector<std::size_t> messageRows;
+  int messagePage = 0;
   float messageContentHeight = 1600, behaviorAnchor = 0;
   std::string cheatValue = "100";
   bool savesOpen = false, savingSlots = false, savesWasPaused = false, savesEscapeHeld = false;
@@ -773,7 +783,15 @@ public:
     estateItemList.clear();
     estateListActor = none;
     nextEstateList = 0;
-    informationScreen = behaviorOpen = false;
+    informationScreen = behaviorOpen = historyScreen = false;
+    historyViewer = historyContact = messageViewer = messageCacheActor = messageCacheContact =
+        messageContact = none;
+    historyContacts.clear();
+    messageRows.clear();
+    historySearch.clear();
+    historyPage = encounterPage = decisionPage = messagePage = historyFilter = historyTab = 0;
+    nextHistoryRefresh = 0;
+    messageCacheCount = 0;
     estateScreen = storageScreen = educationOpen = securityScreen = emergencyScreen =
         companyScreen = companyConstruction = cheatOpen = false;
     securityPage = 0;
@@ -1500,7 +1518,8 @@ public:
     Id id = none;
   };
   void openSecurityControls() {
-    estateScreen = storageScreen = educationOpen = emergencyScreen = informationScreen = false;
+    estateScreen = storageScreen = educationOpen = emergencyScreen = informationScreen =
+        historyScreen = false;
     securityScreen = true;
     phone = false;
     tab = 0;
@@ -2198,6 +2217,258 @@ public:
     }
     return y;
   }
+  void openHistory(Id contact = none) {
+    auto &w = *world;
+    if (historyViewer != selected) {
+      historySearch.clear();
+      historyFilter = historyPage = encounterPage = decisionPage = 0;
+    }
+    historyViewer = selected;
+    historyContacts = w.knownContacts(selected);
+    nextHistoryRefresh = glfwGetTime() + 1;
+    historyContact =
+        std::find(historyContacts.begin(), historyContacts.end(), contact) != historyContacts.end()
+            ? contact
+            : none;
+    historyScreen = true;
+    informationScreen = false;
+    historyTab = 0;
+    estateScreen = storageScreen = educationOpen = securityScreen = emergencyScreen = false;
+    scrollOffset = 0;
+  }
+  void contactMessages(Id contact) {
+    if (!world->hasDevice(selected)) {
+      notify(t("network.offline"));
+      return;
+    }
+    messageViewer = selected;
+    messageContact = contact;
+    messagePage = 0;
+    messageCacheActor = none;
+    networkScroll = 0;
+    recipient = std::to_string(contact + 1);
+    networkTab = 1;
+    openNetwork();
+  }
+  float historyPages(const std::string &key, int &page, std::size_t count, int size, float x,
+                     float y, float width) {
+    int maximum = std::max(0, (int(count) - 1) / size);
+    page = std::clamp(page, 0, maximum);
+    if (ui.button(key + "Prev", {x, y, 62, 29}, "←") && page > 0) {
+      --page;
+      scrollOffset = 0;
+    }
+    ui.text(x + 74, y + 7,
+            t("history.page") + " " + std::to_string(page + 1) + " / " +
+                std::to_string(maximum + 1),
+            12, hex(0x9bb0b3));
+    if (ui.button(key + "Next", {x + width - 62, y, 62, 29}, "→") && page < maximum) {
+      ++page;
+      scrollOffset = 0;
+    }
+    return y + 40;
+  }
+  static std::string historySearchKey(const std::string &text) {
+    std::string result;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+      unsigned char c = text[i];
+      if (c == 0xc3 && i + 1 < text.size()) {
+        unsigned char next = text[i + 1];
+        unsigned cp = next >= 0x80 && next <= 0xbf ? 0xc0 + next - 0x80 : 0;
+        if (cp >= 0xc0 && cp <= 0xde && cp != 0xd7)
+          cp += 32;
+        const char *plain = nullptr;
+        if (cp >= 0xe0 && cp <= 0xe5)
+          plain = "a";
+        else if (cp == 0xe6)
+          plain = "ae";
+        else if (cp == 0xe7)
+          plain = "c";
+        else if (cp >= 0xe8 && cp <= 0xeb)
+          plain = "e";
+        else if (cp >= 0xec && cp <= 0xef)
+          plain = "i";
+        else if (cp >= 0xf2 && cp <= 0xf6)
+          plain = "o";
+        else if (cp >= 0xf9 && cp <= 0xfc)
+          plain = "u";
+        else if (cp == 0xfd || cp == 0xff)
+          plain = "y";
+        if (plain) {
+          result += plain;
+          ++i;
+          continue;
+        }
+      }
+      if (c == 0xc5 && i + 1 < text.size()) {
+        unsigned char next = text[i + 1];
+        if (next == 0x92 || next == 0x93) {
+          result += "oe";
+          ++i;
+          continue;
+        }
+        if (next == 0xb8) {
+          result += "y";
+          ++i;
+          continue;
+        }
+      }
+      result += c >= 'A' && c <= 'Z' ? char(c + 'a' - 'A') : char(c);
+    }
+    auto first = result.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos)
+      return {};
+    return result.substr(first, result.find_last_not_of(" \t\r\n") - first + 1);
+  }
+  float socialHistoryPanel(float x, float y, float width) {
+    auto &w = *world;
+    if (historyViewer != selected)
+      openHistory();
+    if (glfwGetTime() >= nextHistoryRefresh) {
+      historyContacts = w.knownContacts(selected);
+      nextHistoryRefresh = glfwGetTime() + 1;
+    }
+    ui.text(x, y, t("history.title"), 23, hex(0xe6e8df));
+    y += 36;
+    y = ui.wrap(x, y, width,
+                "#" + std::to_string(selected + 1) + " · " +
+                    w.displayName(selected, locale.language),
+                13, hex(0xa9bdbe)) +
+        12;
+    if (ui.button(
+            "historyBack", {x, y, width, 30},
+            t(historyTab == 0 && historyContact != none ? "history.back_contacts" : "fire.back"))) {
+      if (historyTab == 0 && historyContact != none)
+        historyContact = none;
+      else
+        historyScreen = false;
+      scrollOffset = 0;
+    }
+    y += 40;
+    const char *tabs[] = {"history.contacts", "history.decisions", "history.reports"};
+    for (int i = 0; i < 3; ++i)
+      if (ui.button("historyTab" + std::to_string(i),
+                    {x + i * (width + 6) / 3, y, (width - 12) / 3, 30}, t(tabs[i]), false,
+                    historyTab == i)) {
+        if (i == 2)
+          informationScreen = true;
+        else
+          historyTab = i;
+        scrollOffset = 0;
+      }
+    y += 41;
+    if (historyTab == 1) {
+      y = ui.wrap(x, y, width, t("choice.explain"), 12, hex(0x9bb0b3)) + 14;
+      auto found = w.socialChoices.find(selected);
+      if (found == w.socialChoices.end() || found->second.empty())
+        return ui.wrap(x, y, width, t("choice.empty"), 14, hex(0xa9bdbe)) + 24;
+      const auto &notes = found->second;
+      y = historyPages("decisionPages", decisionPage, notes.size(), 4, x, y, width);
+      static const char *kinds[] = {"choice.help", "choice.share", "choice.theft", "choice.report",
+                                    "choice.surrender"};
+      for (int n = decisionPage * 4; n < std::min(int(notes.size()), decisionPage * 4 + 4); ++n) {
+        const auto &note = notes[notes.size() - 1 - n];
+        std::string label = timeLabel(note.time) + " · " + t(kinds[int(note.kind)]) + " · " +
+                            t(note.willing ? "choice.yes" : "choice.no");
+        if (note.other != none)
+          label += " · " + w.displayName(note.other, locale.language);
+        y = ui.wrap(x, y, width, label, 13, hex(0xc0d4c5)) + 7;
+        y = ui.wrap(x, y, width, t(note.reason), 12, hex(0x9bb0b3)) + 15;
+      }
+      return y + 15;
+    }
+    if (historyContact != none) {
+      Id other = historyContact;
+      if (std::find(historyContacts.begin(), historyContacts.end(), other) ==
+          historyContacts.end()) {
+        historyContact = none;
+        return y;
+      }
+      y = ui.wrap(x, y, width,
+                  "#" + std::to_string(other + 1) + " · " + w.displayName(other, locale.language),
+                  18, hex(0xc0d4c5)) +
+          10;
+      y = ui.wrap(x, y, width,
+                  t(relationshipLabel(w.relationshipStatus(selected, other))) + " · " +
+                      t("history.opinion") + " " +
+                      std::to_string(int(std::round(w.trust(selected, other) * 100))),
+                  13, hex(0xa9bdbe)) +
+          12;
+      if (ui.button("historyMessage", {x, y, width / 2 - 4, 30}, t("history.messages")))
+        contactMessages(other);
+      if (ui.button("historyShare", {x + width / 2 + 4, y, width / 2 - 4, 30},
+                    t("history.share"))) {
+        recipient = std::to_string(other + 1);
+        informationScreen = true;
+        scrollOffset = 0;
+      }
+      y += 41;
+      auto memories = w.relationshipHistory(selected, other);
+      if (memories.empty())
+        return ui.wrap(x, y, width, t("history.no_encounters"), 13, hex(0x9bb0b3)) + 25;
+      y = historyPages("encounterPages", encounterPage, memories.size(), 4, x, y, width);
+      for (int n = encounterPage * 4; n < std::min(int(memories.size()), encounterPage * 4 + 4);
+           ++n) {
+        const auto &memory = memories[memories.size() - 1 - n];
+        float change = selected < other ? memory.changeA : memory.changeB;
+        y = ui.wrap(x, y, width, timeLabel(memory.time) + " · " + t(encounterLabel(memory.kind)),
+                    14, hex(0xc0d4c5)) +
+            7;
+        y = ui.wrap(x, y, width,
+                    w.displayName(memory.actor, locale.language) + " · " + t("history.change") +
+                        " " + (change >= 0 ? "+" : "") +
+                        std::to_string(int(std::round(change * 100))),
+                    12, hex(change < 0 ? 0xd3a39a : 0x9abcb1)) +
+            16;
+      }
+      return y + 15;
+    }
+    y = ui.wrap(x, y, width, t("history.private"), 12, hex(0x9bb0b3)) + 13;
+    if (ui.input("historySearch", {x, y, width, 31}, historySearch))
+      historyPage = 0;
+    y += 41;
+    const char *filters[] = {"history.all", "social.friend", "social.rival"};
+    for (int i = 0; i < 3; ++i)
+      if (ui.button("historyFilter" + std::to_string(i),
+                    {x + i * (width + 6) / 3, y, (width - 12) / 3, 29}, t(filters[i]), false,
+                    historyFilter == i)) {
+        historyFilter = i;
+        historyPage = 0;
+      }
+    y += 39;
+    std::vector<Id> rows;
+    auto search = historySearchKey(historySearch);
+    if (!search.empty() && search.front() == '#')
+      search.erase(search.begin());
+    for (Id other : historyContacts) {
+      auto status = w.relationshipStatus(selected, other);
+      if ((historyFilter == 1 && status != RelationshipStatus::Friend) ||
+          (historyFilter == 2 && status != RelationshipStatus::Rival))
+        continue;
+      if (!search.empty() &&
+          historySearchKey(w.displayName(other, locale.language)).find(search) ==
+              std::string::npos &&
+          std::to_string(other + 1).find(search) == std::string::npos)
+        continue;
+      rows.push_back(other);
+    }
+    y = historyPages("contactPages", historyPage, rows.size(), 4, x, y, width);
+    if (rows.empty())
+      return ui.wrap(x, y, width, t("history.empty"), 14, hex(0xa9bdbe)) + 24;
+    for (int n = historyPage * 4; n < std::min(int(rows.size()), historyPage * 4 + 4); ++n) {
+      Id other = rows[n];
+      if (ui.button("historyContact" + std::to_string(other), {x, y, width, 32},
+                    "#" + std::to_string(other + 1) + " · " +
+                        w.displayName(other, locale.language) + " · " +
+                        t(relationshipLabel(w.relationshipStatus(selected, other))))) {
+        historyContact = other;
+        encounterPage = 0;
+        scrollOffset = 0;
+      }
+      y += 40;
+    }
+    return y + 20;
+  }
   float lifePanel(float x, float y, float width) {
     const float lifeStart = y;
     if (estateScreen)
@@ -2212,6 +2483,8 @@ public:
       return emergencyPanel(x, y, width);
     if (informationScreen)
       return informationPanel(x, y, width);
+    if (historyScreen)
+      return socialHistoryPanel(x, y, width);
     if (ui.button("openEmergencies", {x, y, width, 33}, t("fire.title"))) {
       emergencyScreen = true;
       securityScreen = false;
@@ -2353,6 +2626,9 @@ public:
       y = ui.wrap(x, y, width, t("household.explain"), 12, hex(0x8da5aa)) + 12;
       y = ui.wrap(x, y, width, t("autonomy.explain"), 12, hex(0x8da5aa)) + 20;
     }
+    if (ui.button("openHistory", {x, y, width, 34}, t("history.title")))
+      openHistory();
+    y += 43;
     behaviorAnchor = y - lifeStart;
     if (ui.button("behaviorOpen", {x, y, width, 34}, t("choice.title"))) {
       behaviorOpen = !behaviorOpen;
@@ -2520,6 +2796,9 @@ public:
                     12, hex(change < 0 ? 0xd3a39a : 0x9abcb1)) +
             10;
       }
+      if (ui.button("nearbyHistory", {x, y, width, 30}, t("history.full")))
+        openHistory(nearby);
+      y += 38;
       for (int topic = 0; topic < 6; ++topic) {
         if (ui.button("talk" + std::to_string(topic), {x, y, width, 30},
                       t("talk.topic" + std::to_string(topic))))
@@ -5217,35 +5496,88 @@ public:
         act([&] {
           w.sendMessage(selected, informationRecipient(), message);
           message.clear();
+          messagePage = 0;
+          networkScroll = 0;
         });
       y += 100;
-      int n = 0;
-      for (auto it = w.messages.rbegin(); it != w.messages.rend() && n < 8; ++it)
-        if (it->from == selected || it->to == selected) {
-          y = ui.wrap(x, y, width - 56,
-                      w.displayName(it->from, locale.language) + " → " +
-                          w.displayName(it->to, locale.language),
-                      13, hex(0xa5cbb9)) +
-              10;
-          y = ui.wrap(x, y, width - 56,
-                      it->hasInformation ? informationDescription(it->information) : it->text, 15,
-                      hex(0xe0e5de)) +
-              10;
-          if (it->hasInformation) {
-            y = ui.wrap(x, y, width - 56, informationProvenance(it->information, it->read), 12,
-                        hex(0x9bb0b3)) +
-                8;
-            y = ui.wrap(x, y, width - 56,
-                        t(it->read ? "info.read" : "info.pending") + " · " +
-                            t(w.informationStale(it->information) ? "info.stale" : "info.fresh"),
-                        12, hex(0xc1cbb7)) +
-                10;
-          }
-          ui.line(x, y, x + width - 56, y, hex(0x34464b));
-          y += 20;
-          ++n;
+      if (messageViewer != selected) {
+        messageViewer = selected;
+        messageContact = none;
+        messagePage = 0;
+        messageCacheActor = none;
+      }
+      if (messageCacheActor != selected || messageCacheContact != messageContact ||
+          messageCacheCount != w.messages.size()) {
+        messageRows = w.messageHistory(selected, messageContact);
+        messageCacheActor = selected;
+        messageCacheContact = messageContact;
+        messageCacheCount = w.messages.size();
+      }
+      if (messageContact != none) {
+        y = ui.wrap(x, y, width - 56,
+                    t("history.conversation") + " · " +
+                        w.displayName(messageContact, locale.language),
+                    14, hex(0xa5cbb9)) +
+            10;
+        if (ui.button("allMessageContacts", {x, y, width - 56, 29}, t("history.all_messages"))) {
+          messageContact = none;
+          messageCacheActor = none;
+          messagePage = 0;
+          networkScroll = 0;
         }
-      if (!n)
+        y += 39;
+      }
+      int maximum = std::max(0, (int(messageRows.size()) - 1) / 8);
+      messagePage = std::clamp(messagePage, 0, maximum);
+      if (ui.button("messagePrev", {x, y, 62, 29}, "←") && messagePage > 0) {
+        --messagePage;
+        networkScroll = 0;
+      }
+      ui.text(x + 80, y + 7,
+              t("history.page") + " " + std::to_string(messagePage + 1) + " / " +
+                  std::to_string(maximum + 1),
+              13, hex(0x9bb0b3));
+      if (ui.button("messageNext", {x + width - 118, y, 62, 29}, "→") && messagePage < maximum) {
+        ++messagePage;
+        networkScroll = 0;
+      }
+      y += 43;
+      for (int n = messagePage * 8; n < std::min(int(messageRows.size()), messagePage * 8 + 8);
+           ++n) {
+        std::size_t index = messageRows[n];
+        const auto &entry = w.messages[index];
+        y = ui.wrap(x, y, width - 56,
+                    timeLabel(entry.time) + " · " + w.displayName(entry.from, locale.language) +
+                        " → " + w.displayName(entry.to, locale.language),
+                    13, hex(0xa5cbb9)) +
+            10;
+        y = ui.wrap(x, y, width - 56,
+                    entry.hasInformation ? informationDescription(entry.information) : entry.text,
+                    15, hex(0xe0e5de)) +
+            10;
+        if (entry.hasInformation) {
+          y = ui.wrap(x, y, width - 56, informationProvenance(entry.information, entry.read), 12,
+                      hex(0x9bb0b3)) +
+              8;
+          y = ui.wrap(x, y, width - 56,
+                      t(entry.read ? "info.read" : "info.pending") + " · " +
+                          t(w.informationStale(entry.information) ? "info.stale" : "info.fresh"),
+                      12, hex(0xc1cbb7)) +
+              10;
+          if (entry.to == selected && entry.read) {
+            if (ui.button("recallMessage" + std::to_string(index), {x, y, width - 56, 30},
+                          t("history.recall")))
+              act([&] {
+                notify(
+                    t(w.recallMessage(selected, index) ? "history.recalled" : "history.current"));
+              });
+            y += 40;
+          }
+        }
+        ui.line(x, y, x + width - 56, y, hex(0x34464b));
+        y += 20;
+      }
+      if (messageRows.empty())
         y = ui.wrap(x, y, width - 56, t("network.no_messages"), 16, hex(0x91aaaf)) + 20;
       messageContentHeight = std::max(220.f, y + networkScroll - begin + 24);
     }
@@ -7036,7 +7368,15 @@ int runApplication(int argc, char **argv) {
          playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
          playRescue = false, playFire = false, playAngled = false, playStorage = false,
          playCrew = false, playEstates = false, playChimney = false, playBodyControl = false,
-         playInformation = false, playChoices = false;
+         playInformation = false, playChoices = false, playHistory = false;
+    Id historyTerminal = none, historyService = none;
+    std::uint64_t historyFact = 0;
+    std::size_t historyReportMessage = 0;
+    int historyStage = 0, historyReadFrame = -1, historyFinish = -1;
+    double historyObserved = 0, historyReceived = 0;
+    Vec3 historyPrior{};
+    float historyMaxStep = 0;
+    Money historyMoney = 0, historyCash = 0, historyOwnerCash = 0;
     Id choiceGift = none;
     int choiceFinish = -1;
     Vec3 choicePrior{};
@@ -7173,6 +7513,13 @@ int runApplication(int argc, char **argv) {
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
         app.config.accidentRate = 0;
+      } else if (arg == "--playtest-social-history") {
+        playHistory = demo = animate = true;
+        panel = "history-play";
+        app.config.population = 40;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
       } else if (arg == "--playtest-decisions") {
         playChoices = demo = animate = true;
         panel = "choices-play";
@@ -7289,7 +7636,8 @@ int runApplication(int argc, char **argv) {
     }
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
         playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
-        playStorage || playCrew || playEstates || playChimney || playInformation || playChoices) {
+        playStorage || playCrew || playEstates || playChimney || playInformation || playChoices ||
+        playHistory) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
@@ -7499,6 +7847,141 @@ int runApplication(int argc, char **argv) {
         app.orbit = .6f;
         std::cout << "CREW PLAYTEST: actual workshop staff commute; lead collects supplies and "
                      "helper walks to site\n";
+      } else if (panel == "history-play") {
+        if (Application::historySearchKey(" ÉTHAN ÈVE Chloé ") != "ethan eve chloe" ||
+            Application::historySearchKey("Œuvre") != "oeuvre" ||
+            Application::historySearchKey("陈明") != "陈明")
+          throw std::runtime_error("Localized history search normalization failed");
+        auto &w = *app.world;
+        while (!w.events.empty())
+          w.events.pop();
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.automatic = false;
+          r.route.clear();
+          ++r.routeVersion;
+          r.task = TaskKind::None;
+          r.activity = Activity::Idle;
+          r.role = Role::Unemployed;
+          r.jobSite = r.employer = none;
+          r.pos = {180.f + r.id, 0, 180};
+          r.age = 30;
+          r.personality = {};
+          r.aggression = 0;
+          r.interests.fill(.5f);
+          r.hunger = r.thirst = r.bladder = .1f;
+          r.energy = r.hygiene = 1;
+          r.needsAt = w.time;
+        }
+        w.crowd.clear();
+        w.residents[0].pos = {100, 0, 100};
+        w.residents[0].hunger = .8f;
+        w.residents[1].pos = {100, 0, 101};
+        w.residents[1].personality.generosity = 0;
+        w.residents[1].automatic = true;
+        for (int n = 0; n < 2; ++n) {
+          Item i;
+          i.id = Id(w.items.size());
+          i.kind = ItemKind::Food;
+          i.owner = w.residents[1].account;
+          i.carrier = 1;
+          i.pos = w.position(1);
+          w.items.push_back(i);
+          w.residents[1].items.push_back(i.id);
+        }
+        if (w.talk(0, 1, 5) != "choice.selfish")
+          throw std::runtime_error("History fixture did not begin with a real aid refusal");
+        for (int n = 0; n < 18; ++n) {
+          w.advance(301);
+          w.talk(0, 1, 1);
+          w.exchangeInformation(0, 1);
+          if (n < 12)
+            w.sendMessage(1, 0, app.t("history.sample") + " " + std::to_string(n + 1));
+        }
+        w.advance(301);
+        if (w.talk(0, 1, 5) != "talk.meal_shared" || w.relationshipHistory(0, 1).size() != 16)
+          throw std::runtime_error("Real friendship failed to change a later aid decision");
+        w.readMessages(0);
+        for (auto &f : w.facilities)
+          if (f.floor == 0) {
+            if (f.kind == FacilityKind::Water && historyService == none) {
+              historyService = f.id;
+              f.pos = {100, 0, 106};
+            } else if (f.kind == FacilityKind::Terminal && historyTerminal == none) {
+              historyTerminal = f.id;
+              f.pos = {110, 0, 110};
+              f.owner = w.dormAccount;
+              f.price = 20;
+            } else
+              continue;
+            f.open = f.publicAccess = true;
+            f.staffNeeded = 0;
+            f.opensAt = 0;
+            f.openHours = 24;
+          }
+        if (historyService == none || historyTerminal == none)
+          throw std::runtime_error("History scenario needs real services and public terminal");
+        w.invalidateGeometry(0);
+        w.residents[3].pos = {150, 57, 150};
+        w.residents[3].activity = Activity::Sleeping;
+        w.residents[2].pos = w.position(3) + Vec3{0, 0, .8f};
+        Item stolen;
+        stolen.id = Id(w.items.size());
+        stolen.kind = ItemKind::Phone;
+        stolen.owner = w.residents[3].account;
+        stolen.carrier = 3;
+        stolen.pos = w.position(3);
+        w.items.push_back(stolen);
+        w.residents[3].items.push_back(stolen.id);
+        w.stealItem(2, 3, stolen.id);
+        auto hidden = w.knownContacts(3);
+        if (std::find(hidden.begin(), hidden.end(), Id(2)) != hidden.end())
+          throw std::runtime_error("Unseen thief appeared in victim's history browser");
+        auto &recipient = w.residents[4];
+        recipient.pos = {110, 0, 116};
+        for (Id id : recipient.items)
+          if (w.items[id].kind == ItemKind::Phone || w.items[id].kind == ItemKind::Laptop) {
+            w.items[id].carrier = none;
+            w.items[id].pos = recipient.pos;
+          }
+        std::erase_if(recipient.items, [&](Id id) { return w.items[id].carrier != 4; });
+        recipient.terminal = none;
+        recipient.terminalUntil = 0;
+        historyFact = w.observeInformation(0, InformationKind::Service, historyService);
+        historyObserved = w.knownInformation(0, historyFact).observedAt;
+        w.shareInformation(0, 1, historyFact);
+        historyReportMessage = w.messages.size();
+        w.shareInformation(1, 4, historyFact, true);
+        int notices = 0;
+        for (const auto &f : w.facilities)
+          if (f.publicAccess && notices < 25) {
+            auto fact = w.observeInformation(0, InformationKind::Work, f.id);
+            w.shareInformation(0, 4, fact, true);
+            ++notices;
+          }
+        if (notices != 25 || !w.messageHistory(4).empty() || !w.knownContacts(4).empty())
+          throw std::runtime_error("Undelivered inbox metadata leaked before real device access");
+        historyMoney = w.internalMoney();
+        historyCash = w.accounts[recipient.account].balance;
+        historyOwnerCash = w.accounts[w.operatingAccount(historyTerminal)].balance;
+        w.travel(4, w.accessible(w.facilities[historyTerminal].pos + Vec3{0, 0, 1.6f}),
+                 TaskKind::None, none);
+        historyPrior = w.position(4);
+        app.setFirstPerson(false);
+        app.selected = 0;
+        w.residents[0].automatic = false;
+        app.currentFloor = 0;
+        app.cameraFocus = recipient.pos;
+        app.distance = 14;
+        app.observerHeight = 0;
+        app.pitch = .5f;
+        app.openHistory(1);
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        std::cout << "HISTORY PLAYTEST: real refusal/friendship/aid, unseen crime, pending relay "
+                     "and walking to paid computer\n";
       } else if (panel == "choices-play") {
         auto &w = *app.world;
         while (!w.events.empty())
@@ -8524,7 +9007,8 @@ int runApplication(int argc, char **argv) {
       app.paused = false;
       if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
           playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
-          playStorage || playCrew || playEstates || playChimney || playInformation || playChoices)
+          playStorage || playCrew || playEstates || playChimney || playInformation || playChoices ||
+          playHistory)
         app.speed = 6;
     }
     if (computeTest) {
@@ -8627,6 +9111,110 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playHistory) {
+        auto &w = *app.world;
+        historyMaxStep = std::max(historyMaxStep, length(w.position(4) - historyPrior));
+        historyPrior = w.position(4);
+        if (historyStage == 0 && w.residents[4].route.empty()) {
+          w.useTerminal(4, historyTerminal, 5);
+          w.readMessages(4);
+          historyReceived = w.time;
+          historyReadFrame = frames;
+          historyStage = 1;
+          const auto &notes = w.residentInformation.at(4);
+          if (std::any_of(notes.begin(), notes.end(),
+                          [&](const Information &i) { return i.id == historyFact; }))
+            throw std::runtime_error("Archive fixture failed to naturally evict its oldest report");
+        }
+        if (historyStage == 1 && frames >= historyReadFrame + 6) {
+          app.selected = 4;
+          app.contactMessages(1);
+          if (!capture.empty())
+            app.frame(0, capture.parent_path() / (capture.stem().string() + "-received.ppm"));
+          if (!w.recallMessage(4, historyReportMessage))
+            throw std::runtime_error("Delivered report could not be recalled");
+          const auto &fact = w.knownInformation(4, historyFact);
+          if (fact.origin != 0 || fact.via != 1 || fact.observedAt != historyObserved ||
+              fact.learnedAt != historyReceived)
+            throw std::runtime_error("Recall refreshed or lost original source/receipt history");
+          w.kill(1, none);
+          w.validate();
+          auto path = std::filesystem::temp_directory_path() /
+                      ("mega-history-replay-" +
+                       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) +
+                       ".mdsave");
+          w.save(path);
+          auto loaded = World::load(path);
+          std::filesystem::remove(path);
+          const auto &restored = loaded.knownInformation(4, historyFact);
+          auto contacts = loaded.knownContacts(0);
+          auto unseen = loaded.knownContacts(3);
+          if (loaded.residents[1].alive || restored.origin != 0 || restored.via != 1 ||
+              restored.learnedAt != historyReceived ||
+              loaded.relationshipHistory(0, 1).size() != 16 ||
+              std::find(contacts.begin(), contacts.end(), Id(1)) == contacts.end() ||
+              std::find(unseen.begin(), unseen.end(), Id(2)) != unseen.end() ||
+              loaded.messageHistory(0, 1).size() != 12)
+            throw std::runtime_error(
+                "Death/reload lost history identity or revealed a hidden actor");
+          app.setWorld(std::move(loaded));
+          app.helpOpen = false;
+          app.selected = 0;
+          app.phone = false;
+          app.currentFloor = 0;
+          app.cameraFocus = app.world->position(4);
+          app.distance = 14;
+          app.observerHeight = 0;
+          app.pitch = .5f;
+          app.openHistory(1);
+          app.drawerOpen = true;
+          app.drawerSlide = 1;
+          app.tab = 0;
+          historyStage = 2;
+          historyFinish = frames;
+          app.paused = true;
+          auto historyCapture = [&](const std::string &suffix) {
+            return capture.empty()
+                       ? std::filesystem::path{}
+                       : capture.parent_path() / (capture.stem().string() + suffix + ".ppm");
+          };
+          app.encounterPage = 3;
+          app.frame(0, historyCapture("-earliest"));
+          if (app.encounterPage != 3)
+            throw std::runtime_error("Older encounter page was inaccessible");
+          app.encounterPage = 0;
+          app.historyTab = 1;
+          app.decisionPage = 1;
+          app.frame(0, historyCapture("-decisions"));
+          if (app.decisionPage != 1)
+            throw std::runtime_error("Older decisions were inaccessible");
+          app.historyTab = 0;
+          app.contactMessages(1);
+          app.messagePage = 1;
+          app.frame(0, historyCapture("-archive"));
+          if (app.messageRows.size() != 12 || app.messagePage != 1 || app.messageCacheActor != 0)
+            throw std::runtime_error(
+                "Conversation archive lost older messages or crossed actor views");
+          app.phone = false;
+          app.historyContact = none;
+          app.frame(0, historyCapture("-contacts"));
+          app.selected = 3;
+          app.historyContact = 1;
+          app.frame(0, historyCapture("-private"));
+          if (app.historyViewer != 3 || app.historyContact != none || !app.historyContacts.empty())
+            throw std::runtime_error(
+                "Changing the inspected actor leaked another resident's contacts");
+          app.selected = 0;
+          app.openHistory(1);
+          std::cout << "HISTORY PLAYTEST: delivered, recalled with original dates, death/reload "
+                       "and older history pages verified\n";
+        }
+        if (historyFinish >= 0 && frames >= historyFinish + 15) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playChoices) {
         auto &w = *app.world;
         choiceMaxStep = std::max(choiceMaxStep, length(w.position(0) - choicePrior));
@@ -9195,6 +9783,19 @@ int runApplication(int argc, char **argv) {
       }
       app.frame(dt, frameCapture);
       ++frames;
+    }
+    if (playHistory) {
+      auto &w = *app.world;
+      w.validate();
+      if (historyStage != 2 || historyMaxStep > 2 || w.internalMoney() != historyMoney ||
+          w.accounts[w.residents[4].account].balance != historyCash - 100 ||
+          w.accounts[w.operatingAccount(historyTerminal)].balance != historyOwnerCash + 100)
+        throw std::runtime_error("Social milestone replay failed conservation or actual access");
+      std::cout
+          << "HISTORY PLAYTEST PASS: actual friendship changes aid; hidden crime stays private; "
+             "real walking/payment/delivery; archive recall, death and reload retain identities; "
+             "max step "
+          << historyMaxStep << " m\n";
     }
     if (playChoices) {
       auto &w = *app.world;

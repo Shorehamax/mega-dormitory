@@ -1,0 +1,13 @@
+Test project /home/charlie/Documents/Codex/2026-10-18/files-pasted-by-the-user-project/work/native-build
+    Start 46: vulkan_custody_cell_interaction
+1/4 Test #46: vulkan_custody_cell_interaction ...   Passed   32.34 sec
+    Start 48: vulkan_information_delivery
+2/4 Test #48: vulkan_information_delivery .......   Passed    1.86 sec
+    Start 50: vulkan_personality_choices
+3/4 Test #50: vulkan_personality_choices ........   Passed    1.74 sec
+    Start 52: vulkan_social_history_journey
+4/4 Test #52: vulkan_social_history_journey .....   Passed    1.76 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =  37.71 sec

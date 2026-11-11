@@ -1270,6 +1270,9 @@ public:
   std::map<Id, std::vector<SocialChoice>> socialChoices;
   bool opportunisticTheft(Id actor);
   void validateSocialChoices() const;
+  std::vector<Id> knownContacts(Id actor) const;
+  std::vector<std::size_t> messageHistory(Id actor, Id contact = none) const;
+  bool recallMessage(Id actor, std::size_t message);
   void socialTick();
   void cheatResident(Id resident, const std::string &stat, double value);
   float trust(Id, Id) const;

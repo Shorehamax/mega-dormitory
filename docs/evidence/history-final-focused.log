@@ -1,0 +1,29 @@
+PASS Unknown world residents do not appear in a fresh contact book
+PASS Real conversation makes a known contact and full private history
+PASS The thief's private memory does not appear in a sleeping victim's contacts
+PASS Hidden crime, remote location and secret inventory do not alter another contact book
+PASS Legacy opinions retain contacts without inventing encounters
+PASS Directional acquaintances and rivals do not expose the counterpart's private opinion
+PASS Pending inbound text is absent until actual device delivery
+PASS An undelivered forwarded report does not reveal its origin or suspect
+PASS Anonymous testimony never turns the hidden offender into a contact
+PASS Delivered archive provenance remains known after the active report cache evicts it
+PASS More than eight messages remain complete, newest-first and actor-specific
+PASS Conversation filters isolate each actual correspondent
+PASS Self-addressed notes do not create a self contact or duplicate history
+PASS Household membership is a known contact without fabricated encounter details
+PASS Reopening histories is a read-only operation
+PASS Invalid contact/history requests are rejected without mutation
+PASS Names switch language while all history/contact identities remain stable
+PASS Delivered report recall retains the original observation and receipt dates
+PASS Recalling an older report cannot overwrite a newer observation from that source
+PASS Free text, another inbox and pending copies cannot be recalled as trusted reports
+PASS Report recall requires awake actual device access
+PASS Death and departure retain historical contacts without publishing current locations
+PASS Full histories, archives and recalled facts round-trip without replaying actions
+PASS Old text-only saves retain delivered history without inventing reports
+PASS Acceptance: real repeated friendship changes a later physical decision
+PASS Acceptance: equal conflict and different personalities produce explainable conserved outcomes
+PASS Acceptance: interrupted delivery, source death and reload preserve player/NPC identities
+PASS Unavailable contacts and sleeping senders fail locally without adding archive records
+28 passed, 0 failed

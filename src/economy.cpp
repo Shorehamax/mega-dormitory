@@ -50,9 +50,10 @@ void World::changeClothes(Id id, Id garment) {
   r.outfit = garment;
 }
 void World::sendMessage(Id from, Id to, const std::string &text) {
-  if (!hasDevice(from) || to < 0 || std::size_t(to) >= residents.size() || !residents[to].alive ||
-      !residents[to].present || text.empty() || text.size() > 2000)
-    throw std::runtime_error("Cannot send message");
+  if (!hasDevice(from) || residents[from].activity == Activity::Sleeping || to < 0 ||
+      std::size_t(to) >= residents.size() || !residents[to].alive || !residents[to].present ||
+      text.empty() || text.size() > 2000)
+    throw std::runtime_error("history.error.delivery");
   Message message;
   message.from = from;
   message.to = to;

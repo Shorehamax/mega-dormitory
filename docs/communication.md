@@ -20,7 +20,7 @@ Residents keep at most 24 recent source-specific reports. New observations repla
 
 Reports, pending messages, original source/time/place and the sharing cooldown survive saves. Delivery and duplicate-send indices are reconstructed on load. Older text-only saves default to no invented report knowledge. Free text remains free text and is never promoted to a trusted structured claim.
 
-Personality, relationships and known history now affect cooperation and an automatic witness’s reporting decision; see [M01.3 decisions](decisions.md). The broader relationship/history presentation and milestone acceptance review remain **M01.4**. This checkpoint completes communication plumbing, not those later tasks or the entire social milestone.
+Personality, relationships and known history now affect cooperation and an automatic witness’s reporting decision; see [M01.3 decisions](decisions.md). The [M01.4 private history book](social-history.md) adds contact controls, full retained conversation pages and delivered-report recall. The M01 completion evidence records the combined acceptance review; later gameplay and presentation milestones remain separate.
 
 ## Reproduce
 

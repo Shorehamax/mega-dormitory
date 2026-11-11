@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan_revision": 1,
-  "updated": "2026-11-08",
+  "updated": "2026-11-10",
   "title": "Mega Dormitory completion plan",
   "purpose": "A sequential plan for finishing the accepted game, not another unbounded list of possible improvements.",
   "baseline": {
@@ -24,9 +24,9 @@
     "Creative mode (superseded by Survival, Manager and Cheat)"
   ],
   "current": {
-    "milestone": "M01",
-    "task": "M01.4",
-    "next_action": "Expose readable relationship/history controls and verify that information travels through real actors or available devices, then review the M01 acceptance gate."
+    "milestone": "M02",
+    "task": "M02.1",
+    "next_action": "Complete plans for food, water, medicine, cleaning, clothing, recreation and protected savings across day/night schedules."
   },
   "execution_policy": [
     "Read this tracker and completion-plan.md on every implementation continuation; resume the current task rather than choosing a new theme.",
@@ -651,7 +651,7 @@
       "id": "M01",
       "phase": "P1",
       "title": "Relationships and information that affect decisions",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "M00"
       ],
@@ -668,7 +668,9 @@
         "src/security.cpp",
         "src/economy.cpp",
         "src/social_decisions.cpp",
-        "src/communication.cpp"
+        "src/communication.cpp",
+        "src/social_history.cpp",
+        "src/application.cpp"
       ],
       "tasks": [
         {
@@ -704,8 +706,12 @@
         {
           "id": "M01.4",
           "title": "Expose readable relationship/history controls and verify that information travels through real actors or available devices.",
-          "done": false,
-          "evidence": []
+          "done": true,
+          "evidence": [
+            "src/social_history.cpp and docs/social-history.md: private known-contact/history queries, complete retained message pages and received-report recall.",
+            "src/application.cpp: localized contact filters, paged encounters/decisions/archives, actor-view cache isolation and real social gate replay.",
+            "tests/history_tests.cpp and docs/evidence/m01-completion-verification.json: 28 focused cases, all three M01 acceptance criteria, installed 52-suite regression and memory/localized/continuation checks."
+          ]
         }
       ],
       "acceptance": [
@@ -713,16 +719,25 @@
         "Two residents with different personalities/history make different explainable choices in the same resource conflict.",
         "Player and NPC relationship/information state survives interruptions, death and reload without identity changes."
       ],
-      "evidence": [],
+      "evidence": [
+        "docs/evidence/m01-verification.json: M01.1 directional relationships and actual encounter memory.",
+        "docs/evidence/information-verification.json: M01.2 real contact/device information and persistence.",
+        "docs/evidence/decisions-verification.json: M01.3 personality/history choices with real consequences.",
+        "docs/evidence/m01-completion-verification.json: M01.4 controls and complete three-criterion acceptance gate."
+      ],
       "blocker": null,
-      "acceptance_evidence": [],
-      "completed_on": null
+      "acceptance_evidence": [
+        "The same selfish actor refuses first, earns friendship through real timed conversations, and later physically shares owned food. A separate unseen theft never identifies its offender in the sleeping victim’s contacts; pending device metadata waits for real access. Evidence: docs/evidence/m01-completion-verification.json, acceptance[0].",
+        "The retained two-resident replay gives both donors real spare meals and the same hungry recipient: the selfish resident refuses while a helpful housemate chooses and physically walks to hand over food. Equal food, need, position and money with different generosity yields consented handover versus refusal, with private localized reasons and conserved money. The installed suite also retains opposite theft, reporting and surrender choices from M01.3. Evidence: docs/evidence/m01-completion-verification.json, acceptance[1].",
+        "Offline delivery survives a save interruption. After device access and the original player-source’s death, save/reload retains NPC/player names, IDs, relationship memory and original report observation/receipt dates. The rendered journey additionally preserves a deceased relay’s identity, sixteen encounters, eight decisions and a twelve-message archive after death/reload. Evidence: docs/evidence/m01-completion-verification.json, acceptance[2]."
+      ],
+      "completed_on": "2026-11-10"
     },
     {
       "id": "M02",
       "phase": "P1",
       "title": "Complete household provisioning and independent planning",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         "M01"
       ],
@@ -2546,6 +2561,10 @@
     {
       "date": "2026-11-08",
       "change": "Completed M01.3: stable persistent generosity/conscience/courage/sociability and private reasoned decisions now connect to real help, refusal, cooperation, theft, reporting and surrender. Fixed stale sale listings after theft. Opposite-trait, real-friendship, privacy, conserved action, migration, rendered and memory checks pass. M01 remains active; next M01.4 controls and acceptance review."
+    },
+    {
+      "date": "2026-11-10",
+      "change": "Completed M01.4 and passed the three M01 acceptance criteria: private contact/relationship/decision controls, full retained conversation pages and original-date report recall; integrated actual friendship/aid, hidden crime, paid device delivery and death/reload replay. All installed/native/rendered/memory/localization/continuation checks pass. M01 is complete; resume M02.1 daily provisioning plans."
     }
   ],
   "open_defects": [

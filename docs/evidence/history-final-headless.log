@@ -1,0 +1,59 @@
+Test project /home/charlie/Documents/Codex/2026-10-18/files-pasted-by-the-user-project/work/native-build
+      Start  1: world_invariants
+ 1/27 Test  #1: world_invariants .......................   Passed   10.75 sec
+      Start  2: asset_import
+ 2/27 Test  #2: asset_import ...........................   Passed    0.83 sec
+      Start  3: multilingual_ui
+ 3/27 Test  #3: multilingual_ui ........................   Passed    0.06 sec
+      Start  4: browser_migration_and_personal_items
+ 4/27 Test  #4: browser_migration_and_personal_items ...   Passed    0.08 sec
+      Start  5: localization_catalogues
+ 5/27 Test  #5: localization_catalogues ................   Passed    0.04 sec
+      Start  6: persistent_body_physics
+ 6/27 Test  #6: persistent_body_physics ................   Passed    0.17 sec
+      Start  7: communal_washing
+ 7/27 Test  #7: communal_washing .......................   Passed    0.07 sec
+      Start  8: resident_autonomy
+ 8/27 Test  #8: resident_autonomy ......................   Passed    0.17 sec
+      Start  9: flexible_construction
+ 9/27 Test  #9: flexible_construction ..................   Passed    1.73 sec
+      Start 10: vehicle_traffic
+10/27 Test #10: vehicle_traffic ........................   Passed    0.37 sec
+      Start 11: company_capital_and_expansion
+11/27 Test #11: company_capital_and_expansion ..........   Passed    0.11 sec
+      Start 12: evidence_and_custody
+12/27 Test #12: evidence_and_custody ...................   Passed    0.40 sec
+      Start 13: queue_flow_and_departures
+13/27 Test #13: queue_flow_and_departures ..............   Passed    0.07 sec
+      Start 14: education_and_training
+14/27 Test #14: education_and_training .................   Passed    0.05 sec
+      Start 15: fire_spread_and_property
+15/27 Test #15: fire_spread_and_property ...............   Passed    0.05 sec
+      Start 16: household_storage_and_property
+16/27 Test #16: household_storage_and_property .........   Passed    0.07 sec
+      Start 17: cooperative_construction_contracts
+17/27 Test #17: cooperative_construction_contracts .....   Passed    0.14 sec
+      Start 18: relocatable_runtime_paths
+18/27 Test #18: relocatable_runtime_paths ..............   Passed    0.00 sec
+      Start 19: personal_estates_and_inheritance
+19/27 Test #19: personal_estates_and_inheritance .......   Passed    0.11 sec
+      Start 20: audio_and_preferences
+20/27 Test #20: audio_and_preferences ..................   Passed    0.05 sec
+      Start 21: native_audio_output
+21/27 Test #21: native_audio_output ....................   Passed    0.08 sec
+      Start 22: presentation_events_and_pickup
+22/27 Test #22: presentation_events_and_pickup .........   Passed    0.05 sec
+      Start 23: vertical_fire_smoke_and_cargo
+23/27 Test #23: vertical_fire_smoke_and_cargo ..........   Passed    0.15 sec
+      Start 24: social_encounter_memory
+24/27 Test #24: social_encounter_memory ................   Passed    0.14 sec
+      Start 25: social_information_channels
+25/27 Test #25: social_information_channels ............   Passed    0.40 sec
+      Start 26: personality_and_social_choices
+26/27 Test #26: personality_and_social_choices .........   Passed    0.17 sec
+      Start 27: private_social_history
+27/27 Test #27: private_social_history .................   Passed    0.19 sec
+
+100% tests passed, 0 tests failed out of 27
+
+Total Test time (real) =  16.52 sec

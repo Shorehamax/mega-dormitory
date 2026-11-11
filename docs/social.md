@@ -17,4 +17,4 @@ Directional regard and memories save/load with defaults for older native worlds.
   --menu-scroll 920 --lang fr --width 1000 --height 720 --capture /tmp/social.ppm
 ```
 
-M01 remains active. Structured information transfer is delivered in **M01.2** and the connected personality/history choices are documented in [M01.3 decisions](decisions.md). The complete relationship/history interface and full milestone acceptance remain **M01.4**. These checkpoints do not declare the later work or the game complete.
+The combined M01 acceptance gate is recorded in [M01.4](social-history.md). Structured information transfer is delivered in **M01.2** and the connected personality/history choices are documented in [M01.3 decisions](decisions.md). [M01.4](social-history.md) adds the complete retained relationship/history interface and combined milestone acceptance evidence. These checkpoints do not declare the later work or the game complete.

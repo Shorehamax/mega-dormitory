@@ -329,6 +329,21 @@ void World::reportInformation(Id actor, std::uint64_t id) {
     throw std::runtime_error("choice.refused");
   fileCrimeReport(source, info.subject);
 }
+bool World::recallMessage(Id actor, std::size_t index) {
+  if (!awake(*this, actor) || !hasDevice(actor))
+    throw std::runtime_error("history.error.access");
+  if (index >= messages.size())
+    throw std::runtime_error("history.error.report");
+  const auto &message = messages[index];
+  if (message.to != actor || !message.read || !message.hasInformation)
+    throw std::runtime_error("history.error.report");
+  // Recall a delivered snapshot, never free text, another person's inbox or live subject state.
+  const auto info = message.information;
+  if (!retainInformation(actor, info))
+    return false;
+  residentInformation.at(actor).back().learnedAt = info.learnedAt;
+  return true;
+}
 void World::rebuildInformationMail() {
   informationMail.clear();
   unreadInformation.clear();

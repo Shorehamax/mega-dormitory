@@ -4,6 +4,15 @@
 
 This is a development build, not a declaration that the complete accepted design has shipped. The reference-image fidelity and production polish have not been achieved. The former island/city and Creative mode are superseded by the dormitory-focused requirements in `requirements.md`.
 
+## Social milestone acceptance and private history controls (10 November 2026)
+
+- **M01.4** adds **My life → Relationships & history**: known-contact search (English/French/Chinese names or resident number), friend/rival filters, all sixteen retained private encounters and all eight decisions through readable pages. Switching the inspected actor clears the previous viewer’s cached selection. The book exposes neither an unseen offender nor live tracking/status data.
+- Messages now page through the complete retained actor-owned archive instead of stopping at eight. Per-contact conversations and old text-only saves remain accessible through real devices. Delivered structured reports can be recalled after active-cache eviction, preserving their original source/place/observation/receipt dates; free text, another inbox, pending/sent copies and older facts cannot fabricate or replace current knowledge. Sleeping senders and unavailable contacts fail without fictional delivery.
+- The connected replay verifies a real selfish refusal, repeated cooldown-spaced friendship, later owned-food handover, a separate unseen theft, actual walking and payment for a public computer, pending report delivery, natural active-cache eviction, archive recall, a relay’s death and save/reload. Older encounter, decision and twelve-message conversation pages remain accessible; actor-switch privacy and names/IDs survive.
+- **All three M01 acceptance criteria pass**, with one evidence mapping per criterion in [the completion record](evidence/m01-completion-verification.json). M01 is complete. The next task is **M02.1**, daily provisioning plans and protected savings across schedules; later milestones remain unfinished.
+
+Verification: **28** focused history/privacy/gate cases, **27** native suites, **52** complete installed native/rendered suites, six address/undefined-behavior/leak suites, localized hardware/software play and default **100,000 residents / 2,000 floors** plus full-day save continuations pass. The normal launcher opens successfully. There are **1,236** matching locale keys. See [history controls and limits](social-history.md).
+
 ## Personality and choices with real consequences (8 November 2026)
 
 - **M01.3** adds saved generosity, conscience, courage and sociability without changing the generation RNG stream. Meal help, recipient consent, information/meeting cooperation, opportunistic theft, autonomous reports/interviews/callbacks and surrender now consider traits, directional relationships, actual known history, needs and visible risk.

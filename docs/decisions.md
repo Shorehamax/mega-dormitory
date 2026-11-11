@@ -14,7 +14,7 @@ These are bounded decisions that use the existing action systems. Willingness is
 
 ## Player presentation and persistence
 
-In **My life**, expand **Personality & decisions**. It opens at the section and shows the four traits and the four latest decisions with their time, known contact, willingness/refusal and localized reason. It is collapsed by default. The resident retains eight recent decisions; identical repeated polling within five game minutes does not spam the history. These notes are private to the inspected/controlled actor, not globally shared observations. The wider relationship/history browser remains M01.4.
+In **My life**, expand **Personality & decisions**. It opens at the section and shows the four traits and the four latest decisions with their time, known contact, willingness/refusal and localized reason. It is collapsed by default. The resident retains eight recent decisions; identical repeated polling within five game minutes does not spam the history. These notes are private to the inspected/controlled actor, not globally shared observations. The [M01.4 history book](social-history.md) exposes both pages of the saved decisions and the full retained encounter history.
 
 Traits, reasons, actual historical target IDs and timestamps round-trip with saves. Death and departure retain past identities and decisions. Validation checks trait ranges/finite values, known reason IDs, subject types, history bounds and chronological clocks. Unknown events do not become known through a decision assessment.
 
@@ -24,4 +24,4 @@ Traits, reasons, actual historical target IDs and timestamps round-trip with sav
 
 `--playtest-decisions` runs an isolated real scenario: a selfish resident refuses a local request; a willing housemate chooses a household errand, walks continuously and hands over an actual spare meal with consent. It renders both residents' reasons, saves/reloads the real transfer and checks conserved money and item ownership. `docs/evidence/decisions-verification.json` records the completed checks.
 
-This checkpoint completes M01.3. M01.4 and the M01 acceptance gate remain unfinished. It does not complete the later household planning, crime/medicine, presentation or release milestones.
+This checkpoint completes M01.3. [M01.4](social-history.md) supplies the wider controls and combined M01 gate evidence. The later household planning, crime/medicine, presentation and release milestones remain separate work.
