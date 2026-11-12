@@ -137,7 +137,8 @@ SocialChoice World::considerChoice(Id actor, Id other, ChoiceKind kind, Id subje
   if (!near(actor, position(other), 1.5f) ||
       !lineOfSight(position(actor) + Vec3{0, 1.3f, 0}, position(other) + Vec3{0, 1.3f, 0}) ||
       i.owner != target.account || i.carrier != other || i.consumed || i.reservedAt != none ||
-      i.order != none || i.stolenFrom != none || target.outfit == subject || itemInUse(subject))
+      i.order != none || i.stolenFrom != none || target.outfit == subject ||
+      (itemInUse(subject) && !householdSupplyReserved(subject)))
     return choice;
   // A prospective thief can only judge people actually visible nearby.
   for (const auto &g : residents)

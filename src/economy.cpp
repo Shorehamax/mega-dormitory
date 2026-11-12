@@ -44,6 +44,8 @@ void World::useTerminal(Id id, Id fid, double minutes) {
 void World::changeClothes(Id id, Id garment) {
   auto &r = residents.at(id);
   auto &i = items.at(garment);
+  if (householdSupplyReserved(garment))
+    throw std::runtime_error("coord.reserved");
   if (!r.alive || !r.present || i.kind != ItemKind::Clothes || i.owner != r.account ||
       i.carrier != id || i.reservedAt != none || i.consumed || r.activity == Activity::Using)
     throw std::runtime_error("Clothing unavailable");
@@ -280,8 +282,35 @@ void World::payLift(Id id, Id fid, int destination) {
       vehicles[r.vehicle].towTruck && r.employer == vehicles[r.vehicle].owner)
     payer = r.employer;
   if (!f.whitelist.contains(id) && !(f.subscribers.contains(id) && f.subscribers.at(id) > time) &&
-      payer != f.owner)
+      payer != f.owner) {
+    auto plan = residentPlans.find(id);
+    HouseholdSupply *support = nullptr;
+    if (payer == r.account && plan != residentPlans.end()) {
+      auto &p = plan->second;
+      if (r.automatic && p.plannedLeisure != none &&
+          accounts[payer].balance - f.price - facilities[p.plannedLeisure].price <
+              householdReserve(id))
+        throw std::runtime_error("daily.savings");
+      if (householdSupplyActive(p.supply)) {
+        support = &householdSupplies[p.supply];
+        if (p.day != int(time / 86400)) {
+          p.day = int(time / 86400);
+          p.spentToday = 0;
+        }
+        Money purchase =
+            support->item == none && support->order == none ? productPrice(support->kind) + 200 : 0;
+        if (f.price + purchase > support->budget - support->spent ||
+            f.price > 20000 - p.spentToday ||
+            accounts[payer].balance - f.price < householdReserve(id))
+          throw std::runtime_error("coord.funds");
+      }
+    }
     pay(payer, f.owner, f.price, "lift-fare");
+    if (support) {
+      support->spent += f.price;
+      plan->second.spentToday += f.price;
+    }
+  }
   log("lift.access_paid", id, fid);
 }
 Money World::housingPrice(int floor) const {

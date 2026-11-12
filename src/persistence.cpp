@@ -118,12 +118,16 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Education, skills, lessons, answ
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(StorageLease, id, facility, holder, custodian,
                                                 household, slot, dailyRent, arrears, paidUntil,
                                                 active, released, open, items)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Household, id, founder, members, invitations)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(HouseholdSupply, id, household, recipient, buyer,
+                                                item, order, kind, state, created, expires,
+                                                nextAttempt, budget, spent, where, attempts, reason)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Household, id, founder, members, invitations,
+                                                dependents)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     ResidentPlan, nextDaily, nextRecreation, plannedLeisure, nextShopping, nextCareer, nextBusiness,
     nextListing, tradeDeadline, lastCareer, reserve, spentToday, tradePrice, day, tradeRetries,
     order, tradeItem, seller, lastBusiness, wanted, action, nextHousehold, helpDeadline, helpTarget,
-    helpRetries, storageItem, storageDeadline, nextStorage, storageGroup, nextEstate)
+    helpRetries, supply, storageItem, storageDeadline, nextStorage, storageGroup, nextEstate)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Information, id, kind, channel, subject, origin,
                                                 via, suspect, observedAt, learnedAt, where, price,
                                                 stock, waiting, detail, available, locationKnown)
@@ -237,6 +241,7 @@ void World::save(const std::filesystem::path &path) const {
             {"parking", parking},
             {"orders", orders},
             {"residentPlans", residentPlans},
+            {"householdSupplies", householdSupplies},
             {"freight", freight},
             {"lifts", lifts},
             {"officeOrders", officeOrders},
@@ -552,6 +557,8 @@ static World readSave(const std::filesystem::path &path) {
     j.at("constructionTeams").get_to(w.constructionTeams);
   if (j.contains("crewContracts"))
     j.at("crewContracts").get_to(w.crewContracts);
+  if (j.contains("householdSupplies"))
+    j.at("householdSupplies").get_to(w.householdSupplies);
   if (j.contains("residentPlans"))
     j.at("residentPlans").get_to(w.residentPlans);
   if (j.contains("freight"))
@@ -584,6 +591,7 @@ static World readSave(const std::filesystem::path &path) {
   if (j.contains("households"))
     j.at("households").get_to(w.households);
   w.rebuildHouseholds();
+  w.rebuildHouseholdSupplies();
   if (j.contains("storageLeases"))
     j.at("storageLeases").get_to(w.storageLeases);
   w.rebuildStorage();

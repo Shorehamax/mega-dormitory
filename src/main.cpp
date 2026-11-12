@@ -97,10 +97,16 @@ int main(int argc, char **argv) {
     std::size_t delivered = 0;
     for (const auto &order : w.orders)
       delivered += order.state == mega::OrderState::Delivered;
+    std::size_t supportComplete = 0;
+    for (const auto &request : w.householdSupplies)
+      supportComplete += request.state == mega::SupplyState::Complete;
     std::cout << "{\"population\":" << w.residents.size() << ",\"living\":" << w.living()
               << ",\"floors\":" << w.config.floors << ",\"facilities\":" << w.facilities.size()
               << ",\"queued\":" << queued << ",\"resident_plans\":" << w.residentPlans.size()
               << ",\"orders_placed\":" << w.orders.size() << ",\"orders_delivered\":" << delivered
+              << ",\"households\":" << w.households.size()
+              << ",\"support_requests\":" << w.householdSupplies.size()
+              << ",\"support_completed\":" << supportComplete
               << ",\"simulated_seconds\":" << (w.time - initialTime)
               << ",\"happiness\":" << w.happiness()
               << ",\"internal_money_cents\":" << w.internalMoney() << ",\"generation_seconds\":"

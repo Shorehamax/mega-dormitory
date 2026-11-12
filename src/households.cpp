@@ -75,10 +75,18 @@ void World::leaveHousehold(Id actor) {
   if (group == none)
     return;
   auto &h = households[group];
+  auto dependents = h.dependents;
+  h.dependents.erase(actor);
+  for (const auto &[child, carer] : dependents)
+    if (carer == actor && child != actor)
+      leaveHousehold(child);
   h.members.erase(actor);
   householdMembership.erase(actor);
-  if (h.founder == actor)
-    h.founder = h.members.empty() ? none : *h.members.begin();
+  if (h.founder == actor) {
+    auto adult = std::find_if(h.members.begin(), h.members.end(),
+                              [&](Id who) { return residents[who].age >= 18; });
+    h.founder = adult == h.members.end() ? (h.members.empty() ? none : *h.members.begin()) : *adult;
+  }
   if (h.members.empty())
     h.invitations.clear();
   auto &r = residents.at(actor);
@@ -93,6 +101,7 @@ void World::leaveHousehold(Id actor) {
   }
   if (residentPlans.contains(actor))
     residentPlans[actor].helpTarget = none;
+  householdSupplyTick();
   log("household.left", actor, group);
 }
 void World::rebuildHouseholds() {
@@ -103,6 +112,7 @@ void World::rebuildHouseholds() {
         throw std::runtime_error("Duplicate household membership");
 }
 void World::householdTick() {
+  householdSupplyTick();
   std::vector<Id> departed;
   for (const auto &[person, group] : householdMembership) {
     const auto &r = residents.at(person);
@@ -204,6 +214,10 @@ bool World::householdDecision(Id actor) {
   return !r.route.empty();
 }
 void World::finishHouseholdVisit(Id actor) {
+  if (residentPlans.contains(actor) && residentPlans.at(actor).supply != none) {
+    advanceHouseholdSupply(actor);
+    return;
+  }
   auto &p = residentPlans.at(actor);
   Id target = p.helpTarget, group = householdOf(actor);
   auto cancel = [&] {

@@ -1,0 +1,78 @@
+{
+  "recorded": "2026-11-12",
+  "task": "M02.2",
+  "milestone": "M02",
+  "code_predecessor": "fe6730dac690344cf425362dcdf4aed0b43689e8",
+  "installed_executable_sha256": "bd3a36ea95067fda5f837679b38fc22f562585274c95e86094a72c1341973e1e",
+  "checks": [
+    {
+      "name": "Focused household requests, ownership and budgets",
+      "result": "35/35 pass, including unique requests/volunteers/item claims, live contact/device visibility, owner veto, private pantry access, real collection/meeting, owned food/medicine/clothes handovers, protected funds, computer/fare limits, escrow/couriers, refunds before/after pickup, theft, laundry exclusion, age/caregiver changes, urgent self-care, continuous cancellation and new/older saves.",
+      "evidence": [
+        "docs/evidence/coord-focused.log",
+        "docs/evidence/coord-focused-installed.log"
+      ]
+    },
+    {
+      "name": "Unattended dependent care",
+      "result": "A seeded consenting household runs caregiver, child, vendor and courier through normal scheduled decisions after kickoff. Real medicine is purchased, collected, delivered to the caregiver, handed to the young dependent and consumed under their ownership. The dependent has no spare funds and cannot pay for a duplicate clinic trip; their wallet is unchanged. No action is manually issued after kickoff.",
+      "evidence": "docs/evidence/coord-focused-installed.log"
+    },
+    {
+      "name": "Complete installed verification and normal launcher",
+      "result": "56/56 native/rendered suites pass on the final RelWithDebInfo build, including the 29 native suites, existing custody/cell, pantry, company/vehicle, social/privacy and construction regressions, the expanded 35-case coordination suite and the new rendered care journey. Normal run.sh then renders 3 startup frames with isolated preferences/saves.",
+      "evidence": "docs/evidence/coord-installed-tests.log"
+    },
+    {
+      "name": "Memory, undefined behavior and leaks",
+      "result": "Four distinct suites pass: coordination, resident autonomy, storage/property and daily planning. The final expanded 35-case coordination suite is also rebuilt/rechecked with address/undefined-behavior/leak instrumentation.",
+      "evidence": [
+        "docs/evidence/coord-asan-final.log",
+        "docs/evidence/coord-final-asan.log"
+      ]
+    },
+    {
+      "name": "Connected rendered systems",
+      "result": "Care, retained pantry collection, schooling, autonomy shopping, daily planning and exact custody/cell journeys pass. The new care journey checks an autonomous volunteer, actual on-site vendor, physical courier, onward walk/handover, manual patient choice/owned consumption, conserved money/private wallets and save/reload.",
+      "evidence": "docs/evidence/coord-rendered.log"
+    },
+    {
+      "name": "Localized final panels and software fallback",
+      "result": "Final installed English/French hardware Vulkan and Chinese llvmpipe software Vulkan journeys pass at 1000x720 with validation. Scripted replays ignore live desktop keyboard/mouse input while normal gameplay remains interactive. Three additional isolated software-Vulkan replays pass. Final captures inspected in all three languages.",
+      "evidence": [
+        "docs/evidence/coord-live-en.log",
+        "docs/evidence/coord-live-fr.log",
+        "docs/evidence/coord-live-zh.log",
+        "docs/evidence/coord-software-repeat-1.log",
+        "docs/evidence/coord-software-repeat-2.log",
+        "docs/evidence/coord-software-repeat-3.log",
+        "docs/evidence/household-support-en.png",
+        "docs/evidence/household-support-fr.png",
+        "docs/evidence/household-support-zh.png"
+      ]
+    },
+    {
+      "name": "Large-world and day/night save regression",
+      "result": "100,000 residents/2,000 floors run 1h, save/reload and continue 60s with valid state and unchanged internal money. A 600-start world runs 24h with physical deliveries/migration, saves/reloads and continues 1h. These general-generation regressions have no formed households during the observed period; the seeded automatic-care case and connected replays provide feature-use evidence.",
+      "evidence": [
+        "docs/evidence/coord-default-continuation.log",
+        "docs/evidence/coord-day-continuation.log"
+      ]
+    },
+    {
+      "name": "Localization and execution tracker",
+      "result": "1,295 matching English/French/Chinese keys with the coordination family checked; generated tracker and acceptance references validate.",
+      "evidence": [
+        "tools/check_locales.py",
+        "tools/render_completion_plan.py",
+        "tools/check_acceptance_register.py"
+      ]
+    }
+  ],
+  "limits": [
+    "Households remain voluntary; world generation does not preassign families. Basic caregiver agreements are not a biological-family simulator or public care profession.",
+    "The support loop handles food, medicine and clothes. Clinical/emergency care and other personal services retain their actual existing systems.",
+    "The retained request register is capped at one million records. Longer-term archive/scaling work remains a later milestone.",
+    "M02.3 deeper independent trade/careers/business decisions and M02.4 comprehensive replanning remain unfinished. The combined M02 acceptance gate has not passed."
+  ]
+}

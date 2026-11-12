@@ -293,7 +293,7 @@ struct ResidentPlan {
   ItemKind wanted = ItemKind::Food;
   AutonomyAction action = AutonomyAction::Saving;
   double nextHousehold = 0, helpDeadline = 0;
-  Id helpTarget = none;
+  Id helpTarget = none, supply = none;
   int helpRetries = 0;
   Id storageItem = none, storageGroup = none;
   double storageDeadline = 0, nextStorage = 0, nextEstate = 0;
@@ -674,10 +674,22 @@ struct Education {
   int subject = 0, seed = 0, lastDay = -1;
   Id school = none;
 };
+enum class SupplyState { Requested, Assigned, Ordered, Ready, Complete, Cancelled };
+struct HouseholdSupply {
+  Id id = none, household = none, recipient = none, buyer = none, item = none, order = none;
+  ItemKind kind = ItemKind::Food;
+  SupplyState state = SupplyState::Requested;
+  double created = 0, expires = 0, nextAttempt = 0;
+  Money budget = 0, spent = 0;
+  Vec3 where{};
+  int attempts = 0;
+  std::string reason = "coord.requested";
+};
 struct Household {
   Id id = none, founder = none;
   std::set<Id> members;
   std::map<Id, double> invitations;
+  std::map<Id, Id> dependents; // dependent -> consenting adult caregiver
 };
 struct StorageLease {
   Id id = none, facility = none, holder = none, custodian = none, household = none;
@@ -947,6 +959,22 @@ public:
   bool storageDecision(Id actor, bool urgent = false);
   bool storageDepartureDecision(Id actor);
   void finishStorageVisit(Id actor, TaskKind task, Id target);
+  std::vector<HouseholdSupply> householdSupplies;
+  std::map<Id, std::vector<Id>> householdSupplyIndex;
+  std::map<Id, Id> householdItemClaims;
+  void rebuildHouseholdSupplies();
+  void addHouseholdDependent(Id adult, Id child);
+  Id requestHouseholdSupply(Id recipient, ItemKind kind);
+  void volunteerHouseholdSupply(Id actor, Id request, Money budget = 5000);
+  void cancelHouseholdSupply(Id actor, Id request);
+  void advanceHouseholdSupply(Id actor);
+  void householdSupplyNeeds(Id actor);
+  bool householdSupplyDecision(Id actor);
+  void householdSupplyTick();
+  void validateHouseholdSupplies() const;
+  bool householdSupplyActive(Id request) const;
+  bool householdSupplyReserved(Id item) const;
+  bool householdSupplyVisible(Id actor, Id request) const;
   std::vector<Household> households;
   std::map<Id, Id> householdMembership; // reconstructed from groups, never grants property rights
   Id householdOf(Id actor) const;

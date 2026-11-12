@@ -67,6 +67,23 @@ bool World::planLift(Id id, Vec3 destination, TaskKind task, Id target) {
          !(f.subscribers.contains(id) && f.subscribers.at(id) > time) &&
          accounts[r.account].balance < f.price))
       continue;
+    bool paid = !f.whitelist.contains(id) && r.account != f.owner &&
+                !(f.subscribers.contains(id) && f.subscribers.at(id) > time);
+    auto plan = residentPlans.find(id);
+    if (paid && plan != residentPlans.end()) {
+      const auto &p = plan->second;
+      if (r.automatic && p.plannedLeisure != none &&
+          accounts[r.account].balance - f.price - facilities[p.plannedLeisure].price <
+              householdReserve(id))
+        continue;
+      if (householdSupplyActive(p.supply)) {
+        const auto &s = householdSupplies[p.supply];
+        Money purchase = s.item == none && s.order == none ? productPrice(s.kind) + 200 : 0;
+        if (f.price + purchase > s.budget - s.spent ||
+            accounts[r.account].balance - f.price < householdReserve(id))
+          continue;
+      }
+    }
     int a = *std::min_element(f.stops.begin(), f.stops.end(), [&](int x, int y) {
       return std::abs(x - floor) < std::abs(y - floor);
     });

@@ -458,6 +458,7 @@ void World::validate() const {
   validatePhysics();
   validateAutonomy();
   validateHouseholds();
+  validateHouseholdSupplies();
   validateEducation();
   validateStorage();
   validateCrewContracts();

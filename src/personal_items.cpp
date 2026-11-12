@@ -2,6 +2,8 @@
 #include <algorithm>
 namespace mega {
 bool World::itemInUse(Id item) const {
+  if (householdSupplyReserved(item))
+    return true;
   if (item < 0 || std::size_t(item) >= items.size())
     return false;
   for (const auto &[actor, rescue] : prisonRescues)

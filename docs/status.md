@@ -4,6 +4,16 @@
 
 This is a development build, not a declaration that the complete accepted design has shipped. The reference-image fidelity and production polish have not been achieved. The former island/city and Creative mode are superseded by the dormitory-focused requirements in `requirements.md`.
 
+## Coordinated household support and care (12 November 2026)
+
+- **M02.2** adds visible household requests for food, medicine and clothes: one consenting volunteer, one real item claim, an explicit private spending limit and current waiting reasons. Requests are learned through real contact or usable devices; an owner can inspect/retract a reservation on their own property. Neither membership nor caregiving pools money or private inventory.
+- Helpers collect actual shared pantry goods or buy through usable devices/paid computers, staffed stocked shops and real couriers, then physically meet and transfer ownership. Private rent/necessities remain protected. Computer and personal transport fees count toward the limit and preserve money for an outstanding purchase; free/whitelisted/subscribed travel retains its rules. Uncollected cancellations refund the payer, while shipped goods/cost stay with their buyer. Laundry, sale and consumption cannot reuse a promised object; theft cancels its promise while retaining real loot and provenance.
+- Nearby trusted adults and consenting young residents can agree on household care. Basic feeding, medicine and dressing of children under six require real ownership transfer and actual item use. Age transitions, departure, owner withdrawal, urgent self-care, cancellation and older/new saves release or preserve commitments coherently. A fully unattended seeded case runs caregiver, child, vendor and courier through purchase/delivery/owned consumption without further commands; a separate rendered journey preserves a manual adult recipient’s choice.
+- **35** focused cases, all **56** final installed/native/rendered suites and focused memory checks pass. Six connected rendered regressions, final EN/FR hardware and ZH software journeys, three isolated software repeat runs, default **100,000 residents / 2,000 floors**, full-day continuation and normal startup pass. Scripted replays ignore live desktop input; normal play remains interactive. All **1,295** locale keys match.
+- **M02 stays in progress. Next: M02.3**, deeper independent buying/selling, career changes, saving and small-business investment with actual affordability/travel. M02.4 replanning and the combined milestone gate remain unfinished. The general day regression does not itself demonstrate household activity; the seeded automatic and rendered cases are the feature-use proof.
+
+See [household support controls and rules](household-support.md) and [verification](evidence/household-support-verification.json).
+
 ## Daily provisioning and protected savings (11 November 2026)
 
 - **M02.1** adds a read-only daily plan under **My life → Household & decisions**: needs, real destinations, departure/queue estimates, prices and waiting reasons. School-age residents and adults use owned unreserved food/medicine, clean spares and real staffed services; actual work routines retain control during shifts. Overnight shifts, days off, sleep and travel/queue duration influence preparation and leisure.

@@ -239,8 +239,8 @@ DailyPlan World::dailyPlan(Id id) const {
       r.happiness >= .7f || (stored && time < stored->nextRecreation), true);
   bool provisioning = false;
   if (stored) {
-    provisioning = stored->tradeItem != none || stored->helpTarget != none ||
-                   stored->storageItem != none ||
+    provisioning = stored->supply != none || stored->tradeItem != none ||
+                   stored->helpTarget != none || stored->storageItem != none ||
                    (r.age >= 18 && time >= stored->nextShopping && plan.spendable >= 1000);
     if (stored->order >= 0 && std::size_t(stored->order) < orders.size()) {
       auto state = orders[stored->order].state;

@@ -264,6 +264,11 @@ public:
   float cachedHappiness = .5f;
   std::size_t cachedLiving = 0, cachedQueued = 0;
   double nextStats = 0;
+  bool acceptLiveInput = true;
+  int keyState(int key) const { return acceptLiveInput ? glfwGetKey(window, key) : GLFW_RELEASE; }
+  int mouseState(int button) const {
+    return acceptLiveInput ? glfwGetMouseButton(window, button) : GLFW_RELEASE;
+  }
   Application(GLFWwindow *w, const RuntimePaths &paths, bool loadPrefs = true, bool persist = true,
               bool sound = true, std::filesystem::path customPrefs = {})
       : window(w), locale(paths.assets / "locales"),
@@ -300,14 +305,19 @@ public:
     }
     glfwSetWindowUserPointer(w, this);
     glfwSetCharCallback(w, [](GLFWwindow *w, unsigned cp) {
-      static_cast<Application *>(glfwGetWindowUserPointer(w))->ui.charEvent(cp);
+      auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
+      if (app->acceptLiveInput)
+        app->ui.charEvent(cp);
     });
     glfwSetKeyCallback(w, [](GLFWwindow *w, int key, int, int action, int) {
-      if (action == GLFW_PRESS || action == GLFW_REPEAT)
-        static_cast<Application *>(glfwGetWindowUserPointer(w))->ui.keyEvent(key);
+      auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
+      if (app->acceptLiveInput && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        app->ui.keyEvent(key);
     });
     glfwSetScrollCallback(w, [](GLFWwindow *w, double, double y) {
-      static_cast<Application *>(glfwGetWindowUserPointer(w))->ui.scroll += y;
+      auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
+      if (app->acceptLiveInput)
+        app->ui.scroll += y;
     });
   }
   ~Application() {
@@ -927,8 +937,8 @@ public:
     if (!world || menu || world->gameOver)
       return;
     auto &w = *world;
-    bool menuKey = glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS;
-    bool escapeKey = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+    bool menuKey = keyState(GLFW_KEY_TAB) == GLFW_PRESS;
+    bool escapeKey = keyState(GLFW_KEY_ESCAPE) == GLFW_PRESS;
     if (!ui.typing() && ((menuKey && !menuKeyHeld) || (escapeKey && !escapeHeld))) {
       if (escapeKey && phone)
         phone = false;
@@ -941,7 +951,7 @@ public:
     }
     menuKeyHeld = menuKey;
     escapeHeld = escapeKey;
-    bool helpKey = glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS;
+    bool helpKey = keyState(GLFW_KEY_H) == GLFW_PRESS;
     if (helpKey && !helpHeld && !ui.typing()) {
       helpOpen = !helpOpen;
       if (helpOpen)
@@ -950,14 +960,14 @@ public:
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
     helpHeld = helpKey;
-    bool viewKey = glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS;
+    bool viewKey = keyState(GLFW_KEY_V) == GLFW_PRESS;
     if (viewKey && !viewKeyHeld && !ui.typing() && !phone && !helpOpen && !drawerOpen)
       setFirstPerson(!firstPerson);
     viewKeyHeld = viewKey;
     // The simulation owns momentum. Only an actively driven body skips event integration.
     const auto &controlled = w.residents[selected];
-    bool movingInput = glfwGetKey(window, GLFW_KEY_W) || glfwGetKey(window, GLFW_KEY_A) ||
-                       glfwGetKey(window, GLFW_KEY_S) || glfwGetKey(window, GLFW_KEY_D);
+    bool movingInput = keyState(GLFW_KEY_W) || keyState(GLFW_KEY_A) || keyState(GLFW_KEY_S) ||
+                       keyState(GLFW_KEY_D);
     bool canControl = selected == w.player || w.config.mode == Mode::Cheat;
     w.vehicleController = firstPerson && canControl && !phone && !helpOpen && !drawerOpen &&
                                   !paused && controlled.vehicle != none &&
@@ -984,7 +994,7 @@ public:
         cachedQueued += f.queue.size();
       nextStats = glfwGetTime() + 1;
     }
-    bool interact = glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS;
+    bool interact = keyState(GLFW_KEY_E) == GLFW_PRESS;
     if (firstPerson && canControl && !phone && !ui.typing() && !helpOpen && !drawerOpen &&
         w.residents[selected].alive && w.residents[selected].present && !w.gameOver) {
       double mx, my;
@@ -997,10 +1007,9 @@ public:
       oldMx = mx;
       oldMy = my;
       auto &r = w.residents[selected];
-      bool punch = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS,
-           fire = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS,
-           yield = glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS,
-           push = glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS;
+      bool punch = keyState(GLFW_KEY_F) == GLFW_PRESS,
+           fire = mouseState(GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS,
+           yield = keyState(GLFW_KEY_Q) == GLFW_PRESS, push = keyState(GLFW_KEY_G) == GLFW_PRESS;
       if (!paused && mouseLocked && r.lift == none && r.ambulance == none && r.carriedBy == none &&
           r.medicalDuty == none) {
         if (yield && !surrenderHeld)
@@ -1042,37 +1051,37 @@ public:
           r.carriedBy == none && r.medicalDuty == none)
         activateInteraction();
       if (!paused && r.ladder >= 0) {
-        float direction = float(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) -
-                          float(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS);
+        float direction =
+            float(keyState(GLFW_KEY_W) == GLFW_PRESS) - float(keyState(GLFW_KEY_S) == GLFW_PRESS);
         w.climb(selected, direction, dt);
         body.position = r.pos;
         body.velocity = {};
         body.grounded = false;
       } else if (!paused && r.vehicle != none) {
-        float throttle = float(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) -
-                         float(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS);
-        float steer = float(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) -
-                      float(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS);
+        float throttle =
+            float(keyState(GLFW_KEY_W) == GLFW_PRESS) - float(keyState(GLFW_KEY_S) == GLFW_PRESS);
+        float steer =
+            float(keyState(GLFW_KEY_D) == GLFW_PRESS) - float(keyState(GLFW_KEY_A) == GLFW_PRESS);
         if (throttle != 0 || steer != 0 || !w.vehicleJourneys.contains(r.vehicle))
           act([&] { w.driveVehicle(selected, throttle, steer, std::min(dt, .05f)); });
         playerYaw = w.vehicles[r.vehicle].yaw;
       } else if (!paused && w.canControlBody(selected)) {
         Vec3 front{std::sin(playerYaw), 0, -std::cos(playerYaw)},
             right{std::cos(playerYaw), 0, std::sin(playerYaw)}, move{};
-        if (glfwGetKey(window, GLFW_KEY_W))
+        if (keyState(GLFW_KEY_W))
           move = move + front;
-        if (glfwGetKey(window, GLFW_KEY_S))
+        if (keyState(GLFW_KEY_S))
           move = move - front;
-        if (glfwGetKey(window, GLFW_KEY_D))
+        if (keyState(GLFW_KEY_D))
           move = move + right;
-        if (glfwGetKey(window, GLFW_KEY_A))
+        if (keyState(GLFW_KEY_A))
           move = move - right;
         act([&] {
           Vec3 before = w.position(selected);
-          bool running = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
-          auto result = w.stepControlledBody(
-              selected, normalized(move) * w.walkingSpeed(selected, running), std::min(dt, .1f),
-              glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS);
+          bool running = keyState(GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
+          auto result =
+              w.stepControlledBody(selected, normalized(move) * w.walkingSpeed(selected, running),
+                                   std::min(dt, .1f), keyState(GLFW_KEY_SPACE) == GLFW_PRESS);
           if (result) {
             body = *result;
             if (length(body.position - before) > .01f && body.grounded)
@@ -1086,7 +1095,7 @@ public:
           std::clamp(int(std::max(0.f, w.position(selected).y) / 3), 0, w.config.floors - 1);
     }
     interactHeld = interact;
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && mouseLocked) {
+    if (keyState(GLFW_KEY_ESCAPE) == GLFW_PRESS && mouseLocked) {
       mouseLocked = false;
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
@@ -2639,6 +2648,83 @@ public:
         if (ui.button("leaveHousehold", {x, y, width, 32}, t("household.leave")))
           act([&] { w.leaveHousehold(selected); });
         y += 40;
+      }
+      if (group != none) {
+        y = ui.wrap(x, y, width, t("coord.title"), 15, hex(0xc1cbb7)) + 10;
+        y = ui.wrap(x, y, width, t("coord.explain"), 12, hex(0x8da5aa)) + 12;
+        const bool control = selected == w.player || w.config.mode == Mode::Cheat;
+        if (control)
+          for (auto kind : {ItemKind::Food, ItemKind::Medicine, ItemKind::Clothes}) {
+            if (ui.button("coordRequest" + std::to_string(int(kind)), {x, y, width, 30},
+                          t("coord.ask") + " · " + t(itemLabel(kind))))
+              act([&] { w.requestHouseholdSupply(selected, kind); });
+            y += 38;
+          }
+        auto board = w.householdSupplyIndex.find(group);
+        int shown = 0;
+        if (board != w.householdSupplyIndex.end())
+          for (auto it = board->second.rbegin(); it != board->second.rend() && shown < 12; ++it) {
+            Id id = *it;
+            if (!w.householdSupplyVisible(selected, id))
+              continue;
+            const auto &s = w.householdSupplies[id];
+            ++shown;
+            y = ui.wrap(x, y, width,
+                        w.displayName(s.recipient, locale.language) + " · " + t(itemLabel(s.kind)) +
+                            " · " + t(s.reason),
+                        12, hex(0xb9c6c4)) +
+                8;
+            if (s.buyer != none)
+              y = ui.wrap(x, y, width,
+                          w.displayName(s.buyer, locale.language) + " · " + t("coord.spent") + " " +
+                              preciseMoney(s.spent) + " / " + preciseMoney(s.budget),
+                          12, hex(0x8da5aa)) +
+                  8;
+            if (control && w.householdSupplyActive(id)) {
+              if (s.state == SupplyState::Requested && s.recipient != selected) {
+                if (ui.button("coordTake" + std::to_string(id), {x, y, width, 30},
+                              t("coord.volunteer") + " · " + preciseMoney(5000)))
+                  act([&] {
+                    w.volunteerHouseholdSupply(selected, id);
+                    w.advanceHouseholdSupply(selected);
+                    paused = false;
+                  });
+                y += 38;
+              } else if (s.buyer == selected) {
+                if (ui.button("coordContinue" + std::to_string(id), {x, y, width, 30},
+                              t("coord.continue")))
+                  act([&] {
+                    w.advanceHouseholdSupply(selected);
+                    paused = false;
+                  });
+                y += 38;
+              }
+              if (s.buyer == selected || s.recipient == selected ||
+                  (s.item != none && w.items[s.item].owner == r.account)) {
+                if (ui.button("coordCancel" + std::to_string(id), {x, y, width, 30},
+                              t("coord.cancel")))
+                  act([&] { w.cancelHouseholdSupply(selected, id); });
+                y += 38;
+              }
+            }
+          }
+        if (!shown)
+          y = ui.wrap(x, y, width, t("coord.empty"), 12, hex(0x8da5aa)) + 10;
+        for (const auto &[child, carer] : w.households[group].dependents)
+          y = ui.wrap(x, y, width,
+                      w.displayName(carer, locale.language) + " · " + t("coord.caregiver") + " · " +
+                          w.displayName(child, locale.language),
+                      12, hex(0xa5bfc4)) +
+              8;
+        if (control && r.age >= 18)
+          for (Id child : w.knownContacts(selected))
+            if (w.residents[child].age < 18 && w.householdOf(child) == none &&
+                w.near(selected, w.position(child), 2.5f)) {
+              if (ui.button("coordDependent" + std::to_string(child), {x, y, width, 30},
+                            t("coord.care_for") + " · " + w.displayName(child, locale.language)))
+                act([&] { w.addHouseholdDependent(selected, child); });
+              y += 38;
+            }
       }
       y = ui.wrap(x, y, width, t("household.explain"), 12, hex(0x8da5aa)) + 12;
       y = ui.wrap(x, y, width, t("autonomy.explain"), 12, hex(0x8da5aa)) + 20;
@@ -7146,7 +7232,7 @@ public:
     height = int(height / uiScale);
     mx /= uiScale;
     my /= uiScale;
-    bool down = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    bool down = mouseState(GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     bool click = down && !previousMouse;
     previousMouse = down;
     ui.begin(width, height, mx, my, click, dt);
@@ -7154,7 +7240,7 @@ public:
         !importOpen && !ui.typing() && !firstPerson) {
       if (mx < width - 20 && my > 85 && my < height - 145) {
         distance = std::clamp(distance * std::exp(-float(ui.scroll) * .12f), 2.5f, 1800.f);
-        bool dragging = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+        bool dragging = mouseState(GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
         if (dragging && observerDragging) {
           orbit = std::remainder(orbit + float(rawMouseX - observerMouseX) * .006f, 6.2831853f);
           pitch = std::clamp(pitch + float(rawMouseY - observerMouseY) * .003f, -1.35f, 1.35f);
@@ -7162,20 +7248,20 @@ public:
         observerDragging = dragging;
       }
       float pan = std::max(10.f, distance * .7f) * dt *
-                  (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ? 3.f : 1.f);
+                  (keyState(GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ? 3.f : 1.f);
       Vec3 forward{-std::sin(orbit), 0, -std::cos(orbit)},
           right{std::cos(orbit), 0, -std::sin(orbit)}, move{};
-      if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+      if (keyState(GLFW_KEY_W) == GLFW_PRESS)
         move = move + forward;
-      if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+      if (keyState(GLFW_KEY_S) == GLFW_PRESS)
         move = move - forward;
-      if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+      if (keyState(GLFW_KEY_A) == GLFW_PRESS)
         move = move - right;
-      if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+      if (keyState(GLFW_KEY_D) == GLFW_PRESS)
         move = move + right;
       cameraFocus = cameraFocus + normalized(move) * pan;
-      float vertical = float(glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) -
-                       float(glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS);
+      float vertical =
+          float(keyState(GLFW_KEY_E) == GLFW_PRESS) - float(keyState(GLFW_KEY_Q) == GLFW_PRESS);
       if (world && vertical != 0)
         moveObserverHeight(currentFloor, observerHeight, vertical * pan, world->config.floors);
     } else {
@@ -7190,7 +7276,7 @@ public:
       glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
       glfwGetCursorPos(window, &oldMx, &oldMy);
     }
-    bool saveEscape = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+    bool saveEscape = keyState(GLFW_KEY_ESCAPE) == GLFW_PRESS;
     if (importOpen && saveEscape && !savesEscapeHeld) {
       closeImporter();
       escapeHeld = true;
@@ -7360,13 +7446,15 @@ int runApplication(int argc, char **argv) {
   try {
     auto paths =
         RuntimePaths::discover(runningExecutable(argv[0]), MEGA_ASSETS, MEGA_SHADERS, MEGA_PROJECT);
-    bool automation = false, sound = true;
+    bool automation = false, scriptedReplay = false, sound = true;
     std::filesystem::path customPrefs, customSaves;
     for (int i = 1; i < argc; ++i) {
       std::string arg = argv[i];
       if (arg == "--demo" || arg == "--frames" || arg == "--skin-test" || arg == "--compute-test" ||
           arg.starts_with("--playtest-"))
         automation = true;
+      if (arg.starts_with("--playtest-"))
+        scriptedReplay = true;
       if (arg == "--no-audio")
         sound = false;
       if (arg == "--preferences-file" && i + 1 < argc)
@@ -7378,6 +7466,7 @@ int runApplication(int argc, char **argv) {
       customPrefs = customSaves / "settings.json";
     Application app(window, paths, !automation || !customPrefs.empty(), !automation, sound,
                     customPrefs);
+    app.acceptLiveInput = !scriptedReplay;
     int frames = 0, maxFrames = 0;
     bool verifyFeedback = false, verifyCustodyControl = false, custodyInteractionVerified = false;
     bool demo = false, computeTest = false, skinTest = false, animate = false, playAutonomy = false,
@@ -7385,7 +7474,13 @@ int runApplication(int argc, char **argv) {
          playCrowd = false, playQueueFlow = false, playDiscovery = false, playLife = false,
          playRescue = false, playFire = false, playAngled = false, playStorage = false,
          playCrew = false, playEstates = false, playChimney = false, playBodyControl = false,
-         playInformation = false, playChoices = false, playHistory = false, playDaily = false;
+         playInformation = false, playChoices = false, playHistory = false, playDaily = false,
+         playCoord = false;
+    Id coordRequest = none;
+    int coordFinished = -1;
+    Vec3 coordPrior{}, coordCourierPrior{};
+    float coordMaxStep = 0;
+    Money coordMoney = 0, coordCash = 0, coordPatientCash = 0;
     Id dailyWater = none, dailyMeal = none, dailySpare = none;
     int dailyFinished = -1;
     Vec3 dailyPrior{};
@@ -7535,6 +7630,13 @@ int runApplication(int argc, char **argv) {
         app.config.floors = 20;
         app.config.mode = Mode::Cheat;
         app.config.accidentRate = 0;
+      } else if (arg == "--playtest-household-care") {
+        playCoord = demo = animate = true;
+        panel = "household-care";
+        app.config.population = 40;
+        app.config.floors = 20;
+        app.config.mode = Mode::Cheat;
+        app.config.accidentRate = 0;
       } else if (arg == "--playtest-daily-plan") {
         playDaily = demo = animate = true;
         panel = "daily-plan";
@@ -7666,7 +7768,7 @@ int runApplication(int argc, char **argv) {
     if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
         playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
         playStorage || playCrew || playEstates || playChimney || playInformation || playChoices ||
-        playHistory || playDaily) {
+        playHistory || playDaily || playCoord) {
       std::cout << std::unitbuf;
       if (!browserImport.empty())
         throw std::runtime_error("Playtests use an isolated generated world");
@@ -7695,7 +7797,122 @@ int runApplication(int argc, char **argv) {
       app.drawerSlide = app.drawerOpen ? 1.f : 0.f;
       if (panel == "settings")
         app.tab = 6;
-      if (panel == "daily-plan") {
+      if (panel == "household-care") {
+        app.acceptLiveInput = false;
+        auto &w = *app.world;
+        while (!w.events.empty())
+          w.events.pop();
+        w.time = 10 * 3600;
+        for (auto &r : w.residents) {
+          w.clockOut(r.id);
+          w.leaveQueue(r.id);
+          r.route.clear();
+          ++r.routeVersion;
+          r.automatic = false;
+          r.activity = Activity::Idle;
+          r.task = TaskKind::None;
+          r.role = Role::Unemployed;
+          r.jobSite = r.employer = none;
+          r.age = 30;
+          r.aggression = 0;
+          r.personality.generosity = 1;
+          r.hunger = r.thirst = r.bladder = .1f;
+          r.health = 100;
+          r.hygiene = r.energy = r.happiness = 1;
+          r.personalWaste = 0;
+          r.needsAt = w.time;
+          r.pos = {150 + r.id * 2.f, 0, 150};
+          if (r.outfit != none)
+            w.items[r.outfit].cleanliness = 1;
+        }
+        Id shop = none;
+        for (auto &f : w.facilities) {
+          f.employees.clear();
+          f.queue.clear();
+          f.serving.clear();
+          f.opensAt = 0;
+          f.openHours = 24;
+          f.staffNeeded = 0;
+          if (f.kind == FacilityKind::Shop && f.floor == 0 && shop == none) {
+            shop = f.id;
+            f.pos = {100, 0, 106};
+            f.owner = w.dormAccount;
+            f.stock = 100;
+            f.open = f.publicAccess = true;
+          }
+        }
+        if (shop == none)
+          throw std::runtime_error("Household replay needs an actual shop");
+        w.invalidateGeometry(0);
+        w.crowd.clear();
+        for (Id id : {0, 1}) {
+          auto &r = w.residents[id];
+          r.pos = {100 + float(id), 0, 100};
+          for (Id item : r.items)
+            if (w.items[item].kind == ItemKind::Medicine)
+              w.items[item].carrier = none;
+          std::erase_if(r.items, [&](Id item) { return w.items[item].carrier != id; });
+          if (!w.hasDevice(id)) {
+            Item i;
+            i.id = Id(w.items.size());
+            i.kind = ItemKind::Phone;
+            i.owner = r.account;
+            i.carrier = id;
+            i.pos = r.pos;
+            w.items.push_back(i);
+            r.items.push_back(i.id);
+          }
+        }
+        w.relationships[1] = {0, 1, .8f, -3600, 0};
+        auto group = w.createHousehold(0);
+        w.inviteHousehold(0, 1);
+        w.acceptHousehold(1, group);
+        w.facilities[shop].staffNeeded = 1;
+        for (auto pair : {std::pair{3, Role::Vendor}, std::pair{2, Role::Courier}}) {
+          Id id = pair.first;
+          w.chooseJob(id, pair.second, shop);
+          auto &r = w.residents[id];
+          r.routine.shiftStart = 0;
+          r.routine.shiftHours = 24;
+          r.routine.daysOff = 0;
+          r.pos = w.accessible(w.facilities[shop].pos + Vec3{id == 3 ? -1.6f : 2.5f, 0, -1.6f});
+          r.route.clear();
+          r.activity = Activity::Idle;
+          r.task = TaskKind::None;
+          r.automatic = true;
+          if (id == 3)
+            w.clockIn(id);
+        }
+        w.facilities[shop].staffNeeded = 1;
+        auto &patient = w.residents[1];
+        patient.pos = {110, 0, 112};
+        patient.health = 50;
+        coordRequest = w.requestHouseholdSupply(1, ItemKind::Medicine);
+        auto &helper = w.residents[0];
+        helper.automatic = true;
+        auto &plan = w.residentPlans[0];
+        plan.nextShopping = plan.nextCareer = plan.nextBusiness = plan.nextListing = w.time + 86400;
+        coordMoney = w.internalMoney();
+        coordCash = w.accounts[helper.account].balance;
+        coordPatientCash = w.accounts[patient.account].balance;
+        coordPrior = helper.pos;
+        coordCourierPrior = w.position(2);
+        w.schedule(w.time + .01, EventKind::Decide, 0);
+        app.setFirstPerson(false);
+        app.selected = 0;
+        app.currentFloor = 0;
+        app.cameraFocus = helper.pos;
+        app.distance = 20;
+        app.pitch = .45f;
+        app.observerHeight = 0;
+        app.drawerOpen = true;
+        app.drawerSlide = 1;
+        app.tab = 0;
+        app.householdOpen = true;
+        demoScroll = 1500;
+        std::cout << "COORD PLAYTEST: actual household request; autonomous helper, working vendor "
+                     "and physical courier\n";
+      } else if (panel == "daily-plan") {
         auto &w = *app.world;
         while (!w.events.empty())
           w.events.pop();
@@ -9127,7 +9344,7 @@ int runApplication(int argc, char **argv) {
       if (playAutonomy || playConstruction || playVehicles || playCompany || playSecurity ||
           playCrowd || playQueueFlow || playDiscovery || playLife || playRescue || playFire ||
           playStorage || playCrew || playEstates || playChimney || playInformation || playChoices ||
-          playHistory || playDaily)
+          playHistory || playDaily || playCoord)
         app.speed = 6;
     }
     if (computeTest) {
@@ -9230,6 +9447,40 @@ int runApplication(int argc, char **argv) {
       std::filesystem::path frameCapture =
           !capture.empty() && maxFrames > 0 && frames == maxFrames - 1 ? capture
                                                                        : std::filesystem::path{};
+      if (playCoord) {
+        auto &w = *app.world;
+        coordMaxStep = std::max({coordMaxStep, length(w.position(0) - coordPrior),
+                                 length(w.position(2) - coordCourierPrior)});
+        coordPrior = w.position(0);
+        coordCourierPrior = w.position(2);
+        app.cameraFocus = w.position(0);
+        const auto &request = w.householdSupplies[coordRequest];
+        if (coordFinished < 0 && request.state == SupplyState::Complete) {
+          if (request.order == none || w.orders[request.order].state != OrderState::Delivered ||
+              w.items[request.item].owner != w.residents[1].account ||
+              w.items[request.item].carrier != 1)
+            throw std::runtime_error(
+                "Household care bypassed purchase, delivery or owned handover");
+          w.consumeItem(1, request.item);
+          w.validate();
+          auto path = std::filesystem::temp_directory_path() / "mega-coord-rendered.mdsave";
+          w.save(path);
+          auto loaded = World::load(path);
+          std::filesystem::remove(path);
+          if (!loaded.items[request.item].consumed ||
+              loaded.householdSupplies[coordRequest].state != SupplyState::Complete)
+            throw std::runtime_error("Household care lost state on reload");
+          coordFinished = frames;
+          app.paused = true;
+          std::cout << "COORD PLAYTEST: vendor sold actual medicine; courier delivered; helper "
+                       "walked and handed over; patient consumed; reload valid\n";
+        }
+        if (coordFinished >= 0 && frames >= coordFinished + 10) {
+          if (!capture.empty())
+            app.frame(dt, capture);
+          break;
+        }
+      }
       if (playDaily) {
         auto &w = *app.world;
         dailyMaxStep = std::max(dailyMaxStep, length(w.position(0) - dailyPrior));
@@ -9929,6 +10180,27 @@ int runApplication(int argc, char **argv) {
       }
       app.frame(dt, frameCapture);
       ++frames;
+    }
+    if (playCoord) {
+      auto &w = *app.world;
+      const auto &request = w.householdSupplies[coordRequest];
+      if (coordFinished < 0 || coordMaxStep > 2 || w.internalMoney() != coordMoney ||
+          w.accounts[w.residents[0].account].balance != coordCash - request.spent ||
+          w.accounts[w.residents[1].account].balance != coordPatientCash ||
+          !w.householdItemClaims.empty())
+        throw std::runtime_error(
+            "Household support failed: finished=" + std::to_string(coordFinished) +
+            " step=" + std::to_string(coordMaxStep) +
+            " state=" + std::to_string(int(request.state)) + " reason=" + request.reason +
+            " buyer=" + std::to_string(request.buyer) + " order=" + std::to_string(request.order) +
+            " helper=" + std::to_string(int(w.residents[0].activity)) + "/" +
+            std::to_string(int(w.residents[0].task)) + " time=" + std::to_string(w.time) +
+            " cash=" + std::to_string(w.accounts[w.residents[0].account].balance - coordCash) +
+            " spent=" + std::to_string(request.spent) +
+            " total=" + std::to_string(w.internalMoney() - coordMoney));
+      std::cout << "COORD PLAYTEST PASS: real vendor/courier/meeting/owned consumption; private "
+                   "wallets and conserved escrow; saved state and localized support UI; max step "
+                << coordMaxStep << " m\n";
     }
     if (playDaily) {
       auto &w = *app.world;

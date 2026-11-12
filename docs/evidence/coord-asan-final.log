@@ -1,0 +1,13 @@
+Test project /home/charlie/Documents/Codex/2026-10-18/files-pasted-by-the-user-project/work/native-asan
+    Start  8: resident_autonomy
+1/4 Test  #8: resident_autonomy .................   Passed    5.34 sec
+    Start 16: household_storage_and_property
+2/4 Test #16: household_storage_and_property ....   Passed    2.44 sec
+    Start 28: daily_resident_plans
+3/4 Test #28: daily_resident_plans ..............   Passed    5.56 sec
+    Start 29: household_provisioning_and_care
+4/4 Test #29: household_provisioning_and_care ...   Passed    5.28 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =  18.61 sec

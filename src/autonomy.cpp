@@ -511,6 +511,8 @@ bool World::autonomyDecision(Id id) {
   }
   auto &r = residents[id];
   p.reserve = householdReserve(id);
+  if (householdSupplyDecision(id))
+    return true;
   if (p.tradeItem != none) {
     finishAutonomyTrade(id);
     if (!r.route.empty())
@@ -710,6 +712,9 @@ void World::validateAutonomy() const {
         !std::isfinite(p.storageDeadline) || p.storageDeadline < 0 ||
         !std::isfinite(p.nextStorage) || p.nextStorage < 0 || !std::isfinite(p.nextEstate) ||
         p.nextEstate < 0 || !ref(p.lastBusiness, facilities.size()) ||
+        !ref(p.supply, householdSupplies.size()) ||
+        (p.supply != none &&
+         (!householdSupplyActive(p.supply) || householdSupplies[p.supply].buyer != id)) ||
         !ref(p.helpTarget, residents.size()) || !std::isfinite(p.nextHousehold) ||
         p.nextHousehold < 0 || !std::isfinite(p.helpDeadline) || p.helpDeadline < 0 ||
         p.helpRetries < 0 || p.helpRetries > 3 || p.reserve < 0 || p.reserve > 1000000000000LL ||

@@ -1,0 +1,36 @@
+PASS Requests require household membership, an actual need and a supported supply
+PASS Repeated requests identify the same active need without duplication
+PASS A request is visible in person or on two working awake devices
+PASS One volunteer reserves one real spare and retains their own meal
+PASS A volunteer can cancel and use their own promised belongings
+PASS Support hands over owned food without teleporting or spending the recipient wallet
+PASS Medicine handover preserves the patient's choice to consume it
+PASS Promised clean clothes cannot be worn, washed or promised twice
+PASS Poor volunteers cannot spend rent or another member's wallet
+PASS A household purchase reserves real escrow exactly once
+PASS Cancelling before pickup refunds the actual payer and releases every claim
+PASS A stranger cannot cancel or spend a household request
+PASS Care for a young child requires nearby mutual consent and no existing household
+PASS A caregiver actually feeds a young child using one owned meal
+PASS Leaving a household cancels commitments without confiscating private goods
+PASS A volunteer's urgent survival need releases the promise for real self-care
+PASS Current requests, private ownership, guardians and claims survive reload
+PASS Empty household request indexes are not inserted by an idle decision
+PASS A real courier delivers a paid medicine order before a private handover
+PASS Cancellation after pickup leaves the real shipment and expense with its buyer
+PASS Private pantry goods are not household property until their owner shares them
+PASS Two errands cannot reserve the same explicitly shared pantry medicine
+PASS A reserved pantry item is physically collected and carried to its recipient
+PASS A departing pantry owner immediately releases a promised private possession
+PASS A caregiver leaving the household releases dependents without taking their belongings
+PASS Coming of age clears caregiver authority without removing household membership
+PASS A paid public computer is included in the volunteer's spending limit
+PASS Older saves gain no fictional requests, dependents, charges or reservations
+PASS Cancelling an owned meeting stops the route at its actual interpolated position
+PASS Paid lift travel counts against a support budget and cannot consume rent
+PASS A transport fare cannot spend the money still needed for the promised purchase
+PASS A promised gift can still be stolen and the stale promise releases the real loot
+PASS Laundry cannot reserve a garment already promised to another household member
+PASS An unattended caregiver buys, receives and administers real medicine to a dependent
+PASS A shared item's owner can inspect and retract its reservation without another person's device
+35 passed, 0 failed

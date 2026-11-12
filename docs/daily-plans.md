@@ -71,6 +71,7 @@ isolated rendered journey: owned food, a clean spare, smooth actual travel, drin
 water service, real owner payment, conservation and save/reload. Repeat with `fr`
 or `zh`; software Vulkan is supported. No player saves are used by this replay.
 
-M02.2–M02.4 remain separate unfinished tasks: coordinating purchases/care, deeper
-trading/careers/business decisions and comprehensive interruption/replanning. The
+Coordinated household purchasing and care are covered by [household support](household-support.md).
+M02.3–M02.4 independent trading/career/business decisions and comprehensive
+interruption/replanning remain unfinished. The
 larger visual/animation/scaling milestones remain open.

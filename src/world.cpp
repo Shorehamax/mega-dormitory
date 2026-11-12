@@ -612,6 +612,7 @@ void World::decide(Id id, bool scheduleNext) {
         break;
       }
     }
+  householdSupplyNeeds(id);
   if (r.activity != Activity::Sleeping && r.thirst < .9f && storageDecision(id, true))
     return;
   if (dailyDecision(id))
@@ -1573,7 +1574,7 @@ void World::serve(Id fId) {
         if (item != r.outfit && items[item].kind == ItemKind::Clothes &&
             items[item].owner == r.account && items[item].carrier == id &&
             items[item].reservedAt == none && !items[item].consumed &&
-            items[item].cleanliness < .95f && garments.size() < 4)
+            !householdSupplyReserved(item) && items[item].cleanliness < .95f && garments.size() < 4)
           garments.push_back(item);
       for (Id item : garments) {
         items[item].reservedAt = fId;

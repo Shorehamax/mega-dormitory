@@ -79,6 +79,10 @@ bool World::stealItem(Id thief, Id victim, Id item, bool robbery) {
   if (success) {
     if (itemInUse(item))
       stopPersonalUse(victim);
+    if (auto claim = householdItemClaims.find(item); claim != householdItemClaims.end()) {
+      Id request = claim->second;
+      cancelHouseholdSupply(householdSupplies[request].buyer, request);
+    }
     if (i.stolenFrom == none)
       i.stolenFrom = i.owner;
     i.owner = a.account;

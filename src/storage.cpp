@@ -172,7 +172,12 @@ void World::withdrawStorage(Id actor, Id item, bool steal) {
   if (l.released || !l.open || !reachable(*this, actor, l.id) || i.consumed || i.carrier != none ||
       i.reservedAt != none)
     throw std::runtime_error("storage.error.access");
-  bool permitted = storageItemAllowed(actor, item);
+  auto claim = householdItemClaims.find(item);
+  bool reserved =
+      claim != householdItemClaims.end() && householdSupplies[claim->second].buyer != actor;
+  if (reserved && (!steal || i.owner == r.account))
+    throw std::runtime_error("coord.reserved");
+  bool permitted = storageItemAllowed(actor, item) && !reserved;
   if (!permitted && !steal)
     throw std::runtime_error("storage.error.private");
   Id victim = none;
@@ -346,7 +351,7 @@ bool World::storageDecision(Id actor, bool urgent) {
         const auto &i = items[item];
         bool suitable =
             i.kind == wanted || (wanted == ItemKind::Phone && i.kind == ItemKind::Laptop);
-        if (!suitable || i.consumed || i.durability <= .2f ||
+        if (!suitable || i.consumed || i.durability <= .2f || householdSupplyReserved(item) ||
             (wanted == ItemKind::Clothes && i.cleanliness < .6f) ||
             !storageItemAllowed(actor, item))
           continue;
